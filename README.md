@@ -4,7 +4,7 @@
 
 ## 🌟 Overview
 
-LegalHub is a comprehensive web application that democratizes access to legal information and services. The platform features a ChatGPT-style conversational interface powered by AI to make legal knowledge accessible to everyone, regardless of their legal background.
+LegalHub is a comprehensive web application that democratizes access to legal information and services. The platform features a ChatGPT-style conversational interface powered by Google Gemini AI to make legal knowledge accessible to everyone, regardless of their legal background.
 
 ## 🎯 Key Features
 
@@ -12,7 +12,7 @@ LegalHub is a comprehensive web application that democratizes access to legal in
 - **Conversational AI Interface**: Full-featured chat experience similar to ChatGPT, designed specifically for legal queries
 - **Natural Language Processing**: Understands and responds to legal questions in plain, everyday language
 - **Multilingual Support**: Processes queries and generates responses in multiple languages
-- **Context-Aware Conversations**: Maintains conversation history and context across multiple exchanges
+- **Context-Aware Conversations**: Maintains conversation history and context across multiple exchanges using LangChain
 - **Legal Jargon Translation**: Automatically converts complex legal terminology into simple, understandable language
 - **Follow-up Questions**: Handles multi-turn conversations with contextual understanding
 - **Citation & Sources**: Provides references to relevant laws, statutes, and legal precedents when applicable
@@ -24,7 +24,7 @@ LegalHub is a comprehensive web application that democratizes access to legal in
 - `POST /api/chat/message` - Send message and receive AI response
 - `GET /api/chat/history` - Retrieve conversation history
 - `POST /api/chat/session` - Create new chat session
-- `DELETE /api/chat/session/:id` - Clear chat session
+- `DELETE /api/chat/session/{id}` - Clear chat session
 - `POST /api/chat/feedback` - Submit feedback on AI responses
 
 ### 2. **Lawyer Booking System**
@@ -32,16 +32,16 @@ LegalHub is a comprehensive web application that democratizes access to legal in
 - **Profile Management**: Comprehensive lawyer profile endpoints with credentials and reviews
 - **Booking Management**: Handle consultation scheduling and calendar integration
 - **Availability System**: Real-time availability checking and slot booking
-- **Notification Service**: Automated booking confirmations and reminders
+- **Notification Service**: Automated booking confirmations and reminders via Firebase Cloud Messaging
 - **Payment Processing**: Secure payment gateway integration
 - **Rating & Review System**: Collect and manage client feedback
 
 **API Endpoints:**
 - `GET /api/lawyers` - List lawyers with filters
-- `GET /api/lawyers/:id` - Get lawyer profile
+- `GET /api/lawyers/{id}` - Get lawyer profile
 - `POST /api/bookings` - Create new booking
-- `GET /api/bookings/:userId` - Get user bookings
-- `PUT /api/bookings/:id` - Update/reschedule booking
+- `GET /api/bookings/user/{userId}` - Get user bookings
+- `PUT /api/bookings/{id}` - Update/reschedule booking
 - `POST /api/reviews` - Submit lawyer review
 
 ### 3. **Legal Articles & Knowledge Base**
@@ -55,18 +55,18 @@ LegalHub is a comprehensive web application that democratizes access to legal in
 
 **API Endpoints:**
 - `GET /api/articles` - List articles with pagination and filters
-- `GET /api/articles/:id` - Get article details
+- `GET /api/articles/{id}` - Get article details
 - `POST /api/articles` - Create new article
-- `PUT /api/articles/:id` - Update article
-- `POST /api/articles/:id/like` - Like/unlike article
-- `POST /api/articles/:id/comments` - Add comment
+- `PUT /api/articles/{id}` - Update article
+- `POST /api/articles/{id}/like` - Like/unlike article
+- `POST /api/articles/{id}/comments` - Add comment
 
 ### 4. **Anonymous & Identified Case Reporting**
 - **Flexible Reporting System**: 
   - Support for anonymous case submissions
   - Identified reporting with user authentication
 - **Case Management**: Track case status and updates
-- **File Upload Service**: Handle evidence and document uploads (images, PDFs, documents)
+- **File Upload Service**: Handle evidence and document uploads (images, PDFs, documents) via Firebase Storage
 - **Encryption**: End-to-end encryption for sensitive case data
 - **Geolocation Services**: Location tagging for cases
 - **Status Tracking**: Real-time case progress updates
@@ -74,10 +74,10 @@ LegalHub is a comprehensive web application that democratizes access to legal in
 
 **API Endpoints:**
 - `POST /api/cases` - Submit new case (anonymous or identified)
-- `GET /api/cases/:id` - Get case details
-- `GET /api/cases/user/:userId` - Get user's cases
-- `PUT /api/cases/:id/status` - Update case status
-- `POST /api/cases/:id/attachments` - Upload case evidence
+- `GET /api/cases/{id}` - Get case details
+- `GET /api/cases/user/{userId}` - Get user's cases
+- `PUT /api/cases/{id}/status` - Update case status
+- `POST /api/cases/{id}/attachments` - Upload case evidence
 
 ### 5. **Analytics Dashboard (NGO/Government Organizations)**
 - **Data Aggregation**: Collect and process case data across regions
@@ -86,7 +86,7 @@ LegalHub is a comprehensive web application that democratizes access to legal in
 - **Trend Detection**: Identify patterns and emerging legal issues
 - **Custom Reports**: Generate customizable analytical reports
 - **Data Export**: Export data in multiple formats (PDF, Excel, CSV, JSON)
-- **Real-time Updates**: WebSocket connections for live data
+- **Real-time Updates**: Live data streaming
 - **Access Control**: Role-based permissions for organizations
 
 **API Endpoints:**
@@ -98,9 +98,8 @@ LegalHub is a comprehensive web application that democratizes access to legal in
 - `GET /api/analytics/export` - Export analytical data
 
 ### 6. **Authentication & User Management**
-- **Multi-role Authentication**: Support for users, lawyers, and organizations
+- **Firebase Authentication**: Multi-provider authentication (Email/Password, Google, Facebook)
 - **JWT Token Management**: Secure token-based authentication
-- **OAuth Integration**: Social login options
 - **Email Verification**: Account verification system
 - **Password Management**: Reset and recovery functionality
 - **Session Management**: Handle multiple device sessions
@@ -142,51 +141,58 @@ LegalHub is a comprehensive web application that democratizes access to legal in
 
 ## 🛠️ Technical Stack
 
-**Backend Framework**: 
-- Node.js with Express.js / Python with Django/FastAPI / Ruby on Rails
-- RESTful API architecture
-- WebSocket support for real-time features
+### Backend Framework
+- **FastAPI** (Python 3.9+)
+  - High-performance async web framework
+  - Automatic API documentation (Swagger/OpenAPI)
+  - Type hints and Pydantic validation
+  - WebSocket support for real-time features
 
-**Database**: 
-- PostgreSQL (primary database for structured data)
-- MongoDB (for chat history and unstructured data)
-- Redis (caching and session management)
+### AI & NLP
+- **Google Gemini** (gemini-pro / gemini-pro-vision)
+  - Primary AI model for legal chatbot
+  - Multimodal capabilities (text and image understanding)
+  - Multilingual support
+- **LangChain**
+  - Conversation chain management
+  - Memory management for context retention
+  - Prompt engineering and templates
+  - Vector store integration for legal knowledge base
 
-**AI/NLP Services**:
-- OpenAI GPT-4 / Anthropic Claude / Google Gemini
-- Custom fine-tuned models for legal domain
-- LangChain for conversation management
-- Vector database (Pinecone/Weaviate) for legal knowledge base
+### Database & Storage
+- **Firebase**
+  - **Firestore**: NoSQL database for structured data
+  - **Firebase Storage**: File storage for documents and images
+  - **Firebase Authentication**: User authentication and management
+  - **Firebase Cloud Messaging**: Push notifications
+  - **Firebase Analytics**: Usage tracking and insights
 
-**Authentication**:
-- JWT (JSON Web Tokens)
-- OAuth 2.0 (Google, Facebook, Microsoft)
-- bcrypt for password hashing
+### Additional Libraries
+- **Pydantic**: Data validation and settings management
+- **SQLAlchemy**: ORM (if using relational data alongside Firestore)
+- **python-jose**: JWT token handling
+- **passlib**: Password hashing
+- **python-multipart**: File upload handling
+- **aiofiles**: Async file operations
+- **httpx**: Async HTTP client
+- **uvicorn**: ASGI server
+- **python-dotenv**: Environment variable management
 
-**File Storage**:
-- AWS S3 / Google Cloud Storage / Azure Blob Storage
-- Cloudinary for image optimization
-
-**Real-time Communication**:
-- Socket.io / WebSockets
-- Server-Sent Events (SSE) for AI streaming responses
-
-**Payment Processing**:
-- Stripe / PayPal / Flutterwave / M-Pesa API
-
-**Email Service**:
-- SendGrid / AWS SES / Mailgun
-
-**Cloud Services**:
-- AWS / Google Cloud Platform / Microsoft Azure
-- Docker for containerization
-- Kubernetes for orchestration
-
-**API Documentation**:
-- Swagger/OpenAPI
-- Postman collections
+### Development Tools
+- **pytest**: Testing framework
+- **black**: Code formatting
+- **flake8**: Linting
+- **mypy**: Static type checking
 
 ## 🚀 Getting Started
+
+### Prerequisites
+- Python 3.9 or higher
+- Firebase project with Firestore and Storage enabled
+- Google Cloud account with Gemini API access
+- pip or poetry for package management
+
+### Installation
 
 ```bash
 # Clone the repository
@@ -195,127 +201,268 @@ git clone https://github.com/sangwajesly/legalhub-backend.git
 # Navigate to project directory
 cd legalhub-backend
 
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+# On Windows
+venv\Scripts\activate
+# On macOS/Linux
+source venv/bin/activate
+
 # Install dependencies
-npm install
-# or
 pip install -r requirements.txt
 
 # Set up environment variables
 cp .env.example .env
 # Edit .env with your configuration
 
-# Run database migrations
-npm run migrate
-# or
-python manage.py migrate
+# Download Firebase service account key
+# Place it in the project root as firebase-credentials.json
 
-# Seed initial data (optional)
-npm run seed
+# Run the application
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
 
-# Start development server
-npm run dev
-# or
-python manage.py runserver
+### Running with Docker
 
-# Run tests
-npm test
-# or
-pytest
+```bash
+# Build the Docker image
+docker build -t legalhub-backend .
+
+# Run the container
+docker run -p 8000:8000 --env-file .env legalhub-backend
 ```
 
 ## 📋 Environment Variables
 
 ```env
-# Server
-PORT=5000
-NODE_ENV=development
+# Server Configuration
+APP_NAME=LegalHub Backend
+APP_VERSION=1.0.0
+DEBUG=True
+HOST=0.0.0.0
+PORT=8000
 
-# Database
-DATABASE_URL=postgresql://user:password@localhost:5432/legalhub
-MONGO_URI=mongodb://localhost:27017/legalhub
-REDIS_URL=redis://localhost:6379
+# Firebase Configuration
+FIREBASE_CREDENTIALS_PATH=./firebase-credentials.json
+FIREBASE_STORAGE_BUCKET=your-project.appspot.com
 
-# AI Services
-OPENAI_API_KEY=your_openai_key
-ANTHROPIC_API_KEY=your_anthropic_key
+# Google Gemini API
+GOOGLE_API_KEY=your_gemini_api_key
+GEMINI_MODEL=gemini-pro
 
-# Authentication
-JWT_SECRET=your_jwt_secret
-JWT_EXPIRATION=24h
-OAUTH_GOOGLE_CLIENT_ID=your_google_client_id
-OAUTH_GOOGLE_CLIENT_SECRET=your_google_client_secret
+# JWT Configuration
+JWT_SECRET_KEY=your_super_secret_jwt_key_here
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+REFRESH_TOKEN_EXPIRE_DAYS=7
 
-# File Storage
-AWS_ACCESS_KEY_ID=your_aws_key
-AWS_SECRET_ACCESS_KEY=your_aws_secret
-S3_BUCKET_NAME=legalhub-uploads
+# CORS Configuration
+ALLOWED_ORIGINS=http://localhost:3000,https://legalhub.com
 
-# Email
-SENDGRID_API_KEY=your_sendgrid_key
+# LangChain Configuration
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_API_KEY=your_langchain_api_key
+
+# Email Configuration (Optional)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your_email@gmail.com
+SMTP_PASSWORD=your_app_password
 EMAIL_FROM=noreply@legalhub.com
 
-# Payment
-STRIPE_SECRET_KEY=your_stripe_key
+# Payment Gateway (Optional)
+STRIPE_SECRET_KEY=your_stripe_secret_key
 STRIPE_WEBHOOK_SECRET=your_webhook_secret
 ```
 
-## 📊 Database Schema
+## 🗄️ Database Schema (Firestore Collections)
 
-### Key Models:
-- **Users**: User accounts and profiles
-- **Lawyers**: Lawyer profiles and credentials
-- **Organizations**: NGO/Government entity information
-- **ChatSessions**: Conversation sessions
-- **ChatMessages**: Individual chat messages
-- **Cases**: Reported cases (anonymous and identified)
-- **Bookings**: Lawyer consultation bookings
-- **Articles**: Legal articles and content
-- **Reviews**: Lawyer reviews and ratings
-- **Analytics**: Aggregated data for insights
+### Collections Structure:
+
+```
+users/
+  - uid (string)
+  - email (string)
+  - displayName (string)
+  - role (string: "user" | "lawyer" | "organization")
+  - createdAt (timestamp)
+  - updatedAt (timestamp)
+
+lawyers/
+  - uid (string)
+  - specialization (array)
+  - experience (number)
+  - rating (number)
+  - availability (map)
+  - location (geopoint)
+
+chat_sessions/
+  - sessionId (string)
+  - userId (string)
+  - createdAt (timestamp)
+  - lastMessageAt (timestamp)
+  - messages (subcollection)
+
+cases/
+  - caseId (string)
+  - userId (string, nullable for anonymous)
+  - isAnonymous (boolean)
+  - category (string)
+  - description (string)
+  - location (geopoint)
+  - status (string)
+  - attachments (array)
+  - createdAt (timestamp)
+
+bookings/
+  - bookingId (string)
+  - userId (string)
+  - lawyerId (string)
+  - scheduledAt (timestamp)
+  - status (string)
+  - paymentStatus (string)
+
+articles/
+  - articleId (string)
+  - authorId (string)
+  - title (string)
+  - content (string)
+  - category (string)
+  - tags (array)
+  - likes (number)
+  - views (number)
+  - createdAt (timestamp)
+```
+
+## 🔧 Project Structure
+
+```
+legalhub-backend/
+├── app/
+│   ├── __init__.py
+│   ├── main.py                 # FastAPI application entry point
+│   ├── config.py               # Configuration settings
+│   ├── dependencies.py         # Dependency injection
+│   │
+│   ├── api/
+│   │   ├── __init__.py
+│   │   ├── routes/
+│   │   │   ├── auth.py         # Authentication endpoints
+│   │   │   ├── chat.py         # Chatbot endpoints
+│   │   │   ├── lawyers.py      # Lawyer management
+│   │   │   ├── bookings.py     # Booking system
+│   │   │   ├── articles.py     # Articles CRUD
+│   │   │   ├── cases.py        # Case reporting
+│   │   │   └── analytics.py    # Analytics endpoints
+│   │
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── firebase_service.py # Firebase operations
+│   │   ├── gemini_service.py   # Gemini AI integration
+│   │   ├── langchain_service.py# LangChain conversation management
+│   │   ├── auth_service.py     # Authentication logic
+│   │   └── notification_service.py # FCM notifications
+│   │
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── user.py             # User models
+│   │   ├── chat.py             # Chat models
+│   │   ├── case.py             # Case models
+│   │   ├── booking.py          # Booking models
+│   │   └── article.py          # Article models
+│   │
+│   ├── schemas/
+│   │   ├── __init__.py
+│   │   ├── auth.py             # Auth request/response schemas
+│   │   ├── chat.py             # Chat schemas
+│   │   ├── case.py             # Case schemas
+│   │   └── ...
+│   │
+│   └── utils/
+│       ├── __init__.py
+│       ├── security.py         # Security utilities
+│       ├── validators.py       # Input validation
+│       └── helpers.py          # Helper functions
+│
+├── tests/
+│   ├── __init__.py
+│   ├── test_auth.py
+│   ├── test_chat.py
+│   └── ...
+│
+├── firebase-credentials.json   # Firebase service account key (gitignored)
+├── .env                        # Environment variables (gitignored)
+├── .env.example                # Example environment file
+├── .gitignore
+├── requirements.txt            # Python dependencies
+├── Dockerfile
+├── docker-compose.yml
+└── README.md
+```
 
 ## 🔒 Security & Privacy
 
-- **Encryption**: End-to-end encryption for sensitive data
+- **Firebase Security Rules**: Strict Firestore and Storage security rules
 - **HTTPS Only**: All API communication over TLS/SSL
-- **Rate Limiting**: Prevent API abuse and DDoS attacks
-- **Input Validation**: Sanitize all user inputs
-- **SQL Injection Prevention**: Parameterized queries
-- **XSS Protection**: Content Security Policy headers
+- **Rate Limiting**: Prevent API abuse with slowapi
+- **Input Validation**: Pydantic models for request validation
+- **JWT Authentication**: Secure token-based access control
+- **Password Hashing**: bcrypt for password security
 - **CORS Configuration**: Controlled cross-origin requests
 - **Data Anonymization**: Privacy protection for anonymous cases
 - **GDPR Compliance**: Data protection and user rights
-- **Regular Security Audits**: Vulnerability assessments
-- **API Authentication**: Token-based access control
+- **API Key Security**: Environment variable management
 - **Role-Based Access Control (RBAC)**: Permission management
 
-## 📡 Real-time Features
+## 📡 API Documentation
 
-- **Chat Streaming**: Stream AI responses token-by-token
-- **Notifications**: Real-time alerts for bookings and case updates
-- **Live Analytics**: Real-time dashboard updates for organizations
-- **Typing Indicators**: Show when AI is generating response
-- **Connection Status**: Display online/offline status
+Once the server is running, access the interactive API documentation:
+- **Swagger UI**: `http://localhost:8000/docs`
+- **ReDoc**: `http://localhost:8000/redoc`
+- **OpenAPI JSON**: `http://localhost:8000/openapi.json`
 
 ## 🧪 Testing
 
 ```bash
 # Run all tests
-npm test
+pytest
 
-# Run specific test suites
-npm run test:unit
-npm run test:integration
-npm run test:e2e
+# Run with coverage
+pytest --cov=app tests/
 
-# Generate coverage report
-npm run test:coverage
+# Run specific test file
+pytest tests/test_chat.py
+
+# Run with verbose output
+pytest -v
+
+# Generate HTML coverage report
+pytest --cov=app --cov-report=html tests/
 ```
 
-## 📚 API Documentation
+## 🚀 Deployment
 
-Once the server is running, access the API documentation at:
-- Swagger UI: `http://localhost:5000/api-docs`
-- Postman Collection: Available in `/docs/postman`
+### Using Docker
+
+```bash
+# Build image
+docker build -t legalhub-backend:latest .
+
+# Run container
+docker run -d -p 8000:8000 --env-file .env legalhub-backend:latest
+```
+
+### Using Cloud Run (Google Cloud)
+
+```bash
+# Build and deploy
+gcloud run deploy legalhub-backend \
+  --source . \
+  --region us-central1 \
+  --allow-unauthenticated
+```
 
 ## 🤝 Contributing
 
@@ -324,17 +471,20 @@ Contributions are welcome! Please read our contributing guidelines before submit
 ### Development Workflow:
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+3. Make your changes
+4. Run tests (`pytest`)
+5. Format code (`black app/`)
+6. Commit your changes (`git commit -m 'Add amazing feature'`)
+7. Push to the branch (`git push origin feature/amazing-feature`)
+8. Open a Pull Request
 
 ## 📄 License
 
-_[Add your license information]_
+[Add your license information]
 
 ## 🔗 Related Repositories
 
-- [LegalHub Frontend](https://github.com/sangwajesly/legalhub-frontend) - Web application interface
+- [LegalHub Frontend](https://github.com/sangwajesly/legalhub-frontend) - React web application
 
 ## 📞 Contact
 
@@ -342,14 +492,15 @@ For questions, suggestions, or support:
 - **Email**: [Your contact email]
 - **Website**: [Your website]
 - **Issues**: [GitHub Issues](https://github.com/sangwajesly/legalhub-backend/issues)
-- **Discord**: [Your Discord server]
 
 ## 🙏 Acknowledgments
 
-- OpenAI / Anthropic for AI capabilities
-- Open source community for various libraries and tools
-- Legal professionals who provided domain expertise
+- Google Gemini for AI capabilities
+- LangChain for conversation management
+- Firebase for backend infrastructure
+- FastAPI community for excellent framework
+- Open source community
 
 ---
 
-**Mission**: Providing robust, scalable backend infrastructure that powers accessible legal services for everyone.
+**Mission**: Providing robust, scalable backend infrastructure powered by FastAPI, Firebase, and Google Gemini that makes legal services accessible to everyone.
