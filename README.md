@@ -9,6 +9,7 @@ LegalHub is a comprehensive web application that democratizes access to legal in
 ## 🎯 Key Features
 
 ### 1. **ChatGPT-Style Legal Chatbot**
+
 - **Conversational AI Interface**: Full-featured chat experience similar to ChatGPT, designed specifically for legal queries
 - **Natural Language Processing**: Understands and responds to legal questions in plain, everyday language
 - **Multilingual Support**: Processes queries and generates responses in multiple languages
@@ -21,6 +22,7 @@ LegalHub is a comprehensive web application that democratizes access to legal in
 - **24/7 Availability**: Always-on AI assistant for immediate legal guidance
 
 **API Endpoints for Chat:**
+
 - `POST /api/chat/message` - Send message and receive AI response
 - `GET /api/chat/history` - Retrieve conversation history
 - `POST /api/chat/session` - Create new chat session
@@ -28,6 +30,7 @@ LegalHub is a comprehensive web application that democratizes access to legal in
 - `POST /api/chat/feedback` - Submit feedback on AI responses
 
 ### 2. **Lawyer Booking System**
+
 - **Lawyer Directory API**: Search and filter lawyers by specialization, location, rating, and availability
 - **Profile Management**: Comprehensive lawyer profile endpoints with credentials and reviews
 - **Booking Management**: Handle consultation scheduling and calendar integration
@@ -37,6 +40,7 @@ LegalHub is a comprehensive web application that democratizes access to legal in
 - **Rating & Review System**: Collect and manage client feedback
 
 **API Endpoints:**
+
 - `GET /api/lawyers` - List lawyers with filters
 - `GET /api/lawyers/{id}` - Get lawyer profile
 - `POST /api/bookings` - Create new booking
@@ -45,6 +49,7 @@ LegalHub is a comprehensive web application that democratizes access to legal in
 - `POST /api/reviews` - Submit lawyer review
 
 ### 3. **Legal Articles & Knowledge Base**
+
 - **Content Management**: CRUD operations for legal articles
 - **Rich Media Support**: Handle text, images, and embedded content
 - **Search & Indexing**: Full-text search across articles
@@ -54,6 +59,7 @@ LegalHub is a comprehensive web application that democratizes access to legal in
 - **Trending Algorithm**: Calculate and surface popular content
 
 **API Endpoints:**
+
 - `GET /api/articles` - List articles with pagination and filters
 - `GET /api/articles/{id}` - Get article details
 - `POST /api/articles` - Create new article
@@ -62,7 +68,8 @@ LegalHub is a comprehensive web application that democratizes access to legal in
 - `POST /api/articles/{id}/comments` - Add comment
 
 ### 4. **Anonymous & Identified Case Reporting**
-- **Flexible Reporting System**: 
+
+- **Flexible Reporting System**:
   - Support for anonymous case submissions
   - Identified reporting with user authentication
 - **Case Management**: Track case status and updates
@@ -73,6 +80,7 @@ LegalHub is a comprehensive web application that democratizes access to legal in
 - **Notification System**: Alert users of case status changes
 
 **API Endpoints:**
+
 - `POST /api/cases` - Submit new case (anonymous or identified)
 - `GET /api/cases/{id}` - Get case details
 - `GET /api/cases/user/{userId}` - Get user's cases
@@ -80,6 +88,7 @@ LegalHub is a comprehensive web application that democratizes access to legal in
 - `POST /api/cases/{id}/attachments` - Upload case evidence
 
 ### 5. **Analytics Dashboard (NGO/Government Organizations)**
+
 - **Data Aggregation**: Collect and process case data across regions
 - **Statistical Analysis**: Generate insights from reported cases
 - **Geographic Analytics**: Location-based case distribution
@@ -90,6 +99,7 @@ LegalHub is a comprehensive web application that democratizes access to legal in
 - **Access Control**: Role-based permissions for organizations
 
 **API Endpoints:**
+
 - `GET /api/analytics/overview` - Get summary statistics
 - `GET /api/analytics/cases` - Get case analytics with filters
 - `GET /api/analytics/trends` - Get trend analysis
@@ -98,6 +108,7 @@ LegalHub is a comprehensive web application that democratizes access to legal in
 - `GET /api/analytics/export` - Export analytical data
 
 ### 6. **Authentication & User Management**
+
 - **Firebase Authentication**: Multi-provider authentication (Email/Password, Google, Facebook)
 - **JWT Token Management**: Secure token-based authentication
 - **Email Verification**: Account verification system
@@ -106,6 +117,7 @@ LegalHub is a comprehensive web application that democratizes access to legal in
 - **Profile Management**: User profile CRUD operations
 
 **API Endpoints:**
+
 - `POST /api/auth/register` - User registration
 - `POST /api/auth/login` - User login
 - `POST /api/auth/logout` - User logout
@@ -116,6 +128,7 @@ LegalHub is a comprehensive web application that democratizes access to legal in
 ## 👥 User Roles & Permissions
 
 ### Citizens/Users
+
 - Access to ChatGPT-style legal chatbot
 - Book consultations with lawyers
 - Read and write legal articles
@@ -124,6 +137,7 @@ LegalHub is a comprehensive web application that democratizes access to legal in
 - Manage profile and preferences
 
 ### Lawyers
+
 - Professional profile management
 - Accept/decline consultation requests
 - Write and publish legal articles
@@ -132,6 +146,7 @@ LegalHub is a comprehensive web application that democratizes access to legal in
 - Respond to user inquiries
 
 ### NGOs/Government Organizations
+
 - Access comprehensive analytics dashboard
 - View aggregated case data (with privacy protections)
 - Monitor legal trends and patterns
@@ -142,6 +157,7 @@ LegalHub is a comprehensive web application that democratizes access to legal in
 ## 🛠️ Technical Stack
 
 ### Backend Framework
+
 - **FastAPI** (Python 3.9+)
   - High-performance async web framework
   - Automatic API documentation (Swagger/OpenAPI)
@@ -149,6 +165,7 @@ LegalHub is a comprehensive web application that democratizes access to legal in
   - WebSocket support for real-time features
 
 ### AI & NLP
+
 - **Google Gemini** (gemini-pro / gemini-pro-vision)
   - Primary AI model for legal chatbot
   - Multimodal capabilities (text and image understanding)
@@ -160,6 +177,7 @@ LegalHub is a comprehensive web application that democratizes access to legal in
   - Vector store integration for legal knowledge base
 
 ### Database & Storage
+
 - **Firebase**
   - **Firestore**: NoSQL database for structured data
   - **Firebase Storage**: File storage for documents and images
@@ -168,6 +186,7 @@ LegalHub is a comprehensive web application that democratizes access to legal in
   - **Firebase Analytics**: Usage tracking and insights
 
 ### Additional Libraries
+
 - **Pydantic**: Data validation and settings management
 - **SQLAlchemy**: ORM (if using relational data alongside Firestore)
 - **python-jose**: JWT token handling
@@ -179,6 +198,7 @@ LegalHub is a comprehensive web application that democratizes access to legal in
 - **python-dotenv**: Environment variable management
 
 ### Development Tools
+
 - **pytest**: Testing framework
 - **black**: Code formatting
 - **flake8**: Linting
@@ -187,6 +207,7 @@ LegalHub is a comprehensive web application that democratizes access to legal in
 ## 🚀 Getting Started
 
 ### Prerequisites
+
 - Python 3.9 or higher
 - Firebase project with Firestore and Storage enabled
 - Google Cloud account with Gemini API access
@@ -214,7 +235,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 # Set up environment variables
-cp .env.example .env
+cp .env .env
 # Edit .env with your configuration
 
 # Download Firebase service account key
@@ -222,6 +243,36 @@ cp .env.example .env
 
 # Run the application
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+### Local development with Firebase Emulator (recommended)
+
+For local development and testing you can use the Firebase Emulator Suite to avoid using live Firebase resources.
+
+1. Install Firebase CLI and start the emulator:
+
+```bash
+# install firebase-tools (if not installed)
+npm install -g firebase-tools
+
+# in project root (optional: create firebase.json to configure emulators)
+firebase emulators:start --only auth,firestore,storage
+```
+
+2. Set `.env` to point to your emulator and enable `DEV_MODE`:
+
+```env
+DEV_MODE=true
+FIREBASE_CREDENTIALS_PATH=./firebase-credentials.json # optional for emulator
+# If using emulator you can set FIRESTORE_EMULATOR_HOST e.g. localhost:8080
+FIREBASE_EMULATOR_HOST=localhost:8080
+DEBUG_MOCK_GEMINI=true
+```
+
+3. Run the FastAPI app (dev mode uses mock Gemini unless `GEMINI_API_URL` is provided):
+
+```bash
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### Running with Docker
@@ -233,6 +284,35 @@ docker build -t legalhub-backend .
 # Run the container
 docker run -p 8000:8000 --env-file .env legalhub-backend
 ```
+
+## Gemini & LangChain (MVP notes)
+
+- The repository includes a lightweight `langchain_service` that composes a conversation prompt from the last messages stored in Firestore and sends it to the Gemini adapter (`app/services/gemini_service.py`).
+- For development the Gemini adapter returns a mock response. To use the real Gemini API set these environment variables in `.env`:
+
+```env
+GEMINI_API_URL=https://your-gemini-endpoint.example/v1/generate
+GOOGLE_API_KEY=your_gemini_api_key
+DEBUG_MOCK_GEMINI=false
+```
+
+- The MVP uses synchronous (non-streaming) Gemini calls. Streamed responses and LangChain LLM wrappers can be implemented in Phase 2.
+
+## Tests
+
+Tests mock Firebase ID token verification and the Gemini adapter so they run locally without external services.
+
+Run tests:
+
+```bash
+pytest -q
+```
+
+## Dev tips
+
+- To switch between mock and real Gemini responses toggle `DEBUG_MOCK_GEMINI` in `.env`.
+- Keep your `firebase-credentials.json` and `.env` out of version control.
+- Use the Firebase Emulator Suite for safe local testing and CI usage.
 
 ## 📋 Environment Variables
 
@@ -394,7 +474,7 @@ legalhub-backend/
 │
 ├── firebase-credentials.json   # Firebase service account key (gitignored)
 ├── .env                        # Environment variables (gitignored)
-├── .env.example                # Example environment file
+├── .env                        # Environment file
 ├── .gitignore
 ├── requirements.txt            # Python dependencies
 ├── Dockerfile
@@ -419,6 +499,7 @@ legalhub-backend/
 ## 📡 API Documentation
 
 Once the server is running, access the interactive API documentation:
+
 - **Swagger UI**: `http://localhost:8000/docs`
 - **ReDoc**: `http://localhost:8000/redoc`
 - **OpenAPI JSON**: `http://localhost:8000/openapi.json`
@@ -469,6 +550,7 @@ gcloud run deploy legalhub-backend \
 Contributions are welcome! Please read our contributing guidelines before submitting pull requests.
 
 ### Development Workflow:
+
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Make your changes
@@ -489,6 +571,7 @@ Contributions are welcome! Please read our contributing guidelines before submit
 ## 📞 Contact
 
 For questions, suggestions, or support:
+
 - **Email**: [Your contact email]
 - **Website**: [Your website]
 - **Issues**: [GitHub Issues](https://github.com/sangwajesly/legalhub-backend/issues)

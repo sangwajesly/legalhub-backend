@@ -1,0 +1,20 @@
+# Environment variables
+.env
+
+# Firebase credentials
+firebase-credentials.json
+
+# Python virtual environment
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# IDE and editor files
+.idea/
+.vscode/
+
+# Test reports
+htmlcov/
+.pytest_cache/
