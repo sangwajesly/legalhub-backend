@@ -16,3 +16,5 @@ class ChatSession(BaseModel):
     userId: Optional[str] = None
     createdAt: Optional[datetime] = None
     lastMessageAt: Optional[datetime] = None
+
+@app.post

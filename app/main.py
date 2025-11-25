@@ -1,10 +1,113 @@
-from fastapi import FastAPI
-from app.api.routes import chat
+"""
+LegalHub Backend - Main FastAPI Application
+"""
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+import time
 
-app = FastAPI()
+from app.config import settings
+from app.api.routes import auth, users, chat
 
+# Create FastAPI application
+app = FastAPI(
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
+    description="LegalHub Backend API - Democratizing access to legal services",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.allowed_origins_list,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# Request timing middleware
+@app.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    """Add processing time to response headers"""
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    response.headers["X-Process-Time"] = str(process_time)
+    return response
+
+
+# Global exception handler
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Handle all unhandled exceptions"""
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Internal server error",
+            "message": str(exc) if settings.DEBUG else "An error occurred"
+        }
+    )
+
+
+# Include routers
+app.include_router(auth.router)
 app.include_router(chat.router)
+app.include_router(users.router)
 
-@app.get("/")
-def read_root():
-    return {"message": "Welcome to LegalHub Backend"}
+
+# Health check endpoint
+@app.get("/", tags=["Health"])
+async def root():
+    """Root endpoint - API health check"""
+    return {
+        "status": "online",
+        "app": settings.APP_NAME,
+        "version": settings.APP_VERSION,
+        "message": "Welcome to LegalHub API"
+    }
+
+
+@app.get("/health", tags=["Health"])
+async def health_check():
+    """Detailed health check endpoint"""
+    return {
+        "status": "healthy",
+        "app": settings.APP_NAME,
+        "version": settings.APP_VERSION,
+        "debug_mode": settings.DEBUG,
+        "firebase_configured": bool(settings.FIREBASE_CREDENTIALS_PATH),
+        "gemini_configured": bool(settings.GOOGLE_API_KEY)
+    }
+
+
+# Startup event
+@app.on_event("startup")
+async def startup_event():
+    """Execute on application startup"""
+    print(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
+    print(f"Debug mode: {settings.DEBUG}")
+    print(f"Dev mode: {settings.DEV_MODE}")
+    
+    # Initialize Firebase (already done in firebase_service)
+    from app.services.firebase_service import firebase_service
+    print("Firebase initialized")
+
+
+# Shutdown event
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Execute on application shutdown"""
+    print(f"Shutting down {settings.APP_NAME}")
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "app.main:app",
+        host=settings.HOST,
+        port=settings.PORT,
+        reload=settings.DEBUG
+    )

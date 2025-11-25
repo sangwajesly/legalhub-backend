@@ -1,53 +1,60 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import List, Optional
+"""
+Configuration settings for LegalHub Backend
+"""
+from pydantic_settings import BaseSettings
+from typing import List
+import os
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env")
+    """Application settings loaded from environment variables"""
+    
+    # Server Configuration
     APP_NAME: str = "LegalHub Backend"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = True
     HOST: str = "0.0.0.0"
-    PORT: int = 8000
-
-    # Firebase
-    FIREBASE_CREDENTIALS_PATH: Optional[str] = "./firebase-credentials.json"
-    FIREBASE_STORAGE_BUCKET: Optional[str] = None
-    FIREBASE_EMULATOR_HOST: Optional[str] = None
-
+    PORT: int = 8001
+    
+    # Firebase Configuration
+    FIREBASE_CREDENTIALS_PATH: str = "./firebase-credentials.json"
+    FIREBASE_STORAGE_BUCKET: str = ""
+    FIREBASE_EMULATOR_HOST: str = ""
+    DEV_MODE: bool = False
+    
     # Google Gemini API
-    GOOGLE_API_KEY: Optional[str] = None
-    GEMINI_MODEL: str = "gemini-pro"
-    GEMINI_API_URL: Optional[str] = None
-
-    # Auth
-    JWT_SECRET_KEY: str = "supersecretdev"
+    GOOGLE_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_API_URL: str = ""
+    DEBUG_MOCK_GEMINI: bool = True
+    
+    # JWT Configuration
+    JWT_SECRET_KEY: str = "your_super_secret_jwt_key_change_this_in_production"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
-
-    # Dev toggles
-    DEV_MODE: bool = True
-    DEBUG_MOCK_GEMINI: bool = True
-
-    # CORS
-    ALLOWED_ORIGINS: str = "http://localhost:3000"
-
+    
+    # CORS Configuration
+    ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
+    
+    @property
+    def allowed_origins_list(self) -> List[str]:
+        """Convert comma-separated origins to list"""
+        return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",")]
+    
     # LangChain Configuration
     LANGCHAIN_TRACING_V2: bool = False
-    LANGCHAIN_API_KEY: Optional[str] = None
-
+    LANGCHAIN_API_KEY: str = ""
+    
     # Email Configuration (Optional)
-    SMTP_HOST: Optional[str] = None
-    SMTP_PORT: Optional[int] = None
-    SMTP_USER: Optional[str] = None
-    SMTP_PASSWORD: Optional[str] = None
-    EMAIL_FROM: Optional[str] = None
-
-    # Payment Gateway (Optional)
-    STRIPE_SECRET_KEY: Optional[str] = None
-    STRIPE_WEBHOOK_SECRET: Optional[str] = None
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    EMAIL_FROM: str = "noreply@legalhub.com"
+    
+    model_config = {"env_file": ".env", "case_sensitive": True, "extra": "allow"}
 
 
-
+# Global settings instance
 settings = Settings()
