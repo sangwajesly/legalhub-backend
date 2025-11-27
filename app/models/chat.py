@@ -17,4 +17,4 @@ class ChatSession(BaseModel):
     createdAt: Optional[datetime] = None
     lastMessageAt: Optional[datetime] = None
 
-@app.post
+

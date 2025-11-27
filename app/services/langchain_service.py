@@ -1,11 +1,16 @@
 from typing import List, Optional
 import asyncio
+import logging
+from datetime import datetime
 
 from app.services import firebase_service, gemini_service
 from app.config import settings
+from app.models.chat import ChatMessage # Import ChatMessage
+
+logger = logging.getLogger(__name__)
 
 
-def _build_context(session_id: Optional[str], max_messages: int = 10) -> List[str]:
+async def _build_context(session_id: Optional[str], max_messages: int = 10) -> List[str]:
     """Load the last N messages from Firestore and return as list of strings.
 
     This is a minimal 'LangChain-like' context builder for MVP. For Phase 2
@@ -15,15 +20,18 @@ def _build_context(session_id: Optional[str], max_messages: int = 10) -> List[st
     if not session_id:
         return []
     try:
-        msgs = firebase_service.get_chat_history(session_id, limit=max_messages)
-    except Exception:
+        # Use the updated get_chat_history which returns ChatMessage objects
+        msgs: List[ChatMessage] = await firebase_service.get_chat_history(session_id)
+        # Limit the number of messages for context
+        msgs = msgs[-max_messages:]
+    except Exception as e:
+        logger.warning("Failed to load chat history for session %s: %s", session_id, e)
         msgs = []
 
     parts: List[str] = []
-    for m in msgs:
-        role = m.get("role") or m.get("sender") or "user"
-        text = m.get("text") or m.get("message") or ""
-        parts.append(f"{role}: {text}")
+    for m in msgs or []:
+        # Ensure 'role' and 'text' are accessed from ChatMessage object
+        parts.append(f"{m.role}: {m.text}")
     return parts
 
 
@@ -41,10 +49,13 @@ def _compose_prompt(context: List[str], user_message: str) -> str:
     return "\n".join(prompt_parts)
 
 
-
 async def create_session(user_id: str, session_id: str):
     """Create a new chat session in Firestore."""
-    firebase_service.save_chat_session(user_id, session_id, {})
+    try:
+        # Use the new create_chat_session function
+        await firebase_service.create_chat_session(user_id, session_id)
+    except Exception as e:
+        logger.warning("Failed to create chat session %s for user %s: %s", session_id, user_id, e)
 
 
 async def generate_response(session_id: Optional[str], user_id: Optional[str], user_message: str) -> str:
@@ -53,22 +64,92 @@ async def generate_response(session_id: Optional[str], user_id: Optional[str], u
     This function builds a simple contextual prompt (last N messages + system prompt),
     calls `gemini_service.send_message`, and persists the assistant reply to Firestore.
     """
-    context = _build_context(session_id)
+    # Persist user message first
+    if session_id:
+        user_chat_message = ChatMessage(
+            role="user",
+            text=user_message,
+            userId=user_id,
+            createdAt=datetime.utcnow()
+        )
+        await firebase_service.add_chat_message(session_id, user_chat_message)
+
+    context = await _build_context(session_id) # Await _build_context
     prompt = _compose_prompt(context, user_message)
 
     # Call gemini adapter (mocked in DEV by default)
-    ai_result = await gemini_service.send_message(prompt)
+    try:
+        ai_result = await gemini_service.send_message(prompt)
+    except Exception as e:
+        logger.error("LLM call failed: %s", e)
+        # Return a safe fallback message
+        return "I'm sorry, I couldn't process that right now. Please try again later."
+
+    # Normalize reply
+    reply = None
     if isinstance(ai_result, dict):
-        reply = ai_result.get("response") or ai_result.get("text") or str(ai_result)
+        reply = ai_result.get("response") or ai_result.get("text") or str(ai_result.get("raw") or ai_result)
     else:
         reply = str(ai_result)
 
-    # Persist messages
-    try:
-        if session_id:
-            firebase_service.append_message(session_id, {"role": "assistant", "text": reply})
-    except Exception:
-        # swallow persistence errors in DEV mode
-        pass
+    if not reply:
+        reply = ""
+
+    # Persist assistant message
+    if session_id:
+        assistant_chat_message = ChatMessage(
+            role="assistant",
+            text=reply,
+            userId=user_id, # Associate with the user who initiated the chat
+            createdAt=datetime.utcnow()
+        )
+        await firebase_service.add_chat_message(session_id, assistant_chat_message)
 
     return reply
+
+
+async def generate_response_stream(session_id: Optional[str], user_id: Optional[str], user_message: str):
+    """Async generator that yields response chunks from the LLM adapter.
+
+    This yields raw text chunks as they become available and persists the final
+    assistant reply to Firestore at the end.
+    """
+    # Persist user message first
+    if session_id:
+        user_chat_message = ChatMessage(
+            role="user",
+            text=user_message,
+            userId=user_id,
+            createdAt=datetime.utcnow()
+        )
+        await firebase_service.add_chat_message(session_id, user_chat_message)
+
+    context = await _build_context(session_id) # Await _build_context
+    prompt = _compose_prompt(context, user_message)
+
+    final_parts: List[str] = []
+
+    try:
+        async for chunk in gemini_service.stream_send_message(prompt):
+            text = ""
+            if isinstance(chunk, dict):
+                text = chunk.get("response") or ""
+            else:
+                text = str(chunk)
+            final_parts.append(text)
+            yield text
+    except Exception as e:
+        logger.exception("Streaming LLM call failed: %s", e)
+        # yield a final error fragment and stop
+        yield ""
+
+    final_reply = "".join(final_parts)
+    # Persist final assembled reply
+    if session_id:
+        assistant_chat_message = ChatMessage(
+            role="assistant",
+            text=final_reply,
+            userId=user_id, # Associate with the user who initiated the chat
+            createdAt=datetime.utcnow()
+        )
+        await firebase_service.add_chat_message(session_id, assistant_chat_message)

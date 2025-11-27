@@ -8,6 +8,7 @@ import time
 
 from app.config import settings
 from app.api.routes import auth, users, chat
+from app.api.routes import debug
 
 # Create FastAPI application
 app = FastAPI(
@@ -56,6 +57,8 @@ async def global_exception_handler(request: Request, exc: Exception):
 app.include_router(auth.router)
 app.include_router(chat.router)
 app.include_router(users.router)
+if settings.DEBUG:
+    app.include_router(debug.router)
 
 
 # Health check endpoint

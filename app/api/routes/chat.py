@@ -1,27 +1,23 @@
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-from typing import Optional
+from fastapi.responses import StreamingResponse
+from typing import Optional, List
 import uuid
 
 from app.dependencies import get_current_user
 from app.services import firebase_service, langchain_service
 from app.config import settings
+from app.schemas.chat import (
+	CreateSessionResponse,
+	MessageRequest,
+	MessageResponse,
+	HistoryResponse,
+	FeedbackRequest,
+    ChatMessage as ChatMessageSchema # Import ChatMessage from schemas for response
+)
+from app.models.chat import ChatMessage as ChatMessageModel # Import ChatMessage from models for internal use
+
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
-
-
-class CreateSessionResponse(BaseModel):
-	sessionId: str
-
-
-class MessageRequest(BaseModel):
-	sessionId: Optional[str]
-	message: str
-
-
-class MessageResponse(BaseModel):
-	reply: str
-	sessionId: str
 
 
 @router.post("/session", response_model=CreateSessionResponse)
@@ -34,7 +30,7 @@ async def create_session(user=Depends(get_current_user)):
 @router.delete("/session/{id}")
 async def delete_session(id: str, user=Depends(get_current_user)):
 	try:
-		firebase_service.delete_chat_session(id)
+		await firebase_service.delete_chat_session(id) # Await the async function
 	except Exception:
 		raise HTTPException(status_code=404, detail="Session not found or delete failed")
 	return {"ok": True}
@@ -57,22 +53,53 @@ async def send_message(payload: MessageRequest, user=Depends(get_current_user)):
 	return {"reply": reply_text, "sessionId": session_id}
 
 
-@router.get("/history")
+@router.get("/history", response_model=HistoryResponse)
 async def get_history(sessionId: str, user=Depends(get_current_user)):
 	try:
-		msgs = firebase_service.get_chat_history(sessionId)
-	except Exception:
+		# Get ChatMessageModel objects from firebase_service
+		chat_message_models: List[ChatMessageModel] = await firebase_service.get_chat_history(sessionId)
+		# Convert ChatMessageModel objects to ChatMessageSchema dictionaries for the response
+		msgs = [ChatMessageSchema.model_validate(m.model_dump(by_alias=True)).model_dump(by_alias=True) for m in chat_message_models]
+	except Exception as e:
+		# Log the error for debugging
+		print(f"Error getting chat history: {e}")
 		msgs = []
 	return {"messages": msgs}
 
 
 @router.post("/feedback")
-async def feedback(sessionId: str, messageId: str, rating: int = 0, user=Depends(get_current_user)):
+async def feedback(payload: FeedbackRequest, user=Depends(get_current_user)):
 	# store feedback in a collection
 	try:
-		db = firebase_service.get_firestore()
-		db.collection("chat_feedback").add({"sessionId": sessionId, "messageId": messageId, "rating": rating})
+		# Corrected: Use firebase_service.db directly
+		firebase_service.db.collection("chat_feedback").add({"sessionId": payload.sessionId, "messageId": payload.messageId, "rating": payload.rating})
 	except Exception:
 		pass
 	return {"ok": True}
 
+
+@router.post("/message/stream")
+async def send_message_stream(payload: MessageRequest, user=Depends(get_current_user)):
+	"""Stream the AI response back to the client using Server-Sent Events (SSE).
+
+	The client should connect and parse `text/event-stream` messages. Each
+	chunk is sent as an `data: ...` SSE event.
+	"""
+	session_id = payload.sessionId or str(uuid.uuid4())
+	if not payload.sessionId:
+		await langchain_service.create_session(user.get("uid"), session_id)
+
+	async def event_stream():
+		# yield initial comment to establish the stream
+		yield ": stream open\n\n"
+		async for chunk in langchain_service.generate_response_stream(
+			session_id=session_id, user_id=user.get("uid"), user_message=payload.message
+		):
+			# Format as SSE
+			# Escape newlines in chunk data
+			if chunk is None:
+				continue
+			data = str(chunk).replace("\n", "\ndata: ")
+			yield f"data: {data}\n\n"
+
+	return StreamingResponse(event_stream(), media_type="text/event-stream")

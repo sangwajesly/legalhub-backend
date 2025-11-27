@@ -9,6 +9,7 @@ import os
 
 from app.config import settings
 from app.models.user import User, UserProfile # Assuming these models are Pydantic or have a .model_dump() / .dict() method
+from app.models.chat import ChatMessage, ChatSession # Import ChatMessage and ChatSession
 
 
 # Helper function to convert the custom User model to a Firestore-safe dictionary
@@ -309,6 +310,75 @@ class FirebaseService:
             
         except Exception as e:
             raise Exception(f"Error updating user profile: {str(e)}")
+
+    # ============================================
+    # CHAT OPERATIONS
+    # ============================================
+
+    async def create_chat_session(self, user_id: str, session_id: str):
+        """
+        Creates a new chat session in Firestore.
+        """
+        session_ref = self.db.collection('chat_sessions').document(session_id)
+        session_ref.set({
+            "sessionId": session_id,
+            "userId": user_id,
+            "createdAt": datetime.utcnow(),
+            "lastMessageAt": datetime.utcnow(),
+        })
+
+    async def add_chat_message(self, session_id: str, message: ChatMessage):
+        """
+        Adds a chat message to a session's subcollection in Firestore.
+        """
+        message_dict = message.model_dump(by_alias=True)
+        # Ensure createdAt is a datetime object for Firestore
+        if isinstance(message_dict.get("createdAt"), str):
+            message_dict["createdAt"] = datetime.fromisoformat(message_dict["createdAt"])
+        elif message_dict.get("createdAt") is None:
+            message_dict["createdAt"] = datetime.utcnow()
+
+        # Add a unique ID for the message document
+        message_id = message.id if message.id else self.db.collection('chat_sessions').document(session_id).collection('messages').document().id
+        message_dict["id"] = message_id # Ensure the ID is part of the stored document
+
+        self.db.collection('chat_sessions').document(session_id).collection('messages').document(message_id).set(message_dict)
+        
+        # Update lastMessageAt for the session
+        self.db.collection('chat_sessions').document(session_id).update({
+            "lastMessageAt": datetime.utcnow()
+        })
+
+    async def get_chat_history(self, session_id: str) -> List[ChatMessage]:
+        """
+        Retrieves chat history for a given session from Firestore.
+        """
+        messages_ref = self.db.collection('chat_sessions').document(session_id).collection('messages')
+        query = messages_ref.order_by("createdAt").stream()
+        
+        messages = []
+        for doc in query:
+            message_data = doc.to_dict()
+            # Ensure 'id' field is set from document ID if not present in data
+            if 'id' not in message_data:
+                message_data['id'] = doc.id
+            messages.append(ChatMessage(**message_data))
+        return messages
+
+    async def delete_chat_session(self, session_id: str):
+        """
+        Deletes a chat session and all its messages from Firestore.
+        """
+        session_ref = self.db.collection('chat_sessions').document(session_id)
+        
+        # Delete all messages in the subcollection
+        messages_ref = session_ref.collection('messages')
+        snapshot = messages_ref.stream()
+        for doc in snapshot:
+            doc.reference.delete()
+        
+        # Delete the session document itself
+        session_ref.delete()
 
 
 # Global Firebase service instance
