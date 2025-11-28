@@ -63,11 +63,13 @@ async def send_message(prompt: str, model: Optional[str] = None) -> Dict[str, An
     if not settings.GEMINI_API_URL:
         raise RuntimeError("GEMINI_API_URL not configured; enable DEBUG_MOCK_GEMINI or set GEMINI_API_URL")
 
-    url = settings.GEMINI_API_URL
-    headers = {"Authorization": f"Bearer {settings.GOOGLE_API_KEY}", "Content-Type": "application/json"}
+    url = f"{settings.GEMINI_API_URL}?key={settings.GOOGLE_API_KEY}" # Append API key to URL
+    headers = {"Content-Type": "application/json"} # Remove Authorization header
     payload = {"model": model, "prompt": prompt}
 
     logger.debug("Sending prompt to Gemini endpoint: %s", url)
+    print(f"Gemini API URL: {url}")
+    print(f"Gemini Request Headers: {headers}")
     async with httpx.AsyncClient(timeout=30.0) as client:
         r = await client.post(url, json=payload, headers=headers)
         r.raise_for_status()
@@ -96,10 +98,12 @@ async def stream_send_message(prompt: str, model: Optional[str] = None):
     if not settings.GEMINI_API_URL:
         raise RuntimeError("GEMINI_API_URL not configured; enable DEBUG_MOCK_GEMINI or set GEMINI_API_URL")
 
-    url = settings.GEMINI_API_URL
-    headers = {"Authorization": f"Bearer {settings.GOOGLE_API_KEY}", "Content-Type": "application/json"}
+    url = f"{settings.GEMINI_API_URL}?key={settings.GOOGLE_API_KEY}" # Append API key to URL
+    headers = {"Content-Type": "application/json"} # Remove Authorization header
     payload = {"model": model, "prompt": prompt}
 
+    print(f"Gemini API URL (stream): {url}")
+    print(f"Gemini Request Headers (stream): {headers}")
     async with httpx.AsyncClient(timeout=None) as client:
         async with client.stream("POST", url, json=payload, headers=headers) as resp:
             resp.raise_for_status()
