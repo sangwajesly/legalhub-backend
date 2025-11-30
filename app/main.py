@@ -4,19 +4,41 @@ LegalHub Backend - Main FastAPI Application
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from contextlib import asynccontextmanager
 import time
 
 from app.config import settings
-from app.api.routes import auth, users, chat
+from app.api.routes import auth, users, chat, cases, bookings
 from app.api.routes import debug
 
-# Create FastAPI application
+
+# Define lifespan context manager for startup/shutdown
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan handler for startup and shutdown events"""
+    # Startup
+    print(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
+    print(f"Debug mode: {settings.DEBUG}")
+    print(f"Dev mode: {settings.DEV_MODE}")
+    
+    # Initialize Firebase (already done in firebase_service)
+    from app.services.firebase_service import firebase_service
+    print("Firebase initialized")
+    
+    yield
+    
+    # Shutdown
+    print(f"Shutting down {settings.APP_NAME}")
+
+
+# Create FastAPI application with lifespan
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     description="LegalHub Backend API - Democratizing access to legal services",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan
 )
 
 # Configure CORS
@@ -57,6 +79,8 @@ async def global_exception_handler(request: Request, exc: Exception):
 app.include_router(auth.router)
 app.include_router(chat.router)
 app.include_router(users.router)
+app.include_router(cases.router)
+app.include_router(bookings.router)
 if settings.DEBUG:
     app.include_router(debug.router)
 
@@ -84,26 +108,6 @@ async def health_check():
         "firebase_configured": bool(settings.FIREBASE_CREDENTIALS_PATH),
         "gemini_configured": bool(settings.GOOGLE_API_KEY)
     }
-
-
-# Startup event
-@app.on_event("startup")
-async def startup_event():
-    """Execute on application startup"""
-    print(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
-    print(f"Debug mode: {settings.DEBUG}")
-    print(f"Dev mode: {settings.DEV_MODE}")
-    
-    # Initialize Firebase (already done in firebase_service)
-    from app.services.firebase_service import firebase_service
-    print("Firebase initialized")
-
-
-# Shutdown event
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Execute on application shutdown"""
-    print(f"Shutting down {settings.APP_NAME}")
 
 
 if __name__ == "__main__":

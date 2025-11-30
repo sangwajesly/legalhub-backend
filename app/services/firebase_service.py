@@ -4,7 +4,7 @@ Firebase service for Firestore and Authentication operations
 import firebase_admin
 from firebase_admin import credentials, firestore, auth as firebase_auth
 from typing import Optional, Dict, Any, List
-from datetime import datetime
+from datetime import datetime, UTC
 import os
 
 from app.config import settings
@@ -116,8 +116,8 @@ class FirebaseService:
                 role=role,
                 phone_number=phone_number,
                 email_verified=False,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
                 profile_picture=firebase_user.photo_url if hasattr(firebase_user, 'photo_url') else None 
             )
             
@@ -194,7 +194,7 @@ class FirebaseService:
         """
         try:
             # Add updated timestamp
-            data['updated_at'] = datetime.utcnow() # Note: changed key from 'updatedAt' to 'updated_at' for consistency
+            data['updated_at'] = datetime.now(UTC) # Note: changed key from 'updatedAt' to 'updated_at' for consistency
             
             # Update Firestore
             user_ref = self.db.collection('users').document(uid)
@@ -323,8 +323,8 @@ class FirebaseService:
         session_ref.set({
             "sessionId": session_id,
             "userId": user_id,
-            "createdAt": datetime.utcnow(),
-            "lastMessageAt": datetime.utcnow(),
+            "createdAt": datetime.now(UTC),
+            "lastMessageAt": datetime.now(UTC),
         })
 
     async def add_chat_message(self, session_id: str, message: ChatMessage):
@@ -336,7 +336,7 @@ class FirebaseService:
         if isinstance(message_dict.get("createdAt"), str):
             message_dict["createdAt"] = datetime.fromisoformat(message_dict["createdAt"])
         elif message_dict.get("createdAt") is None:
-            message_dict["createdAt"] = datetime.utcnow()
+            message_dict["createdAt"] = datetime.now(UTC)
 
         # Add a unique ID for the message document
         message_id = message.id if message.id else self.db.collection('chat_sessions').document(session_id).collection('messages').document().id
@@ -346,7 +346,7 @@ class FirebaseService:
         
         # Update lastMessageAt for the session
         self.db.collection('chat_sessions').document(session_id).update({
-            "lastMessageAt": datetime.utcnow()
+            "lastMessageAt": datetime.now(UTC)
         })
 
     async def get_chat_history(self, session_id: str) -> List[ChatMessage]:

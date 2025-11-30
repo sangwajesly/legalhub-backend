@@ -1,7 +1,7 @@
 """
 Authentication request/response schemas
 """
-from pydantic import BaseModel, EmailStr, Field, validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
 from typing import Optional
 from datetime import datetime
 from app.models.user import UserRole
@@ -15,7 +15,7 @@ class UserRegister(BaseModel):
     role: str = UserRole.USER
     phone_number: Optional[str] = None
     
-    @validator('password')
+    @field_validator('password')
     def validate_password(cls, v):
         """Validate password strength"""
         if not any(char.isdigit() for char in v):
@@ -26,8 +26,8 @@ class UserRegister(BaseModel):
             raise ValueError('Password must contain at least one lowercase letter')
         return v
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "email": "user@example.com",
                 "password": "SecurePass123",
@@ -36,6 +36,7 @@ class UserRegister(BaseModel):
                 "phone_number": "+237123456789"
             }
         }
+    )
 
 
 class UserLogin(BaseModel):
@@ -43,13 +44,14 @@ class UserLogin(BaseModel):
     email: EmailStr
     password: str
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "email": "user@example.com",
                 "password": "SecurePass123"
             }
         }
+    )
 
 
 class Token(BaseModel):
@@ -77,8 +79,8 @@ class UserResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "uid": "abc123xyz",
                 "email": "user@example.com",
@@ -91,6 +93,7 @@ class UserResponse(BaseModel):
                 "updated_at": "2024-01-15T10:30:00Z"
             }
         }
+    )
 
 
 class UserUpdate(BaseModel):
@@ -101,8 +104,8 @@ class UserUpdate(BaseModel):
     bio: Optional[str] = Field(None, max_length=500)
     location: Optional[str] = None
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "display_name": "John Updated",
                 "phone_number": "+237987654321",
@@ -110,18 +113,20 @@ class UserUpdate(BaseModel):
                 "location": "Bamenda, Cameroon"
             }
         }
+    )
 
 
 class PasswordReset(BaseModel):
     """Schema for password reset request"""
     email: EmailStr
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "email": "user@example.com"
             }
         }
+    )
 
 
 class PasswordChange(BaseModel):
@@ -129,7 +134,7 @@ class PasswordChange(BaseModel):
     old_password: str
     new_password: str = Field(..., min_length=8)
     
-    @validator('new_password')
+    @field_validator('new_password')
     def validate_password(cls, v):
         """Validate password strength"""
         if not any(char.isdigit() for char in v):
@@ -146,8 +151,8 @@ class AuthResponse(BaseModel):
     user: UserResponse
     tokens: Token
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "user": {
                     "uid": "abc123xyz",
@@ -168,3 +173,4 @@ class AuthResponse(BaseModel):
                 }
             }
         }
+    )

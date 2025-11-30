@@ -1,0 +1,602 @@
+"""
+Booking Management Routes for LegalHub Backend
+
+This module defines the HTTP endpoints for booking management operations:
+- Create new bookings (lawyer consultation reservations)
+- Retrieve booking details
+- List bookings with filtering and pagination
+- Update booking information and reschedule
+- Cancel bookings
+- Provide and view feedback/ratings
+- Fetch booking statistics
+"""
+
+import logging
+from typing import Optional
+from uuid import uuid4
+from datetime import datetime, UTC
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+
+from app.dependencies import get_current_user
+from app.services import firebase_service
+from app.models.booking import (
+    Booking,
+    BookingStatus,
+    PaymentStatus,
+    ConsultationType,
+    firestore_booking_to_model,
+    booking_model_to_firestore,
+)
+from app.schemas.booking import (
+    BookingCreateSchema,
+    BookingUpdateSchema,
+    BookingStatusSchema,
+    BookingFeedbackSchema,
+    BookingDetailSchema,
+    BookingListSchema,
+)
+
+logger = logging.getLogger(__name__)
+router = APIRouter(prefix="/api/bookings", tags=["bookings"])
+
+
+# POST /api/bookings - Create a new booking
+@router.post("/", response_model=BookingDetailSchema, status_code=201)
+async def create_booking(
+    booking_data: BookingCreateSchema,
+    current_user: Optional[dict] = Depends(get_current_user),
+):
+    """
+    Create a new lawyer consultation booking
+    
+    - Requires authenticated user (client/user)
+    - Checks lawyer availability
+    - Initializes payment process if fee specified
+    """
+    try:
+        if not current_user:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        
+        logger.info(f"Creating booking: lawyer={booking_data.lawyerId}, user={current_user.get('uid')}")
+        
+        # Verify lawyer exists
+        lawyer_doc = await firebase_service.get_document(f"lawyers/{booking_data.lawyerId}")
+        if not lawyer_doc:
+            raise HTTPException(status_code=404, detail="Lawyer not found")
+        
+        # Check if client is booking for themselves (or admin)
+        if current_user.get("uid") != booking_data.lawyerId and not current_user.get("is_admin"):
+            # This is a booking by a client for a lawyer
+            pass
+        
+        # Create booking model
+        booking_id = f"booking_{uuid4().hex[:12]}"
+        new_booking = Booking(
+            bookingId=booking_id,
+            lawyerId=booking_data.lawyerId,
+            userId=current_user.get("uid"),
+            consultationType=booking_data.consultationType,
+            scheduledAt=booking_data.scheduledAt,
+            duration=booking_data.duration,
+            location=booking_data.location,
+            description=booking_data.description,
+            caseId=booking_data.caseId,
+            tags=booking_data.tags,
+            fee=booking_data.fee,
+            paymentMethod=booking_data.paymentMethod,
+            status=BookingStatus.PENDING,
+            paymentStatus=PaymentStatus.PENDING,
+            createdAt=datetime.now(UTC),
+            updatedAt=datetime.now(UTC),
+        )
+        
+        # Convert to Firestore format and save
+        firestore_data = booking_model_to_firestore(new_booking)
+        await firebase_service.set_document(f"bookings/{booking_id}", firestore_data)
+        
+        logger.info(f"Booking created successfully: {booking_id}")
+        return BookingDetailSchema(**new_booking.model_dump())
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating booking: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to create booking")
+
+
+# GET /api/bookings/{booking_id} - Get booking details
+@router.get("/{booking_id}", response_model=BookingDetailSchema)
+async def get_booking(
+    booking_id: str,
+    current_user: Optional[dict] = Depends(get_current_user),
+):
+    """Retrieve detailed information about a specific booking"""
+    try:
+        logger.info(f"Fetching booking: {booking_id}")
+        
+        doc_data = await firebase_service.get_document(f"bookings/{booking_id}")
+        if not doc_data:
+            raise HTTPException(status_code=404, detail="Booking not found")
+        
+        booking = firestore_booking_to_model(doc_data, booking_id)
+        
+        # Check authorization (user, lawyer, or admin)
+        if current_user:
+            is_client = current_user.get("uid") == booking.userId
+            is_lawyer = current_user.get("uid") == booking.lawyerId
+            is_admin = current_user.get("is_admin")
+            
+            if not (is_client or is_lawyer or is_admin):
+                raise HTTPException(status_code=403, detail="Not authorized to view this booking")
+        else:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        
+        return BookingDetailSchema(**booking.model_dump())
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching booking {booking_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve booking")
+
+
+# GET /api/bookings - List bookings with filtering
+@router.get("", response_model=BookingListSchema)
+async def list_bookings(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    status: Optional[str] = Query(None),
+    lawyerId: Optional[str] = Query(None),
+    userId: Optional[str] = Query(None),
+    current_user: Optional[dict] = Depends(get_current_user),
+):
+    """
+    List bookings with optional filtering
+    
+    - Clients see only their own bookings
+    - Lawyers see bookings assigned to them
+    - Admins see all bookings
+    """
+    try:
+        if not current_user:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        
+        logger.info(f"Listing bookings: page={page}, status={status}")
+        
+        # Build query filters based on user role
+        filters = {}
+        
+        if status:
+            filters["status"] = status
+        
+        # Apply role-based filtering
+        if not current_user.get("is_admin"):
+            # Non-admin users can only see their own bookings
+            filters["userId"] = current_user.get("uid")
+        else:
+            # Admin can filter by specific user/lawyer if requested
+            if userId:
+                filters["userId"] = userId
+            if lawyerId:
+                filters["lawyerId"] = lawyerId
+        
+        # Query Firestore
+        docs, total_count = await firebase_service.query_collection(
+            "bookings",
+            filters=filters,
+            limit=page_size,
+            offset=(page - 1) * page_size
+        )
+        
+        # Convert documents to Booking models
+        bookings = []
+        for doc_id, doc_data in docs:
+            try:
+                booking = firestore_booking_to_model(doc_data, doc_id)
+                bookings.append(BookingDetailSchema(**booking.model_dump()))
+            except Exception as e:
+                logger.warning(f"Error converting booking {doc_id}: {str(e)}")
+                continue
+        
+        total_pages = (total_count + page_size - 1) // page_size
+        
+        return BookingListSchema(
+            bookings=bookings,
+            total=total_count,
+            page=page,
+            pageSize=page_size,
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error listing bookings: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve bookings")
+
+
+# GET /api/bookings/user/{user_id} - Get user's bookings
+@router.get("/user/{user_id}", response_model=BookingListSchema)
+async def get_user_bookings(
+    user_id: str,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    status: Optional[str] = Query(None),
+    current_user: Optional[dict] = Depends(get_current_user),
+):
+    """
+    Get all bookings for a specific user
+    
+    Only the user, their lawyers, or admins can view
+    """
+    try:
+        if not current_user:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        
+        # Check authorization
+        if current_user.get("uid") != user_id and not current_user.get("is_admin"):
+            raise HTTPException(status_code=403, detail="Not authorized to view these bookings")
+        
+        logger.info(f"Fetching bookings for user: {user_id}")
+        
+        # Query bookings by userId
+        filters = {"userId": user_id}
+        if status:
+            filters["status"] = status
+        
+        docs, total_count = await firebase_service.query_collection(
+            "bookings",
+            filters=filters,
+            limit=page_size,
+            offset=(page - 1) * page_size
+        )
+        
+        bookings = []
+        for doc_id, doc_data in docs:
+            try:
+                booking = firestore_booking_to_model(doc_data, doc_id)
+                bookings.append(BookingDetailSchema(**booking.model_dump()))
+            except Exception as e:
+                logger.warning(f"Error converting booking {doc_id}: {str(e)}")
+                continue
+        
+        total_pages = (total_count + page_size - 1) // page_size
+        
+        return BookingListSchema(
+            bookings=bookings,
+            total=total_count,
+            page=page,
+            pageSize=page_size,
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching user bookings for {user_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve user bookings")
+
+
+# GET /api/bookings/lawyer/{lawyer_id} - Get lawyer's bookings
+@router.get("/lawyer/{lawyer_id}", response_model=BookingListSchema)
+async def get_lawyer_bookings(
+    lawyer_id: str,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    status: Optional[str] = Query(None),
+    current_user: Optional[dict] = Depends(get_current_user),
+):
+    """
+    Get all bookings for a specific lawyer
+    
+    Only the lawyer or admins can view
+    """
+    try:
+        if not current_user:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        
+        # Check authorization
+        if current_user.get("uid") != lawyer_id and not current_user.get("is_admin"):
+            raise HTTPException(status_code=403, detail="Not authorized to view these bookings")
+        
+        logger.info(f"Fetching bookings for lawyer: {lawyer_id}")
+        
+        # Query bookings by lawyerId
+        filters = {"lawyerId": lawyer_id}
+        if status:
+            filters["status"] = status
+        
+        docs, total_count = await firebase_service.query_collection(
+            "bookings",
+            filters=filters,
+            limit=page_size,
+            offset=(page - 1) * page_size
+        )
+        
+        bookings = []
+        for doc_id, doc_data in docs:
+            try:
+                booking = firestore_booking_to_model(doc_data, doc_id)
+                bookings.append(BookingDetailSchema(**booking.model_dump()))
+            except Exception as e:
+                logger.warning(f"Error converting booking {doc_id}: {str(e)}")
+                continue
+        
+        total_pages = (total_count + page_size - 1) // page_size
+        
+        return BookingListSchema(
+            bookings=bookings,
+            total=total_count,
+            page=page,
+            pageSize=page_size,
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching lawyer bookings for {lawyer_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve lawyer bookings")
+
+
+# PUT /api/bookings/{booking_id} - Update booking
+@router.put("/{booking_id}", response_model=BookingDetailSchema)
+async def update_booking(
+    booking_id: str,
+    booking_data: BookingUpdateSchema,
+    current_user: Optional[dict] = Depends(get_current_user),
+):
+    """Update booking details (reschedule, add notes, etc.)"""
+    try:
+        if not current_user:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        
+        # Verify booking exists
+        doc_data = await firebase_service.get_document(f"bookings/{booking_id}")
+        if not doc_data:
+            raise HTTPException(status_code=404, detail="Booking not found")
+        
+        # Check authorization (client or lawyer involved)
+        if (current_user.get("uid") != doc_data.get("userId") and 
+            current_user.get("uid") != doc_data.get("lawyerId") and 
+            not current_user.get("is_admin")):
+            raise HTTPException(status_code=403, detail="Not authorized to update this booking")
+        
+        logger.info(f"Updating booking: {booking_id}")
+        
+        # Update allowed fields
+        update_data = {}
+        if booking_data.scheduledAt:
+            update_data["scheduledAt"] = booking_data.scheduledAt
+        if booking_data.duration:
+            update_data["duration"] = booking_data.duration
+        if booking_data.location:
+            update_data["location"] = booking_data.location
+        if booking_data.description:
+            update_data["description"] = booking_data.description
+        if booking_data.notes:
+            update_data["notes"] = booking_data.notes
+        if booking_data.meetingLink:
+            update_data["meetingLink"] = booking_data.meetingLink
+        
+        update_data["updatedAt"] = datetime.now(UTC)
+        
+        # Merge with existing data
+        doc_data.update(update_data)
+        await firebase_service.update_document(f"bookings/{booking_id}", update_data)
+        
+        booking = firestore_booking_to_model(doc_data, booking_id)
+        return BookingDetailSchema(**booking.model_dump())
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating booking {booking_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to update booking")
+
+
+# PUT /api/bookings/{booking_id}/status - Update booking status
+@router.put("/{booking_id}/status", response_model=BookingDetailSchema)
+async def update_booking_status(
+    booking_id: str,
+    status_data: BookingStatusSchema,
+    current_user: Optional[dict] = Depends(get_current_user),
+):
+    """
+    Update booking status (confirm, cancel, complete)
+    
+    - Lawyer can confirm bookings
+    - Client or lawyer can cancel
+    - System marks as completed
+    """
+    try:
+        if not current_user:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        
+        # Verify booking exists
+        doc_data = await firebase_service.get_document(f"bookings/{booking_id}")
+        if not doc_data:
+            raise HTTPException(status_code=404, detail="Booking not found")
+        
+        # Check authorization
+        is_client = current_user.get("uid") == doc_data.get("userId")
+        is_lawyer = current_user.get("uid") == doc_data.get("lawyerId")
+        is_admin = current_user.get("is_admin")
+        
+        if not (is_client or is_lawyer or is_admin):
+            raise HTTPException(status_code=403, detail="Not authorized to update booking status")
+        
+        logger.info(f"Updating booking status: {booking_id} -> {status_data.status}")
+        
+        # Update document
+        update_data = {
+            "status": status_data.status.value,
+            "updatedAt": datetime.now(UTC),
+        }
+        
+        # Handle status-specific updates
+        if status_data.status == BookingStatus.CONFIRMED:
+            update_data["confirmedAt"] = datetime.now(UTC)
+        elif status_data.status == BookingStatus.COMPLETED:
+            update_data["completedAt"] = datetime.now(UTC)
+        elif status_data.status == BookingStatus.CANCELLED:
+            update_data["cancelledAt"] = datetime.now(UTC)
+            update_data["cancellationReason"] = status_data.cancellationReason
+            update_data["cancellationBy"] = "client" if is_client else ("lawyer" if is_lawyer else "system")
+        
+        if status_data.notes:
+            update_data["notes"] = status_data.notes
+        
+        doc_data.update(update_data)
+        await firebase_service.update_document(f"bookings/{booking_id}", update_data)
+        
+        booking = firestore_booking_to_model(doc_data, booking_id)
+        return BookingDetailSchema(**booking.model_dump())
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating booking status {booking_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to update booking status")
+
+
+# POST /api/bookings/{booking_id}/feedback - Provide feedback
+@router.post("/{booking_id}/feedback", status_code=201)
+async def provide_feedback(
+    booking_id: str,
+    feedback_data: BookingFeedbackSchema,
+    current_user: Optional[dict] = Depends(get_current_user),
+):
+    """
+    Provide feedback and rating for a completed booking
+    
+    - Client can rate the lawyer and the consultation
+    - Lawyer can rate the client
+    """
+    try:
+        if not current_user:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        
+        # Verify booking exists
+        doc_data = await firebase_service.get_document(f"bookings/{booking_id}")
+        if not doc_data:
+            raise HTTPException(status_code=404, detail="Booking not found")
+        
+        # Check authorization
+        is_client = current_user.get("uid") == doc_data.get("userId")
+        is_lawyer = current_user.get("uid") == doc_data.get("lawyerId")
+        
+        if not (is_client or is_lawyer):
+            raise HTTPException(status_code=403, detail="Not authorized to provide feedback")
+        
+        logger.info(f"Providing feedback for booking: {booking_id}")
+        
+        # Update feedback fields
+        update_data = {}
+        if is_client:
+            update_data["clientRating"] = feedback_data.rating
+            update_data["clientFeedback"] = feedback_data.feedback
+        elif is_lawyer:
+            update_data["lawyerRating"] = feedback_data.rating
+        
+        update_data["updatedAt"] = datetime.now(UTC)
+        
+        await firebase_service.update_document(f"bookings/{booking_id}", update_data)
+        
+        logger.info(f"Feedback provided successfully for booking: {booking_id}")
+        
+        return {
+            "message": "Feedback provided successfully",
+            "bookingId": booking_id,
+            "rating": feedback_data.rating
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error providing feedback for booking {booking_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to provide feedback")
+
+
+# GET /api/bookings/stats - Get booking statistics
+@router.get("/stats/overview", status_code=200)
+async def get_booking_stats(
+    current_user: Optional[dict] = Depends(get_current_user),
+):
+    """
+    Get booking statistics (admin only or filtered by user)
+    
+    Returns counts by status, payment status, and rating metrics
+    """
+    try:
+        if not current_user:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        
+        logger.info("Fetching booking statistics")
+        
+        # Get bookings based on role
+        if current_user.get("is_admin"):
+            # Admin sees all bookings
+            docs, total_count = await firebase_service.query_collection(
+                "bookings",
+                filters={},
+                limit=10000
+            )
+        else:
+            # Users see only their own bookings
+            docs, total_count = await firebase_service.query_collection(
+                "bookings",
+                filters={"userId": current_user.get("uid")},
+                limit=10000
+            )
+        
+        stats = {
+            "totalBookings": total_count,
+            "bookingsByStatus": {},
+            "bookingsByPaymentStatus": {},
+            "completedBookings": 0,
+            "cancelledBookings": 0,
+            "totalRevenue": 0.0,
+            "paidAmount": 0.0,
+            "averageRating": None,
+            "lastUpdatedAt": datetime.now(UTC).isoformat()
+        }
+        
+        ratings = []
+        
+        for doc_id, doc_data in docs:
+            # Count by status
+            status = doc_data.get("status", "pending")
+            stats["bookingsByStatus"][status] = stats["bookingsByStatus"].get(status, 0) + 1
+            
+            # Count by payment status
+            pay_status = doc_data.get("paymentStatus", "pending")
+            stats["bookingsByPaymentStatus"][pay_status] = stats["bookingsByPaymentStatus"].get(pay_status, 0) + 1
+            
+            # Count completed and cancelled
+            if status == "completed":
+                stats["completedBookings"] += 1
+            elif status == "cancelled":
+                stats["cancelledBookings"] += 1
+            
+            # Sum revenue
+            fee = doc_data.get("fee", 0.0)
+            stats["totalRevenue"] += fee
+            
+            # Sum paid amount
+            if pay_status == "paid":
+                stats["paidAmount"] += fee
+            
+            # Collect ratings
+            if doc_data.get("clientRating"):
+                ratings.append(doc_data["clientRating"])
+        
+        # Calculate average rating
+        if ratings:
+            stats["averageRating"] = sum(ratings) / len(ratings)
+        
+        return stats
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching booking statistics: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve statistics")

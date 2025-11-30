@@ -21,14 +21,15 @@ router = APIRouter(prefix="/api/chat", tags=["chat"])
 
 
 @router.post("/session", response_model=CreateSessionResponse)
-async def create_session(user: Optional[dict] = None): # To re-enable auth, change to: user=Depends(get_current_user)
+async def create_session(user: Optional[dict] = Depends(get_current_user)):
+	"""Create a new chat session for the authenticated user."""
 	session_id = str(uuid.uuid4())
 	await langchain_service.create_session(user.get("uid"), session_id)
 	return {"sessionId": session_id}
 
 
 @router.delete("/session/{id}")
-async def delete_session(id: str, user: Optional[dict] = None): # To re-enable auth, change to: user=Depends(get_current_user)
+async def delete_session(id: str, user: Optional[dict] = Depends(get_current_user)):
 	try:
 		await firebase_service.delete_chat_session(id) # Await the async function
 	except Exception:
@@ -37,7 +38,7 @@ async def delete_session(id: str, user: Optional[dict] = None): # To re-enable a
 
 
 @router.post("/message", response_model=MessageResponse)
-async def send_message(payload: MessageRequest, user: Optional[dict] = None): # To re-enable auth, change to: user=Depends(get_current_user)
+async def send_message(payload: MessageRequest, user: Optional[dict] = Depends(get_current_user)):
 	# create session if missing
 	session_id = payload.sessionId or str(uuid.uuid4())
 	if not payload.sessionId:
@@ -54,7 +55,7 @@ async def send_message(payload: MessageRequest, user: Optional[dict] = None): # 
 
 
 @router.get("/history", response_model=HistoryResponse)
-async def get_history(sessionId: str, user: Optional[dict] = None): # To re-enable auth, change to: user=Depends(get_current_user)
+async def get_history(sessionId: str, user: Optional[dict] = Depends(get_current_user)):
 	try:
 		# Get ChatMessageModel objects from firebase_service
 		chat_message_models: List[ChatMessageModel] = await firebase_service.get_chat_history(sessionId)
@@ -68,7 +69,7 @@ async def get_history(sessionId: str, user: Optional[dict] = None): # To re-enab
 
 
 @router.post("/feedback")
-async def feedback(payload: FeedbackRequest, user: Optional[dict] = None): # To re-enable auth, change to: user=Depends(get_current_user)
+async def feedback(payload: FeedbackRequest, user: Optional[dict] = Depends(get_current_user)):
 	# store feedback in a collection
 	try:
 		# Corrected: Use firebase_service.db directly
@@ -79,7 +80,7 @@ async def feedback(payload: FeedbackRequest, user: Optional[dict] = None): # To 
 
 
 @router.post("/message/stream")
-async def send_message_stream(payload: MessageRequest, user: Optional[dict] = None): # To re-enable auth, change to: user=Depends(get_current_user)
+async def send_message_stream(payload: MessageRequest, user: Optional[dict] = Depends(get_current_user)):
 	"""Stream the AI response back to the client using Server-Sent Events (SSE).
 
 	The client should connect and parse `text/event-stream` messages. Each

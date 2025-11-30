@@ -1,7 +1,7 @@
 from typing import List, Optional
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, UTC
 
 from app.services import firebase_service, gemini_service
 from app.config import settings
@@ -70,7 +70,7 @@ async def generate_response(session_id: Optional[str], user_id: Optional[str], u
             role="user",
             text=user_message,
             userId=user_id,
-            createdAt=datetime.utcnow()
+            createdAt=datetime.now(UTC)
         )
         await firebase_service.add_chat_message(session_id, user_chat_message)
 
@@ -101,7 +101,7 @@ async def generate_response(session_id: Optional[str], user_id: Optional[str], u
             role="assistant",
             text=reply,
             userId=user_id, # Associate with the user who initiated the chat
-            createdAt=datetime.utcnow()
+            createdAt=datetime.now(UTC)
         )
         await firebase_service.add_chat_message(session_id, assistant_chat_message)
 
@@ -120,7 +120,7 @@ async def generate_response_stream(session_id: Optional[str], user_id: Optional[
             role="user",
             text=user_message,
             userId=user_id,
-            createdAt=datetime.utcnow()
+            createdAt=datetime.now(UTC)
         )
         await firebase_service.add_chat_message(session_id, user_chat_message)
 
@@ -150,6 +150,6 @@ async def generate_response_stream(session_id: Optional[str], user_id: Optional[
             role="assistant",
             text=final_reply,
             userId=user_id, # Associate with the user who initiated the chat
-            createdAt=datetime.utcnow()
+            createdAt=datetime.now(UTC)
         )
         await firebase_service.add_chat_message(session_id, assistant_chat_message)

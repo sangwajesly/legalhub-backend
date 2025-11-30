@@ -5,10 +5,16 @@ This module defines the User and UserProfile models that represent
 user data stored in Firebase Firestore.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Literal
 from enum import Enum
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
+
+
+# Helper function for timezone-aware UTC datetime
+def utc_now():
+    """Get current UTC datetime (timezone-aware)"""
+    return datetime.now(timezone.utc)
 
 
 class UserRole(str, Enum):
@@ -25,8 +31,8 @@ class UserBase(BaseModel):
     display_name: str = Field(..., min_length=2, max_length=100, description="User's display name")
     role: Literal["user", "lawyer", "organization"] = Field(default="user", description="User role in the system")
     profile_picture: Optional[str] = Field(default=None, description="URL to profile picture")
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "email": "john.doe@example.com",
                 "display_name": "John Doe",
@@ -34,6 +40,7 @@ class UserBase(BaseModel):
                 "profile_picture": "https://example.com/photos/user.jpg"
             }
         }
+    )
 
 
 class User(UserBase):
@@ -49,12 +56,12 @@ class User(UserBase):
     profile_picture: Optional[str] = Field(default=None, description="URL to profile picture")
     is_active: bool = Field(default=True, description="Whether account is active")
     is_deleted: bool = Field(default=False, description="Soft delete flag")
-    created_at: datetime = Field(default_factory=datetime.utcnow, description="Account creation timestamp")
-    updated_at: datetime = Field(default_factory=datetime.utcnow, description="Last update timestamp")
+    created_at: datetime = Field(default_factory=utc_now, description="Account creation timestamp")
+    updated_at: datetime = Field(default_factory=utc_now, description="Last update timestamp")
     last_login: Optional[datetime] = Field(default=None, description="Last login timestamp")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "uid": "firebase_user_uid_123",
                 "email": "john.doe@example.com",
@@ -70,6 +77,7 @@ class User(UserBase):
                 "last_login": "2024-01-15T10:30:00"
             }
         }
+    )
 
 
 class UserProfile(BaseModel):
@@ -108,11 +116,11 @@ class UserProfile(BaseModel):
     # FCM token for push notifications
     fcm_token: Optional[str] = Field(default=None, description="Firebase Cloud Messaging token")
     
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "uid": "firebase_user_uid_123",
                 "bio": "Legal enthusiast interested in human rights law",
@@ -132,6 +140,7 @@ class UserProfile(BaseModel):
                 "updated_at": "2024-01-01T00:00:00"
             }
         }
+    )
 
 
 class UserInDB(User):
@@ -162,8 +171,8 @@ class UserStats(BaseModel):
     reputation_score: float = Field(default=0.0, description="User reputation score")
     last_activity: Optional[datetime] = Field(default=None, description="Last activity timestamp")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "uid": "firebase_user_uid_123",
                 "total_chats": 15,
@@ -176,6 +185,7 @@ class UserStats(BaseModel):
                 "last_activity": "2024-01-15T14:30:00"
             }
         }
+    )
 
 
 # Helper function to convert Firestore document to User model
