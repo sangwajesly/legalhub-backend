@@ -23,7 +23,13 @@ async def lifespan(app: FastAPI):
     
     # Initialize Firebase (already done in firebase_service)
     from app.services.firebase_service import firebase_service
+    from app.services.firebase_mcp_client import FirebaseMcpClient
     print("Firebase initialized")
+    
+    # Initialize FirebaseMcpClient
+    global firebase_mcp_client
+    firebase_mcp_client = FirebaseMcpClient(firebase_service)
+    print("Firebase MCP Client initialized")
     
     yield
     
