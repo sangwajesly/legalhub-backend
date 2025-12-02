@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from datetime import datetime, timezone
 from typing import Optional
+import re
 
 from app.dependencies import get_current_user, get_optional_user
 from app.services.firebase_service import firebase_service
@@ -15,6 +16,24 @@ from app.schemas.article import (
 
 
 router = APIRouter(prefix="/api/articles", tags=["Articles"])
+
+
+def _slugify(text: str) -> str:
+	"""Create a URL-safe slug from a title"""
+	s = (text or "").lower()
+	s = re.sub(r"[^a-z0-9]+", "-", s).strip("-")
+	return s or "article"
+
+
+def _generate_unique_slug(coll, title: str) -> str:
+	base = _slugify(title)
+	slug = base
+	idx = 1
+	existing = {doc.to_dict().get("slug") for doc in coll.stream()}
+	while slug in existing:
+		idx += 1
+		slug = f"{base}-{idx}"
+	return slug
 
 
 @router.get("/", response_model=ArticleListResponse)
@@ -77,10 +96,21 @@ async def list_articles(q: Optional[str] = Query(None), page: int = 1, pageSize:
 
 @router.get("/{article_id}", response_model=ArticleResponse)
 async def get_article(article_id: str, current_user=Depends(get_optional_user)):
-	doc = firebase_service.db.collection("articles").document(article_id).get()
+	coll = firebase_service.db.collection("articles")
+	doc = coll.document(article_id).get()
+	a = None
 	if not doc.exists:
-		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
-	a = firestore_article_to_model(doc.to_dict(), doc.id)
+		# try lookup by slug by scanning collection (works with DummyDB in tests)
+		found = None
+		for d in coll.stream():
+			if d.to_dict().get("slug") == article_id:
+				found = d
+				break
+		if not found:
+			raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
+		a = firestore_article_to_model(found.to_dict(), found.id)
+	else:
+		a = firestore_article_to_model(doc.to_dict(), doc.id)
 	# if not published, only author or admin can view
 	if not a.published:
 		uid = getattr(current_user, "uid", None) or (current_user.get("uid") if isinstance(current_user, dict) else None) if current_user else None
@@ -118,11 +148,12 @@ async def create_article(payload: ArticleCreateSchema, current_user=Depends(get_
 	if role not in allowed_roles:
 		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role to create articles")
 
-	doc_ref = firebase_service.db.collection("articles").document()
+	coll = firebase_service.db.collection("articles")
+	doc_ref = coll.document()
 	now = datetime.now(timezone.utc)
 	article_data = {
 		"title": payload.title,
-		"slug": None,
+		"slug": _generate_unique_slug(coll, payload.title),
 		"content": payload.content,
 		"authorId": uid,
 		"tags": payload.tags,
@@ -215,8 +246,14 @@ async def share_article(article_id: str, payload: dict | None = None, current_us
 	except Exception:
 		pass
 
-	# generate a simple share URL using article id (slug can be added later)
+	# generate a simple share URL using slug when available
+	coll = firebase_service.db.collection("articles")
+	art_doc = coll.document(article_id).get()
 	share_url = f"/api/articles/{article_id}"
+	if art_doc.exists:
+		art = art_doc.to_dict()
+		if art.get("slug"):
+			share_url = f"/api/articles/{art.get('slug')}"
 	return {"shared": True, "totalShares": count, "shareUrl": share_url}
 
 

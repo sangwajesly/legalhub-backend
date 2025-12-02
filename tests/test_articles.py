@@ -100,6 +100,8 @@ def test_create_and_get_article():
     assert r.status_code == 201
     body = r.json()
     assert body["title"] == payload["title"] or body["title"] == payload["title"]
+    # slug should be present and non-empty
+    assert "slug" in body and body["slug"]
     article_id = body["articleId"]
 
     # get
@@ -108,6 +110,12 @@ def test_create_and_get_article():
     b2 = r2.json()
     assert b2["articleId"] == article_id
     assert "content" in b2
+    # also ensure retrieval by slug works
+    slug = body.get("slug")
+    if slug:
+        r3 = client.get(f"/api/articles/{slug}")
+        assert r3.status_code == 200
+        assert r3.json()["articleId"] == article_id
 
 
 def test_list_update_delete_article():
@@ -123,6 +131,7 @@ def test_list_update_delete_article():
     r = client.post("/api/articles/", json=payload)
     assert r.status_code == 201
     article_id = r.json()["articleId"]
+    slug = r.json().get("slug")
 
     # list
     r2 = client.get("/api/articles/?page=1&pageSize=10")
@@ -195,6 +204,7 @@ def test_share_and_role_creation(monkeypatch):
     r = client.post("/api/articles/", json=payload)
     assert r.status_code == 201
     aid = r.json()["articleId"]
+    slug = r.json().get("slug")
 
     # share anonymously
     _app.dependency_overrides.clear()
@@ -202,6 +212,10 @@ def test_share_and_role_creation(monkeypatch):
     assert r2.status_code == 200
     assert r2.json()["shared"] is True
     assert r2.json()["totalShares"] >= 1
+    # shareUrl should prefer the slug when available
+    share_url = r2.json().get("shareUrl")
+    if slug:
+        assert share_url.endswith(f"/{slug}")
 
     # share as a user
     _app.dependency_overrides[get_current_user] = lambda: {"uid": "user_2", "role": "user"}
