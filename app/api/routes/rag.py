@@ -11,6 +11,12 @@ from app.dependencies import get_current_user
 from app.services.rag_service import rag_service
 from app.services import langchain_service
 from app.schemas.chat import MessageRequest, MessageResponse
+from app.utils.rag_helpers import (
+    add_article_to_rag,
+    add_case_law_to_rag,
+    add_statute_to_rag,
+    batch_add_documents,
+)
 
 router = APIRouter(prefix="/api/rag", tags=["RAG"])
 
@@ -204,3 +210,147 @@ async def send_rag_message_stream(
             yield f"data: Error: {str(e)}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@router.post("/articles/add")
+async def add_article_endpoint(
+    article_id: str,
+    title: str,
+    content: str,
+    author: Optional[str] = None,
+    category: Optional[str] = None,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Add a legal article directly to the RAG vector store.
+    
+    Args:
+        article_id: Unique article identifier
+        title: Article title
+        content: Full article content
+        author: Optional author name
+        category: Optional category (contract_law, criminal_law, etc.)
+    """
+    try:
+        result = await add_article_to_rag(
+            article_id=article_id,
+            title=title,
+            content=content,
+            author=author,
+            category=category,
+        )
+        
+        if result["status"] == "success":
+            return {
+                "status": "success",
+                "message": f"Article {article_id} added to RAG",
+                "result": result,
+            }
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=result.get("error", "Failed to add article"),
+            )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error adding article: {str(e)}",
+        )
+
+
+@router.post("/cases/add")
+async def add_case_endpoint(
+    case_id: str,
+    case_name: str,
+    content: str,
+    year: Optional[int] = None,
+    jurisdiction: Optional[str] = None,
+    case_type: Optional[str] = None,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Add case law/court decision to the RAG vector store.
+    
+    Args:
+        case_id: Unique case identifier
+        case_name: Name of the case
+        content: Full case text/decision
+        year: Year of decision
+        jurisdiction: Court jurisdiction
+        case_type: Type of case (criminal, civil, etc.)
+    """
+    try:
+        result = await add_case_law_to_rag(
+            case_id=case_id,
+            case_name=case_name,
+            content=content,
+            year=year,
+            jurisdiction=jurisdiction,
+            case_type=case_type,
+        )
+        
+        if result["status"] == "success":
+            return {
+                "status": "success",
+                "message": f"Case {case_id} added to RAG",
+                "result": result,
+            }
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=result.get("error", "Failed to add case"),
+            )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error adding case: {str(e)}",
+        )
+
+
+@router.post("/statutes/add")
+async def add_statute_endpoint(
+    statute_id: str,
+    statute_name: str,
+    content: str,
+    jurisdiction: Optional[str] = None,
+    section: Optional[str] = None,
+    effective_date: Optional[str] = None,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Add a statute/law to the RAG vector store.
+    
+    Args:
+        statute_id: Unique statute identifier
+        statute_name: Name of the statute
+        content: Full statute text
+        jurisdiction: Jurisdiction
+        section: Section number
+        effective_date: When effective
+    """
+    try:
+        result = await add_statute_to_rag(
+            statute_id=statute_id,
+            statute_name=statute_name,
+            content=content,
+            jurisdiction=jurisdiction,
+            section=section,
+            effective_date=effective_date,
+        )
+        
+        if result["status"] == "success":
+            return {
+                "status": "success",
+                "message": f"Statute {statute_id} added to RAG",
+                "result": result,
+            }
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=result.get("error", "Failed to add statute"),
+            )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error adding statute: {str(e)}",
+        )

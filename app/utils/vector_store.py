@@ -23,7 +23,7 @@ def get_sentence_transformer_ef(model_name: str = "all-MiniLM-L6-v2"):
 
 def get_chroma_client(path: Optional[str] = None) -> chromadb.Client:
     """
-    Returns a persistent ChromaDB client.
+    Returns a ChromaDB client.
 
     Args:
         path: Optional path to the ChromaDB directory. If None, uses settings.CHROMADB_PATH.
@@ -34,12 +34,23 @@ def get_chroma_client(path: Optional[str] = None) -> chromadb.Client:
     if path is None:
         path = settings.CHROMADB_PATH
 
-    # Ensure the directory exists
-    # import os
-    # os.makedirs(path, exist_ok=True)
+    # Try different client types to avoid configuration issues
+    try:
+        # First try EphemeralClient for in-memory storage (good for testing)
+        client = chromadb.EphemeralClient()
+        print("Using ChromaDB EphemeralClient (in-memory)")
+    except Exception as e:
+        print(f"EphemeralClient failed: {e}")
+        try:
+            # Fallback to PersistentClient
+            import os
+            os.makedirs(path, exist_ok=True)
+            client = chromadb.PersistentClient(path=path)
+            print(f"Using ChromaDB PersistentClient at {path}")
+        except Exception as e2:
+            print(f"PersistentClient failed: {e2}")
+            raise RuntimeError(f"Could not initialize ChromaDB client: {e2}")
 
-    # For a persistent client, specify the path to the directory where data will be stored
-    client = chromadb.PersistentClient(path=path)
     return client
 
 
