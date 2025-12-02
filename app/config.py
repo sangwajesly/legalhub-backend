@@ -58,6 +58,11 @@ class Settings(BaseSettings):
     # ChromaDB Configuration
     CHROMADB_PATH: str = "./chroma_db"
 
+    # RAG Scheduler Configuration
+    RAG_SCRAPE_INTERVAL_HOURS: int = 72  # Scrape every 72 hours
+    RAG_SCRAPE_ENABLED: bool = True  # Enable/disable automatic scraping
+    RAG_SCRAPE_ON_STARTUP: bool = False  # Run scraper immediately on startup
+
     model_config = {"env_file": ".env", "case_sensitive": True, "extra": "allow"}
 
 

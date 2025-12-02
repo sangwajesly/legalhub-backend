@@ -19,6 +19,7 @@ from app.api.routes import (
     lawyers,
     analytics,
     rag,
+    rag_scraper,
 )
 from app.api.routes import debug
 
@@ -35,6 +36,7 @@ async def lifespan(app: FastAPI):
     # Initialize Firebase (already done in firebase_service)
     from app.services.firebase_service import firebase_service
     from app.services.firebase_mcp_client import FirebaseMcpClient
+    from app.services.rag_scheduler import initialize_scheduler, shutdown_scheduler
 
     print("Firebase initialized")
 
@@ -43,10 +45,16 @@ async def lifespan(app: FastAPI):
     firebase_mcp_client = FirebaseMcpClient(firebase_service)
     print("Firebase MCP Client initialized")
 
+    # Initialize RAG Scheduler
+    await initialize_scheduler()
+    print("RAG Scheduler initialized")
+
     yield
 
     # Shutdown
     print(f"Shutting down {settings.APP_NAME}")
+    shutdown_scheduler()
+    print("RAG Scheduler shutdown complete")
 
 
 # Create FastAPI application with lifespan
@@ -103,6 +111,7 @@ app.include_router(bookings.router)
 app.include_router(lawyers.router)
 app.include_router(analytics.router)
 app.include_router(rag.router)
+app.include_router(rag_scraper.router)
 if settings.DEBUG:
     app.include_router(debug.router)
 
