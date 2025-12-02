@@ -85,9 +85,7 @@ class FirebaseMcpClient:
         return await self.firebase_service.delete_chat_session(session_id)
 
     # Storage Helpers
-    async def upload_file(
-        self, path: str, content: bytes, content_type: str
-    ) -> str:
+    async def upload_file(self, path: str, content: bytes, content_type: str) -> str:
         return await self.firebase_service.upload_file(
             path,
             content,

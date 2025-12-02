@@ -1,6 +1,7 @@
 """
 Article request/response schemas
 """
+
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
 from datetime import datetime
@@ -18,7 +19,7 @@ class ArticleCreateSchema(BaseModel):
                 "title": "How to file a small claims case",
                 "content": "Step-by-step guide...",
                 "tags": ["small-claims", "procedure"],
-                "published": True
+                "published": True,
             }
         }
     )
@@ -59,7 +60,6 @@ class ArticleListResponse(BaseModel):
     model_config = ConfigDict()
 
 
-
 class CommentCreateSchema(BaseModel):
     content: str = Field(..., min_length=1, max_length=2000)
 
@@ -79,4 +79,3 @@ class LikeResponse(BaseModel):
 
 class SaveResponse(BaseModel):
     saved: bool
-

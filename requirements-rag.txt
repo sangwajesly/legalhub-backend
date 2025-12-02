@@ -1,0 +1,6 @@
+# Minimal requirements for RAG ingestion (install in an isolated venv)
+chromadb
+langchain-google-genai
+pypdf
+beautifulsoup4
+lxml

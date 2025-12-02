@@ -5,6 +5,7 @@ Usage:
 
 It reads configuration from `app.config.settings` (and `.env` if present).
 """
+
 import asyncio
 
 from app.config import settings
@@ -26,8 +27,8 @@ async def main():
     print("\n=== Streaming call ===")
     async for chunk in stream_send_message(prompt):
         # chunk is a dict with keys 'model', 'response', 'raw'
-        print('chunk:', chunk.get('response'))
+        print("chunk:", chunk.get("response"))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     asyncio.run(main())

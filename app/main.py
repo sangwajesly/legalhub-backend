@@ -1,6 +1,7 @@
 """
 LegalHub Backend - Main FastAPI Application
 """
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -8,7 +9,16 @@ from contextlib import asynccontextmanager
 import time
 
 from app.config import settings
-from app.api.routes import auth, users, chat, cases, articles, bookings, lawyers, analytics
+from app.api.routes import (
+    auth,
+    users,
+    chat,
+    cases,
+    articles,
+    bookings,
+    lawyers,
+    analytics,
+)
 from app.api.routes import debug
 
 
@@ -20,19 +30,20 @@ async def lifespan(app: FastAPI):
     print(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
     print(f"Debug mode: {settings.DEBUG}")
     print(f"Dev mode: {settings.DEV_MODE}")
-    
+
     # Initialize Firebase (already done in firebase_service)
     from app.services.firebase_service import firebase_service
     from app.services.firebase_mcp_client import FirebaseMcpClient
+
     print("Firebase initialized")
-    
+
     # Initialize FirebaseMcpClient
     global firebase_mcp_client
     firebase_mcp_client = FirebaseMcpClient(firebase_service)
     print("Firebase MCP Client initialized")
-    
+
     yield
-    
+
     # Shutdown
     print(f"Shutting down {settings.APP_NAME}")
 
@@ -44,7 +55,7 @@ app = FastAPI(
     description="LegalHub Backend API - Democratizing access to legal services",
     docs_url="/docs",
     redoc_url="/redoc",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Configure CORS
@@ -76,8 +87,8 @@ async def global_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={
             "detail": "Internal server error",
-            "message": str(exc) if settings.DEBUG else "An error occurred"
-        }
+            "message": str(exc) if settings.DEBUG else "An error occurred",
+        },
     )
 
 
@@ -102,7 +113,7 @@ async def root():
         "status": "online",
         "app": settings.APP_NAME,
         "version": settings.APP_VERSION,
-        "message": "Welcome to LegalHub API"
+        "message": "Welcome to LegalHub API",
     }
 
 
@@ -115,15 +126,13 @@ async def health_check():
         "version": settings.APP_VERSION,
         "debug_mode": settings.DEBUG,
         "firebase_configured": bool(settings.FIREBASE_CREDENTIALS_PATH),
-        "gemini_configured": bool(settings.GOOGLE_API_KEY)
+        "gemini_configured": bool(settings.GOOGLE_API_KEY),
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
-        "app.main:app",
-        host=settings.HOST,
-        port=settings.PORT,
-        reload=settings.DEBUG
+        "app.main:app", host=settings.HOST, port=settings.PORT, reload=settings.DEBUG
     )

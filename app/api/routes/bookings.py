@@ -50,7 +50,7 @@ async def create_booking(
 ):
     """
     Create a new lawyer consultation booking
-    
+
     - Requires authenticated user (client/user)
     - Checks lawyer availability
     - Initializes payment process if fee specified
@@ -58,19 +58,25 @@ async def create_booking(
     try:
         if not current_user:
             raise HTTPException(status_code=401, detail="Authentication required")
-        
-        logger.info(f"Creating booking: lawyer={booking_data.lawyerId}, user={current_user.get('uid')}")
-        
+
+        logger.info(
+            f"Creating booking: lawyer={booking_data.lawyerId}, user={current_user.get('uid')}"
+        )
+
         # Verify lawyer exists
-        lawyer_doc = await firebase_service.get_document(f"lawyers/{booking_data.lawyerId}")
+        lawyer_doc = await firebase_service.get_document(
+            f"lawyers/{booking_data.lawyerId}"
+        )
         if not lawyer_doc:
             raise HTTPException(status_code=404, detail="Lawyer not found")
-        
+
         # Check if client is booking for themselves (or admin)
-        if current_user.get("uid") != booking_data.lawyerId and not current_user.get("is_admin"):
+        if current_user.get("uid") != booking_data.lawyerId and not current_user.get(
+            "is_admin"
+        ):
             # This is a booking by a client for a lawyer
             pass
-        
+
         # Create booking model
         booking_id = f"booking_{uuid4().hex[:12]}"
         new_booking = Booking(
@@ -91,11 +97,11 @@ async def create_booking(
             createdAt=datetime.now(UTC),
             updatedAt=datetime.now(UTC),
         )
-        
+
         # Convert to Firestore format and save
         firestore_data = booking_model_to_firestore(new_booking)
         await firebase_service.set_document(f"bookings/{booking_id}", firestore_data)
-        
+
         logger.info(f"Booking created successfully: {booking_id}")
 
         # Notify the lawyer about the new booking (best-effort)
@@ -104,12 +110,12 @@ async def create_booking(
                 booking_data.lawyerId,
                 title="New booking received",
                 body=f"You have a new booking from {current_user.get('email') or current_user.get('uid')}",
-                data={"bookingId": booking_id}
+                data={"bookingId": booking_id},
             )
         except Exception:
             pass
         return BookingDetailSchema(**new_booking.model_dump())
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -150,7 +156,9 @@ async def my_bookings(
                 logger.warning(f"Error converting booking {doc_id}: {str(e)}")
                 continue
 
-        return BookingListSchema(bookings=bookings, total=total_count, page=page, pageSize=page_size)
+        return BookingListSchema(
+            bookings=bookings, total=total_count, page=page, pageSize=page_size
+        )
     except Exception as e:
         logger.error(f"Error in my_bookings: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to retrieve bookings")
@@ -165,26 +173,28 @@ async def get_booking(
     """Retrieve detailed information about a specific booking"""
     try:
         logger.info(f"Fetching booking: {booking_id}")
-        
+
         doc_data = await firebase_service.get_document(f"bookings/{booking_id}")
         if not doc_data:
             raise HTTPException(status_code=404, detail="Booking not found")
-        
+
         booking = firestore_booking_to_model(doc_data, booking_id)
-        
+
         # Check authorization (user, lawyer, or admin)
         if current_user:
             is_client = current_user.get("uid") == booking.userId
             is_lawyer = current_user.get("uid") == booking.lawyerId
             is_admin = current_user.get("is_admin")
-            
+
             if not (is_client or is_lawyer or is_admin):
-                raise HTTPException(status_code=403, detail="Not authorized to view this booking")
+                raise HTTPException(
+                    status_code=403, detail="Not authorized to view this booking"
+                )
         else:
             raise HTTPException(status_code=401, detail="Authentication required")
-        
+
         return BookingDetailSchema(**booking.model_dump())
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -204,7 +214,7 @@ async def list_bookings(
 ):
     """
     List bookings with optional filtering
-    
+
     - Clients see only their own bookings
     - Lawyers see bookings assigned to them
     - Admins see all bookings
@@ -212,15 +222,15 @@ async def list_bookings(
     try:
         if not current_user:
             raise HTTPException(status_code=401, detail="Authentication required")
-        
+
         logger.info(f"Listing bookings: page={page}, status={status}")
-        
+
         # Build query filters based on user role
         filters = {}
-        
+
         if status:
             filters["status"] = status
-        
+
         # Apply role-based filtering
         if not current_user.get("is_admin"):
             # Non-admin users can only see their own bookings
@@ -231,15 +241,12 @@ async def list_bookings(
                 filters["userId"] = userId
             if lawyerId:
                 filters["lawyerId"] = lawyerId
-        
+
         # Query Firestore
         docs, total_count = await firebase_service.query_collection(
-            "bookings",
-            filters=filters,
-            limit=page_size,
-            offset=(page - 1) * page_size
+            "bookings", filters=filters, limit=page_size, offset=(page - 1) * page_size
         )
-        
+
         # Convert documents to Booking models
         bookings = []
         for doc_id, doc_data in docs:
@@ -249,16 +256,16 @@ async def list_bookings(
             except Exception as e:
                 logger.warning(f"Error converting booking {doc_id}: {str(e)}")
                 continue
-        
+
         total_pages = (total_count + page_size - 1) // page_size
-        
+
         return BookingListSchema(
             bookings=bookings,
             total=total_count,
             page=page,
             pageSize=page_size,
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -299,7 +306,9 @@ async def my_bookings(
                 logger.warning(f"Error converting booking {doc_id}: {str(e)}")
                 continue
 
-        return BookingListSchema(bookings=bookings, total=total_count, page=page, pageSize=page_size)
+        return BookingListSchema(
+            bookings=bookings, total=total_count, page=page, pageSize=page_size
+        )
     except Exception as e:
         logger.error(f"Error in my_bookings: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to retrieve bookings")
@@ -316,31 +325,30 @@ async def get_user_bookings(
 ):
     """
     Get all bookings for a specific user
-    
+
     Only the user, their lawyers, or admins can view
     """
     try:
         if not current_user:
             raise HTTPException(status_code=401, detail="Authentication required")
-        
+
         # Check authorization
         if current_user.get("uid") != user_id and not current_user.get("is_admin"):
-            raise HTTPException(status_code=403, detail="Not authorized to view these bookings")
-        
+            raise HTTPException(
+                status_code=403, detail="Not authorized to view these bookings"
+            )
+
         logger.info(f"Fetching bookings for user: {user_id}")
-        
+
         # Query bookings by userId
         filters = {"userId": user_id}
         if status:
             filters["status"] = status
-        
+
         docs, total_count = await firebase_service.query_collection(
-            "bookings",
-            filters=filters,
-            limit=page_size,
-            offset=(page - 1) * page_size
+            "bookings", filters=filters, limit=page_size, offset=(page - 1) * page_size
         )
-        
+
         bookings = []
         for doc_id, doc_data in docs:
             try:
@@ -349,16 +357,16 @@ async def get_user_bookings(
             except Exception as e:
                 logger.warning(f"Error converting booking {doc_id}: {str(e)}")
                 continue
-        
+
         total_pages = (total_count + page_size - 1) // page_size
-        
+
         return BookingListSchema(
             bookings=bookings,
             total=total_count,
             page=page,
             pageSize=page_size,
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -377,31 +385,30 @@ async def get_lawyer_bookings(
 ):
     """
     Get all bookings for a specific lawyer
-    
+
     Only the lawyer or admins can view
     """
     try:
         if not current_user:
             raise HTTPException(status_code=401, detail="Authentication required")
-        
+
         # Check authorization
         if current_user.get("uid") != lawyer_id and not current_user.get("is_admin"):
-            raise HTTPException(status_code=403, detail="Not authorized to view these bookings")
-        
+            raise HTTPException(
+                status_code=403, detail="Not authorized to view these bookings"
+            )
+
         logger.info(f"Fetching bookings for lawyer: {lawyer_id}")
-        
+
         # Query bookings by lawyerId
         filters = {"lawyerId": lawyer_id}
         if status:
             filters["status"] = status
-        
+
         docs, total_count = await firebase_service.query_collection(
-            "bookings",
-            filters=filters,
-            limit=page_size,
-            offset=(page - 1) * page_size
+            "bookings", filters=filters, limit=page_size, offset=(page - 1) * page_size
         )
-        
+
         bookings = []
         for doc_id, doc_data in docs:
             try:
@@ -410,21 +417,23 @@ async def get_lawyer_bookings(
             except Exception as e:
                 logger.warning(f"Error converting booking {doc_id}: {str(e)}")
                 continue
-        
+
         total_pages = (total_count + page_size - 1) // page_size
-        
+
         return BookingListSchema(
             bookings=bookings,
             total=total_count,
             page=page,
             pageSize=page_size,
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error fetching lawyer bookings for {lawyer_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve lawyer bookings")
+        raise HTTPException(
+            status_code=500, detail="Failed to retrieve lawyer bookings"
+        )
 
 
 # PUT /api/bookings/{booking_id} - Update booking
@@ -438,20 +447,24 @@ async def update_booking(
     try:
         if not current_user:
             raise HTTPException(status_code=401, detail="Authentication required")
-        
+
         # Verify booking exists
         doc_data = await firebase_service.get_document(f"bookings/{booking_id}")
         if not doc_data:
             raise HTTPException(status_code=404, detail="Booking not found")
-        
+
         # Check authorization (client or lawyer involved)
-        if (current_user.get("uid") != doc_data.get("userId") and 
-            current_user.get("uid") != doc_data.get("lawyerId") and 
-            not current_user.get("is_admin")):
-            raise HTTPException(status_code=403, detail="Not authorized to update this booking")
-        
+        if (
+            current_user.get("uid") != doc_data.get("userId")
+            and current_user.get("uid") != doc_data.get("lawyerId")
+            and not current_user.get("is_admin")
+        ):
+            raise HTTPException(
+                status_code=403, detail="Not authorized to update this booking"
+            )
+
         logger.info(f"Updating booking: {booking_id}")
-        
+
         # Update allowed fields
         update_data = {}
         if booking_data.scheduledAt:
@@ -466,13 +479,13 @@ async def update_booking(
             update_data["notes"] = booking_data.notes
         if booking_data.meetingLink:
             update_data["meetingLink"] = booking_data.meetingLink
-        
+
         update_data["updatedAt"] = datetime.now(UTC)
-        
+
         # Merge with existing data
         doc_data.update(update_data)
         await firebase_service.update_document(f"bookings/{booking_id}", update_data)
-        
+
         booking = firestore_booking_to_model(doc_data, booking_id)
         # notify relevant parties about status update
         try:
@@ -480,19 +493,19 @@ async def update_booking(
                 booking.lawyerId,
                 title="Booking updated",
                 body=f"Booking {booking_id} updated",
-                data={"bookingId": booking_id, "status": booking.status}
+                data={"bookingId": booking_id, "status": booking.status},
             )
             await notification_service.send_to_user(
                 booking.userId,
                 title="Booking updated",
                 body=f"Your booking {booking_id} status is now {booking.status}",
-                data={"bookingId": booking_id, "status": booking.status}
+                data={"bookingId": booking_id, "status": booking.status},
             )
         except Exception:
             pass
 
         return BookingDetailSchema(**booking.model_dump())
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -509,7 +522,7 @@ async def update_booking_status(
 ):
     """
     Update booking status (confirm, cancel, complete)
-    
+
     - Lawyer can confirm bookings
     - Client or lawyer can cancel
     - System marks as completed
@@ -517,28 +530,30 @@ async def update_booking_status(
     try:
         if not current_user:
             raise HTTPException(status_code=401, detail="Authentication required")
-        
+
         # Verify booking exists
         doc_data = await firebase_service.get_document(f"bookings/{booking_id}")
         if not doc_data:
             raise HTTPException(status_code=404, detail="Booking not found")
-        
+
         # Check authorization
         is_client = current_user.get("uid") == doc_data.get("userId")
         is_lawyer = current_user.get("uid") == doc_data.get("lawyerId")
         is_admin = current_user.get("is_admin")
-        
+
         if not (is_client or is_lawyer or is_admin):
-            raise HTTPException(status_code=403, detail="Not authorized to update booking status")
-        
+            raise HTTPException(
+                status_code=403, detail="Not authorized to update booking status"
+            )
+
         logger.info(f"Updating booking status: {booking_id} -> {status_data.status}")
-        
+
         # Update document
         update_data = {
             "status": status_data.status.value,
             "updatedAt": datetime.now(UTC),
         }
-        
+
         # Handle status-specific updates
         if status_data.status == BookingStatus.CONFIRMED:
             update_data["confirmedAt"] = datetime.now(UTC)
@@ -547,14 +562,16 @@ async def update_booking_status(
         elif status_data.status == BookingStatus.CANCELLED:
             update_data["cancelledAt"] = datetime.now(UTC)
             update_data["cancellationReason"] = status_data.cancellationReason
-            update_data["cancellationBy"] = "client" if is_client else ("lawyer" if is_lawyer else "system")
-        
+            update_data["cancellationBy"] = (
+                "client" if is_client else ("lawyer" if is_lawyer else "system")
+            )
+
         if status_data.notes:
             update_data["notes"] = status_data.notes
-        
+
         doc_data.update(update_data)
         await firebase_service.update_document(f"bookings/{booking_id}", update_data)
-        
+
         booking = firestore_booking_to_model(doc_data, booking_id)
         # Notify parties about status change
         try:
@@ -562,19 +579,19 @@ async def update_booking_status(
                 booking.lawyerId,
                 title="Booking status changed",
                 body=f"Booking {booking_id} status: {booking.status}",
-                data={"bookingId": booking_id, "status": booking.status}
+                data={"bookingId": booking_id, "status": booking.status},
             )
             await notification_service.send_to_user(
                 booking.userId,
                 title="Booking status changed",
                 body=f"Your booking {booking_id} status is now {booking.status}",
-                data={"bookingId": booking_id, "status": booking.status}
+                data={"bookingId": booking_id, "status": booking.status},
             )
         except Exception:
             pass
 
         return BookingDetailSchema(**booking.model_dump())
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -584,7 +601,11 @@ async def update_booking_status(
 
 # PUT /api/bookings/{booking_id}/cancel - Cancel booking (client/lawyer/admin)
 @router.put("/{booking_id}/cancel", response_model=BookingDetailSchema)
-async def cancel_booking(booking_id: str, payload: dict, current_user: Optional[dict] = Depends(get_current_user)):
+async def cancel_booking(
+    booking_id: str,
+    payload: dict,
+    current_user: Optional[dict] = Depends(get_current_user),
+):
     """Cancel a booking (client or lawyer can cancel)."""
     try:
         if not current_user:
@@ -599,7 +620,9 @@ async def cancel_booking(booking_id: str, payload: dict, current_user: Optional[
         is_lawyer = current_user.get("uid") == doc_data.get("lawyerId")
         is_admin = current_user.get("is_admin")
         if not (is_client or is_lawyer or is_admin):
-            raise HTTPException(status_code=403, detail="Not authorized to cancel this booking")
+            raise HTTPException(
+                status_code=403, detail="Not authorized to cancel this booking"
+            )
 
         reason = payload.get("reason") if isinstance(payload, dict) else None
 
@@ -607,7 +630,9 @@ async def cancel_booking(booking_id: str, payload: dict, current_user: Optional[
             "status": "cancelled",
             "cancelledAt": datetime.now(UTC),
             "cancellationReason": reason,
-            "cancellationBy": "client" if is_client else ("lawyer" if is_lawyer else "system"),
+            "cancellationBy": (
+                "client" if is_client else ("lawyer" if is_lawyer else "system")
+            ),
             "updatedAt": datetime.now(UTC),
         }
 
@@ -632,28 +657,30 @@ async def provide_feedback(
 ):
     """
     Provide feedback and rating for a completed booking
-    
+
     - Client can rate the lawyer and the consultation
     - Lawyer can rate the client
     """
     try:
         if not current_user:
             raise HTTPException(status_code=401, detail="Authentication required")
-        
+
         # Verify booking exists
         doc_data = await firebase_service.get_document(f"bookings/{booking_id}")
         if not doc_data:
             raise HTTPException(status_code=404, detail="Booking not found")
-        
+
         # Check authorization
         is_client = current_user.get("uid") == doc_data.get("userId")
         is_lawyer = current_user.get("uid") == doc_data.get("lawyerId")
-        
+
         if not (is_client or is_lawyer):
-            raise HTTPException(status_code=403, detail="Not authorized to provide feedback")
-        
+            raise HTTPException(
+                status_code=403, detail="Not authorized to provide feedback"
+            )
+
         logger.info(f"Providing feedback for booking: {booking_id}")
-        
+
         # Update feedback fields
         update_data = {}
         if is_client:
@@ -661,9 +688,9 @@ async def provide_feedback(
             update_data["clientFeedback"] = feedback_data.feedback
         elif is_lawyer:
             update_data["lawyerRating"] = feedback_data.rating
-        
+
         update_data["updatedAt"] = datetime.now(UTC)
-        
+
         await firebase_service.update_document(f"bookings/{booking_id}", update_data)
 
         logger.info(f"Feedback provided successfully for booking: {booking_id}")
@@ -673,7 +700,7 @@ async def provide_feedback(
         if updated is None:
             return {"bookingId": booking_id, "clientRating": feedback_data.rating}
         return updated
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -688,26 +715,27 @@ async def get_booking_stats(
 ):
     """
     Get booking statistics (admin only or filtered by user)
-    
+
     Returns counts by status, payment status, and rating metrics
     """
     try:
         if not current_user:
             raise HTTPException(status_code=401, detail="Authentication required")
-        
+
         logger.info("Fetching booking statistics")
-        
+
         # Only admin can request full stats overview
         if not current_user.get("is_admin"):
-            raise HTTPException(status_code=403, detail="Admin access required to view booking statistics")
+            raise HTTPException(
+                status_code=403,
+                detail="Admin access required to view booking statistics",
+            )
 
         # Admin sees all bookings
         docs, total_count = await firebase_service.query_collection(
-            "bookings",
-            filters={},
-            limit=10000
+            "bookings", filters={}, limit=10000
         )
-        
+
         stats = {
             "totalBookings": total_count,
             "bookingsByStatus": {},
@@ -717,44 +745,48 @@ async def get_booking_stats(
             "totalRevenue": 0.0,
             "paidAmount": 0.0,
             "averageRating": None,
-            "lastUpdatedAt": datetime.now(UTC).isoformat()
+            "lastUpdatedAt": datetime.now(UTC).isoformat(),
         }
-        
+
         ratings = []
-        
+
         for doc_id, doc_data in docs:
             # Count by status
             status = doc_data.get("status", "pending")
-            stats["bookingsByStatus"][status] = stats["bookingsByStatus"].get(status, 0) + 1
-            
+            stats["bookingsByStatus"][status] = (
+                stats["bookingsByStatus"].get(status, 0) + 1
+            )
+
             # Count by payment status
             pay_status = doc_data.get("paymentStatus", "pending")
-            stats["bookingsByPaymentStatus"][pay_status] = stats["bookingsByPaymentStatus"].get(pay_status, 0) + 1
-            
+            stats["bookingsByPaymentStatus"][pay_status] = (
+                stats["bookingsByPaymentStatus"].get(pay_status, 0) + 1
+            )
+
             # Count completed and cancelled
             if status == "completed":
                 stats["completedBookings"] += 1
             elif status == "cancelled":
                 stats["cancelledBookings"] += 1
-            
+
             # Sum revenue
             fee = doc_data.get("fee", 0.0)
             stats["totalRevenue"] += fee
-            
+
             # Sum paid amount
             if pay_status == "paid":
                 stats["paidAmount"] += fee
-            
+
             # Collect ratings
             if doc_data.get("clientRating"):
                 ratings.append(doc_data["clientRating"])
-        
+
         # Calculate average rating
         if ratings:
             stats["averageRating"] = sum(ratings) / len(ratings)
-        
+
         return stats
-        
+
     except HTTPException:
         raise
     except Exception as e:

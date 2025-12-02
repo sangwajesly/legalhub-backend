@@ -1,6 +1,7 @@
 """
 LegalHub Backend Application Package
 """
+
 __version__ = "1.0.0"
 __app_name__ = "LegalHub Backend"
 
@@ -29,7 +30,7 @@ from app.schemas.auth import (
     UserUpdate,
     PasswordReset,
     PasswordChange,
-    AuthResponse
+    AuthResponse,
 )
 
 __all__ = [
@@ -41,7 +42,7 @@ __all__ = [
     "UserUpdate",
     "PasswordReset",
     "PasswordChange",
-    "AuthResponse"
+    "AuthResponse",
 ]
 
 
@@ -67,7 +68,7 @@ from app.utils.security import (
     create_token_pair,
     decode_token,
     verify_access_token,
-    verify_refresh_token
+    verify_refresh_token,
 )
 
 __all__ = [
@@ -78,7 +79,7 @@ __all__ = [
     "create_token_pair",
     "decode_token",
     "verify_access_token",
-    "verify_refresh_token"
+    "verify_refresh_token",
 ]
 
 

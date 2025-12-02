@@ -5,12 +5,14 @@ from datetime import datetime, UTC
 
 from app.services import firebase_service, gemini_service
 from app.config import settings
-from app.models.chat import ChatMessage # Import ChatMessage
+from app.models.chat import ChatMessage  # Import ChatMessage
 
 logger = logging.getLogger(__name__)
 
 
-async def _build_context(session_id: Optional[str], max_messages: int = 10) -> List[str]:
+async def _build_context(
+    session_id: Optional[str], max_messages: int = 10
+) -> List[str]:
     """Load the last N messages from Firestore and return as list of strings.
 
     This is a minimal 'LangChain-like' context builder for MVP. For Phase 2
@@ -55,10 +57,14 @@ async def create_session(user_id: str, session_id: str):
         # Use the new create_chat_session function
         await firebase_service.create_chat_session(user_id, session_id)
     except Exception as e:
-        logger.warning("Failed to create chat session %s for user %s: %s", session_id, user_id, e)
+        logger.warning(
+            "Failed to create chat session %s for user %s: %s", session_id, user_id, e
+        )
 
 
-async def generate_response(session_id: Optional[str], user_id: Optional[str], user_message: str) -> str:
+async def generate_response(
+    session_id: Optional[str], user_id: Optional[str], user_message: str
+) -> str:
     """Generate a response for a user message using the Gemini adapter.
 
     This function builds a simple contextual prompt (last N messages + system prompt),
@@ -67,14 +73,11 @@ async def generate_response(session_id: Optional[str], user_id: Optional[str], u
     # Persist user message first
     if session_id:
         user_chat_message = ChatMessage(
-            role="user",
-            text=user_message,
-            userId=user_id,
-            createdAt=datetime.now(UTC)
+            role="user", text=user_message, userId=user_id, createdAt=datetime.now(UTC)
         )
         await firebase_service.add_chat_message(session_id, user_chat_message)
 
-    context = await _build_context(session_id) # Await _build_context
+    context = await _build_context(session_id)  # Await _build_context
     prompt = _compose_prompt(context, user_message)
 
     # Call gemini adapter (mocked in DEV by default)
@@ -88,7 +91,11 @@ async def generate_response(session_id: Optional[str], user_id: Optional[str], u
     # Normalize reply
     reply = None
     if isinstance(ai_result, dict):
-        reply = ai_result.get("response") or ai_result.get("text") or str(ai_result.get("raw") or ai_result)
+        reply = (
+            ai_result.get("response")
+            or ai_result.get("text")
+            or str(ai_result.get("raw") or ai_result)
+        )
     else:
         reply = str(ai_result)
 
@@ -100,15 +107,17 @@ async def generate_response(session_id: Optional[str], user_id: Optional[str], u
         assistant_chat_message = ChatMessage(
             role="assistant",
             text=reply,
-            userId=user_id, # Associate with the user who initiated the chat
-            createdAt=datetime.now(UTC)
+            userId=user_id,  # Associate with the user who initiated the chat
+            createdAt=datetime.now(UTC),
         )
         await firebase_service.add_chat_message(session_id, assistant_chat_message)
 
     return reply
 
 
-async def generate_response_stream(session_id: Optional[str], user_id: Optional[str], user_message: str):
+async def generate_response_stream(
+    session_id: Optional[str], user_id: Optional[str], user_message: str
+):
     """Async generator that yields response chunks from the LLM adapter.
 
     This yields raw text chunks as they become available and persists the final
@@ -117,14 +126,11 @@ async def generate_response_stream(session_id: Optional[str], user_id: Optional[
     # Persist user message first
     if session_id:
         user_chat_message = ChatMessage(
-            role="user",
-            text=user_message,
-            userId=user_id,
-            createdAt=datetime.now(UTC)
+            role="user", text=user_message, userId=user_id, createdAt=datetime.now(UTC)
         )
         await firebase_service.add_chat_message(session_id, user_chat_message)
 
-    context = await _build_context(session_id) # Await _build_context
+    context = await _build_context(session_id)  # Await _build_context
     prompt = _compose_prompt(context, user_message)
 
     final_parts: List[str] = []
@@ -149,7 +155,7 @@ async def generate_response_stream(session_id: Optional[str], user_id: Optional[
         assistant_chat_message = ChatMessage(
             role="assistant",
             text=final_reply,
-            userId=user_id, # Associate with the user who initiated the chat
-            createdAt=datetime.now(UTC)
+            userId=user_id,  # Associate with the user who initiated the chat
+            createdAt=datetime.now(UTC),
         )
         await firebase_service.add_chat_message(session_id, assistant_chat_message)

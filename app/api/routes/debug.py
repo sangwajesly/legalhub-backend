@@ -15,6 +15,7 @@ async def debug_gemini(message: str, stream: Optional[bool] = False):
         raise HTTPException(status_code=404, detail="Debug routes disabled")
 
     if stream:
+
         async def event_stream():
             yield ": debug stream open\n\n"
             async for chunk in gemini_service.stream_send_message(message):

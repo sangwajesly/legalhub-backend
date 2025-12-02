@@ -26,6 +26,7 @@ def patch_firebase(monkeypatch):
             if doc_id is None:
                 # create new id
                 doc_id = f"doc_{len(self._store)+1}"
+
             class Ref:
                 def __init__(self, coll, id_):
                     self.coll = coll
@@ -70,14 +71,22 @@ def patch_firebase(monkeypatch):
 
     # monkeypatch firebase_service.db used in routes
     import app.services.firebase_service as fs_mod
+
     # replace the db client with dummy
     fs_mod.firebase_service.db = dummy_db
 
     # override auth dependency via FastAPI app overrides (like other tests)
     from app.dependencies import get_current_user, get_optional_user
     from app.main import app as _app
-    _app.dependency_overrides[get_current_user] = lambda: {"uid": "user_1", "role": "user"}
-    _app.dependency_overrides[get_optional_user] = lambda: {"uid": "user_1", "role": "user"}
+
+    _app.dependency_overrides[get_current_user] = lambda: {
+        "uid": "user_1",
+        "role": "user",
+    }
+    _app.dependency_overrides[get_optional_user] = lambda: {
+        "uid": "user_1",
+        "role": "user",
+    }
 
     yield
 
@@ -152,6 +161,7 @@ def test_list_update_delete_article():
 
 def test_like_save_and_comments(monkeypatch):
     from app.main import app as _app
+
     # app.dependency_overrides set in fixture
     client = TestClient(_app)
 
@@ -195,12 +205,22 @@ def test_like_save_and_comments(monkeypatch):
 
 def test_share_and_role_creation(monkeypatch):
     from app.main import app as _app
+
     client = TestClient(_app)
 
     # create as lawyer role
     from app.dependencies import get_current_user
-    _app.dependency_overrides[get_current_user] = lambda: {"uid": "lawyer_1", "role": "lawyer"}
-    payload = {"title": "By Lawyer", "content": "Law content", "tags": [], "published": True}
+
+    _app.dependency_overrides[get_current_user] = lambda: {
+        "uid": "lawyer_1",
+        "role": "lawyer",
+    }
+    payload = {
+        "title": "By Lawyer",
+        "content": "Law content",
+        "tags": [],
+        "published": True,
+    }
     r = client.post("/api/articles/", json=payload)
     assert r.status_code == 201
     aid = r.json()["articleId"]
@@ -218,7 +238,10 @@ def test_share_and_role_creation(monkeypatch):
         assert share_url.endswith(f"/{slug}")
 
     # share as a user
-    _app.dependency_overrides[get_current_user] = lambda: {"uid": "user_2", "role": "user"}
+    _app.dependency_overrides[get_current_user] = lambda: {
+        "uid": "user_2",
+        "role": "user",
+    }
     r3 = client.post(f"/api/articles/{aid}/share", json={"platform": "facebook"})
     assert r3.status_code == 200
     assert r3.json()["totalShares"] >= 2

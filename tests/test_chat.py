@@ -15,11 +15,15 @@ def patch_verify_and_langchain(monkeypatch):
         return f"echo: {user_message}"
 
     async def fake_create_session(user_id, session_id):
-        pass # do nothing for test
+        pass  # do nothing for test
 
     monkeypatch.setattr("app.services.auth_service.verify_id_token", fake_verify)
-    monkeypatch.setattr("app.services.langchain_service.generate_response", fake_generate_response)
-    monkeypatch.setattr("app.services.langchain_service.create_session", fake_create_session)
+    monkeypatch.setattr(
+        "app.services.langchain_service.generate_response", fake_generate_response
+    )
+    monkeypatch.setattr(
+        "app.services.langchain_service.create_session", fake_create_session
+    )
 
 
 def test_create_session_and_send_message(patch_verify_and_langchain):

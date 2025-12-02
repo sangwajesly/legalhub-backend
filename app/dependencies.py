@@ -1,6 +1,7 @@
 """
 FastAPI dependency injection for authentication and services
 """
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError
@@ -17,17 +18,17 @@ security_optional = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
-) -> User:
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> dict:
     """
     Dependency to get the current authenticated user from JWT token
-    
+
     Args:
         credentials: HTTP Authorization credentials
-        
+
     Returns:
-        Current user object
-        
+        Current user as a dictionary
+
     Raises:
         HTTPException: If token is invalid or user not found
     """
@@ -36,11 +37,11 @@ async def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
     try:
         # Extract token from credentials
         token = credentials.credentials
-        
+
         # First try to verify using our internal access-token system
         payload = None
         try:
@@ -52,15 +53,18 @@ async def get_current_user(
         user_id: str | None = None
         if payload:
             user_id = payload.get("sub")
-            
+
     except JWTError:
         raise credentials_exception
-    
+
     # If we verified an internal token, fetch the user model
     if user_id:
         user = await auth_module.auth_service.get_current_user(user_id)
         if user is None:
             raise credentials_exception
+        # Convert User object to dict if needed
+        if isinstance(user, User):
+            return user.model_dump()
         return user
 
     # Otherwise try verifying as a Firebase ID token (frontend flow)
@@ -71,7 +75,7 @@ async def get_current_user(
 
     if decoded:
         # decoded is a dict-like structure containing uid/email/name
-        # Return it directly so routes that expect a dict (tests) work
+        # Return it directly so routes that expect a dict work
         return decoded
 
     # Nothing worked
@@ -79,17 +83,17 @@ async def get_current_user(
 
 
 async def get_current_active_user(
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ) -> User:
     """
     Dependency to ensure user is active (not disabled)
-    
+
     Args:
         current_user: Current authenticated user
-        
+
     Returns:
         Active user object
-        
+
     Raises:
         HTTPException: If user is inactive
     """
@@ -99,31 +103,31 @@ async def get_current_active_user(
 
 
 async def get_optional_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_optional)
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_optional),
 ) -> Optional[User]:
     """
     Dependency to optionally get current user (doesn't raise error if not authenticated)
-    
+
     Args:
         credentials: Optional HTTP Authorization credentials
-        
+
     Returns:
         User object if authenticated, None otherwise
     """
     if not credentials:
         return None
-    
+
     try:
         token = credentials.credentials
         payload = verify_access_token(token)
         user_id: str = payload.get("sub")
-        
+
         if user_id is None:
             return None
-        
+
         user = await auth_module.auth_service.get_current_user(user_id)
         return user
-        
+
     except (JWTError, HTTPException):
         return None
 
@@ -131,59 +135,65 @@ async def get_optional_user(
 def require_role(required_role: UserRole):
     """
     Dependency factory to require specific user role
-    
+
     Args:
         required_role: The role required to access the endpoint
-        
+
     Returns:
         Dependency function
     """
+
     async def role_checker(current_user: User = Depends(get_current_user)) -> User:
         if current_user.role != required_role:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Insufficient permissions. Required role: {required_role.value}"
+                detail=f"Insufficient permissions. Required role: {required_role.value}",
             )
         return current_user
-    
+
     return role_checker
 
 
 def require_roles(*roles: UserRole):
     """
     Dependency factory to require one of multiple roles
-    
+
     Args:
         roles: Tuple of acceptable roles
-        
+
     Returns:
         Dependency function
     """
+
     async def roles_checker(current_user: User = Depends(get_current_user)) -> User:
         if current_user.role not in roles:
             roles_str = ", ".join([role.value for role in roles])
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Insufficient permissions. Required roles: {roles_str}"
+                detail=f"Insufficient permissions. Required roles: {roles_str}",
             )
         return current_user
-    
+
     return roles_checker
 
 
 # Convenience dependencies for specific roles
-async def require_lawyer(current_user: User = Depends(require_role(UserRole.LAWYER))) -> User:
+async def require_lawyer(
+    current_user: User = Depends(require_role(UserRole.LAWYER)),
+) -> User:
     """Require user to be a lawyer"""
     return current_user
 
 
 async def require_organization(
-    current_user: User = Depends(require_role(UserRole.ORGANIZATION))
+    current_user: User = Depends(require_role(UserRole.ORGANIZATION)),
 ) -> User:
     """Require user to be an organization"""
     return current_user
 
 
-async def require_admin(current_user: User = Depends(require_role(UserRole.ADMIN))) -> User:
+async def require_admin(
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+) -> User:
     """Require user to be an admin"""
     return current_user

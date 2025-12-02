@@ -22,6 +22,7 @@ from app.models.case import (
 
 class CaseCreateSchema(BaseModel):
     """Schema for creating a new case"""
+
     category: CaseCategory
     title: str = Field(..., min_length=5, max_length=200)
     description: str = Field(..., min_length=20, max_length=5000)
@@ -37,6 +38,7 @@ class CaseCreateSchema(BaseModel):
 
 class CaseUpdateSchema(BaseModel):
     """Schema for updating a case"""
+
     category: Optional[CaseCategory] = None
     title: Optional[str] = Field(None, min_length=5, max_length=200)
     description: Optional[str] = Field(None, min_length=20, max_length=5000)
@@ -48,6 +50,7 @@ class CaseUpdateSchema(BaseModel):
 
 class CaseStatusUpdateSchema(BaseModel):
     """Schema for updating case status"""
+
     status: CaseStatus
     notes: Optional[str] = Field(None, max_length=2000)
     assignedTo: Optional[str] = None
@@ -55,6 +58,7 @@ class CaseStatusUpdateSchema(BaseModel):
 
 class CaseDetailSchema(BaseModel):
     """Schema for case detail response"""
+
     caseId: str
     userId: Optional[str]
     isAnonymous: bool
@@ -78,6 +82,7 @@ class CaseDetailSchema(BaseModel):
 
 class CaseListSchema(BaseModel):
     """Schema for case list response"""
+
     cases: List[CaseDetailSchema]
     total: int
     page: int
@@ -86,6 +91,7 @@ class CaseListSchema(BaseModel):
 
 class AttachmentUploadSchema(BaseModel):
     """Schema for file attachment metadata"""
+
     fileName: str
     fileType: str
     fileSize: int

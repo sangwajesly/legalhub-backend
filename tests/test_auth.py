@@ -16,7 +16,9 @@ def patch_verify(monkeypatch):
 
 def test_register_returns_user():
     client = TestClient(app)
-    r = client.post("/api/auth/register", json={"idToken": "faketoken", "displayName": "Tester"})
+    r = client.post(
+        "/api/auth/register", json={"idToken": "faketoken", "displayName": "Tester"}
+    )
     assert r.status_code == 200
     data = r.json()
     assert data["uid"] == "testuid"

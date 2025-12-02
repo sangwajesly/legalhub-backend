@@ -23,6 +23,7 @@ def test_analytics_overview_and_cases(monkeypatch):
         def document(self, doc_id=None):
             if doc_id is None:
                 doc_id = f"id_{len(self._store)+1}"
+
             class Ref:
                 def __init__(self, coll, id_):
                     self.coll = coll
@@ -83,12 +84,16 @@ def test_analytics_overview_and_cases(monkeypatch):
     articles.document("a1").set({"title": "One"})
 
     import app.services.firebase_service as fs_mod
+
     fs_mod.firebase_service.db = dummy_db
 
     # override auth as admin
     from app.dependencies import get_current_user
     from types import SimpleNamespace
-    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(uid="admin", role="admin")
+
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+        uid="admin", role="admin"
+    )
 
     client = TestClient(app)
 

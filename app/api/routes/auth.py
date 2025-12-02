@@ -1,6 +1,7 @@
 """
 Authentication API endpoints
 """
+
 from fastapi import APIRouter, HTTPException, status, Depends
 from typing import Dict, Any
 
@@ -11,7 +12,7 @@ from app.schemas.auth import (
     TokenRefresh,
     UserResponse,
     AuthResponse,
-    PasswordReset
+    PasswordReset,
 )
 from app.services.auth_service import auth_service
 from app.dependencies import get_current_user
@@ -25,13 +26,13 @@ router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 async def register(payload: dict):
     """
     Register a new user
-    
+
     - **email**: Valid email address
     - **password**: Strong password (min 8 chars, must include uppercase, lowercase, and digit)
     - **display_name**: User's display name
     - **role**: User role (user, lawyer, organization)
     - **phone_number**: Optional phone number
-    
+
     Returns user data and authentication tokens
     """
     try:
@@ -46,12 +47,18 @@ async def register(payload: dict):
 
             decoded = auth_module.verify_id_token(id_token)
             if not decoded:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid ID token")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid ID token"
+                )
             uid = decoded.get("uid")
-            user_data = {"email": decoded.get("email"), "display_name": display_name or decoded.get("name")}
+            user_data = {
+                "email": decoded.get("email"),
+                "display_name": display_name or decoded.get("name"),
+            }
             # Create or ensure user exists in Firestore
             try:
                 from app.services.firebase_service import create_user
+
                 create_user(uid, user_data)
             except Exception:
                 pass
@@ -73,7 +80,7 @@ async def register(payload: dict):
             profile_picture=result["user"].profile_picture,
             email_verified=result["user"].email_verified,
             created_at=result["user"].created_at,
-            updated_at=result["user"].updated_at
+            updated_at=result["user"].updated_at,
         )
 
         # Convert tokens to response format
@@ -83,16 +90,13 @@ async def register(payload: dict):
         return {"user": user_response, "tokens": token_response}
 
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Registration failed: {str(e)}"
+            detail=f"Registration failed: {str(e)}",
         )
 
 
@@ -100,10 +104,10 @@ async def register(payload: dict):
 async def login(payload: dict):
     """
     Authenticate user and receive tokens
-    
+
     - **email**: User's email address
     - **password**: User's password
-    
+
     Returns user data and authentication tokens
     """
     try:
@@ -113,7 +117,9 @@ async def login(payload: dict):
 
             decoded = auth_module.verify_id_token(payload.get("idToken"))
             if not decoded:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid ID token")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid ID token"
+                )
             return {"uid": decoded.get("uid"), "email": decoded.get("email")}
 
         # Otherwise, perform server-side login flow
@@ -130,7 +136,7 @@ async def login(payload: dict):
             profile_picture=result["user"].profile_picture,
             email_verified=result["user"].email_verified,
             created_at=result["user"].created_at,
-            updated_at=result["user"].updated_at
+            updated_at=result["user"].updated_at,
         )
 
         # Convert tokens to response format
@@ -139,16 +145,13 @@ async def login(payload: dict):
         return AuthResponse(user=user_response, tokens=token_response)
 
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Login failed: {str(e)}"
+            detail=f"Login failed: {str(e)}",
         )
 
 
@@ -156,19 +159,19 @@ async def login(payload: dict):
 async def refresh_token(token_data: TokenRefresh):
     """
     Refresh access token using refresh token
-    
+
     - **refresh_token**: Valid refresh token
-    
+
     Returns new access and refresh tokens
     """
     try:
         tokens = await auth_service.refresh_access_token(token_data.refresh_token)
         return Token(**tokens)
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired refresh token"
+            detail="Invalid or expired refresh token",
         )
 
 
@@ -176,17 +179,17 @@ async def refresh_token(token_data: TokenRefresh):
 async def logout(current_user: User = Depends(get_current_user)):
     """
     Logout current user
-    
+
     Requires authentication. Client should discard tokens after this call.
     """
     try:
         await auth_service.logout_user(current_user.uid)
         return {"message": "Successfully logged out"}
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Logout failed: {str(e)}"
+            detail=f"Logout failed: {str(e)}",
         )
 
 
@@ -194,31 +197,27 @@ async def logout(current_user: User = Depends(get_current_user)):
 async def request_password_reset(reset_data: PasswordReset):
     """
     Request password reset email
-    
+
     - **email**: Email address to send reset link to
-    
+
     Always returns success (to prevent email enumeration)
     """
     try:
         await auth_service.send_password_reset_email(reset_data.email)
-        return {
-            "message": "If the email exists, a password reset link has been sent"
-        }
-        
+        return {"message": "If the email exists, a password reset link has been sent"}
+
     except Exception:
         # Always return success to prevent email enumeration
-        return {
-            "message": "If the email exists, a password reset link has been sent"
-        }
+        return {"message": "If the email exists, a password reset link has been sent"}
 
 
 @router.post("/verify-email/{user_id}")
 async def verify_email(user_id: str):
     """
     Verify user's email address
-    
+
     - **user_id**: User's unique identifier
-    
+
     This would typically be called from an email verification link
     """
     try:
@@ -228,13 +227,13 @@ async def verify_email(user_id: str):
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email verification failed"
+                detail="Email verification failed",
             )
-            
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Verification failed: {str(e)}"
+            detail=f"Verification failed: {str(e)}",
         )
 
 
@@ -242,7 +241,7 @@ async def verify_email(user_id: str):
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
     """
     Get current authenticated user information
-    
+
     Requires authentication.
     """
     return UserResponse(
@@ -254,5 +253,5 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
         profile_picture=current_user.profile_picture,
         email_verified=current_user.email_verified,
         created_at=current_user.created_at,
-        updated_at=current_user.updated_at
+        updated_at=current_user.updated_at,
     )

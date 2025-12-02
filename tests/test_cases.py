@@ -9,7 +9,12 @@ def patch_auth_and_firebase(monkeypatch):
     # Fake auth verification
     def fake_verify(token):
         if token == "faketoken":
-            return {"uid": "testuid", "email": "test@example.com", "name": "Test User", "is_admin": True}
+            return {
+                "uid": "testuid",
+                "email": "test@example.com",
+                "name": "Test User",
+                "is_admin": True,
+            }
         return None
 
     monkeypatch.setattr("app.services.auth_service.verify_id_token", fake_verify)
@@ -47,18 +52,32 @@ def patch_auth_and_firebase(monkeypatch):
                     docs.append((doc_id, v))
         total = len(docs)
         # apply offset/limit
-        docs_page = docs[offset: offset + limit]
+        docs_page = docs[offset : offset + limit]
         return docs_page, total
 
     async def fake_upload_file(path: str, content: bytes, content_type: str):
         # return a fake download URL
         return f"https://storage.fake/{path}"
 
-    monkeypatch.setattr("app.services.firebase_service.set_document", fake_set_document, raising=False)
-    monkeypatch.setattr("app.services.firebase_service.get_document", fake_get_document, raising=False)
-    monkeypatch.setattr("app.services.firebase_service.update_document", fake_update_document, raising=False)
-    monkeypatch.setattr("app.services.firebase_service.query_collection", fake_query_collection, raising=False)
-    monkeypatch.setattr("app.services.firebase_service.upload_file", fake_upload_file, raising=False)
+    monkeypatch.setattr(
+        "app.services.firebase_service.set_document", fake_set_document, raising=False
+    )
+    monkeypatch.setattr(
+        "app.services.firebase_service.get_document", fake_get_document, raising=False
+    )
+    monkeypatch.setattr(
+        "app.services.firebase_service.update_document",
+        fake_update_document,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "app.services.firebase_service.query_collection",
+        fake_query_collection,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "app.services.firebase_service.upload_file", fake_upload_file, raising=False
+    )
 
 
 def test_create_case_anonymous(patch_auth_and_firebase):
@@ -72,7 +91,7 @@ def test_create_case_anonymous(patch_auth_and_firebase):
         "email": "anon@example.com",
         "contactName": "Anon Reporter",
         "priority": "high",
-        "tags": ["test"]
+        "tags": ["test"],
     }
 
     r = client.post("/api/cases/", headers=headers, json=payload)
@@ -153,7 +172,7 @@ def test_upload_attachment_and_attachment_present(patch_auth_and_firebase):
     assert g.status_code == 200
     case_body = g.json()
     assert "attachments" in case_body
-    assert any(a.get("fileName") == "evidence.txt" for a in case_body["attachments"]) 
+    assert any(a.get("fileName") == "evidence.txt" for a in case_body["attachments"])
 
 
 def test_update_case_status_authorized(patch_auth_and_firebase):
@@ -174,7 +193,9 @@ def test_update_case_status_authorized(patch_auth_and_firebase):
 
     # Update status to in_progress
     status_payload = {"status": "in_progress", "notes": "Taking the case"}
-    up = client.put(f"/api/cases/{case_id}/status", headers=headers, json=status_payload)
+    up = client.put(
+        f"/api/cases/{case_id}/status", headers=headers, json=status_payload
+    )
     assert up.status_code == 200
     assert up.json()["status"] == "in_progress"
 
@@ -210,7 +231,7 @@ def test_anonymous_creation_validation(patch_auth_and_firebase):
         "category": "criminal",
         "title": "Bad Anonymous",
         "description": "Too short? no — long enough to pass length checks.",
-        "isAnonymous": True
+        "isAnonymous": True,
     }
     r = client.post("/api/cases/", headers=headers, json=payload)
     assert r.status_code == 400

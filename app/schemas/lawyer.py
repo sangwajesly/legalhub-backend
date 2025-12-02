@@ -1,6 +1,7 @@
 """
 Schemas for lawyer profiles and responses
 """
+
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
 from datetime import datetime
@@ -38,7 +39,7 @@ class LawyerProfile(BaseModel):
                 "languages": ["en", "fr"],
                 "verified": True,
                 "rating": 4.8,
-                "num_reviews": 23
+                "num_reviews": 23,
             }
         }
     )
