@@ -12,6 +12,8 @@ from app.models.user import User, UserRole
 
 # Security scheme for JWT Bearer tokens
 security = HTTPBearer()
+# optional bearer that doesn't raise when missing
+security_optional = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
@@ -97,7 +99,7 @@ async def get_current_active_user(
 
 
 async def get_optional_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_optional)
 ) -> Optional[User]:
     """
     Dependency to optionally get current user (doesn't raise error if not authenticated)

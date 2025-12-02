@@ -17,6 +17,29 @@ def utc_now():
     return datetime.now(timezone.utc)
 
 
+def _parse_datetime(value):
+    """Parse a datetime-like value into a timezone-aware datetime.
+
+    - If value is already a datetime, return it.
+    - If value is a string, attempt fromisoformat and return.
+    - If value is None or parsing fails, return current UTC time.
+    """
+    if value is None:
+        return utc_now()
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value)
+        except Exception:
+            try:
+                # fallback: let pydantic attempt parsing if needed
+                return datetime.fromisoformat(value)
+            except Exception:
+                return utc_now()
+    return utc_now()
+
+
 class BookingStatus(str, Enum):
     """Booking status enumeration"""
     PENDING = "pending"
@@ -116,7 +139,7 @@ class Booking(BookingBase):
     )
     
     # Payment method and transaction details
-    paymentMethod: Optional[Literal["credit_card", "debit_card", "bank_transfer", "wallet"]] = Field(
+    paymentMethod: Optional[Literal["credit_card", "debit_card", "bank_transfer", "wallet", "mobile_money"]] = Field(
         default=None,
         description="Payment method used"
     )
@@ -236,7 +259,7 @@ class BookingCreateRequest(BookingBase):
         description="Consultation fee"
     )
     
-    paymentMethod: Optional[Literal["credit_card", "debit_card", "bank_transfer", "wallet"]] = Field(
+    paymentMethod: Optional[Literal["credit_card", "debit_card", "bank_transfer", "wallet", "mobile_money"]] = Field(
         default=None,
         description="Payment method"
     )
@@ -386,7 +409,7 @@ def firestore_booking_to_model(doc_data: dict, bookingId: str) -> Booking:
         lawyerId=doc_data.get("lawyerId"),
         userId=doc_data.get("userId"),
         consultationType=doc_data.get("consultationType", "call"),
-        scheduledAt=doc_data.get("scheduledAt"),
+        scheduledAt=_parse_datetime(doc_data.get("scheduledAt")),
         duration=doc_data.get("duration", 30),
         location=doc_data.get("location"),
         description=doc_data.get("description"),
@@ -403,11 +426,11 @@ def firestore_booking_to_model(doc_data: dict, bookingId: str) -> Booking:
         clientRating=doc_data.get("clientRating"),
         clientFeedback=doc_data.get("clientFeedback"),
         lawyerRating=doc_data.get("lawyerRating"),
-        createdAt=doc_data.get("createdAt"),
-        updatedAt=doc_data.get("updatedAt"),
-        confirmedAt=doc_data.get("confirmedAt"),
-        completedAt=doc_data.get("completedAt"),
-        cancelledAt=doc_data.get("cancelledAt"),
+        createdAt=_parse_datetime(doc_data.get("createdAt")),
+        updatedAt=_parse_datetime(doc_data.get("updatedAt")),
+        confirmedAt=_parse_datetime(doc_data.get("confirmedAt")) if doc_data.get("confirmedAt") else None,
+        completedAt=_parse_datetime(doc_data.get("completedAt")) if doc_data.get("completedAt") else None,
+        cancelledAt=_parse_datetime(doc_data.get("cancelledAt")) if doc_data.get("cancelledAt") else None,
         cancellationReason=doc_data.get("cancellationReason"),
         cancellationBy=doc_data.get("cancellationBy"),
         clientNotified=doc_data.get("clientNotified", False),

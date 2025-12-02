@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 import time
 
 from app.config import settings
-from app.api.routes import auth, users, chat, cases, bookings
+from app.api.routes import auth, users, chat, cases, articles, bookings, lawyers, analytics
 from app.api.routes import debug
 
 
@@ -80,7 +80,10 @@ app.include_router(auth.router)
 app.include_router(chat.router)
 app.include_router(users.router)
 app.include_router(cases.router)
+app.include_router(articles.router)
 app.include_router(bookings.router)
+app.include_router(lawyers.router)
+app.include_router(analytics.router)
 if settings.DEBUG:
     app.include_router(debug.router)
 
