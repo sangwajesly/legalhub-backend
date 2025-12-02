@@ -298,6 +298,64 @@ DEBUG_MOCK_GEMINI=false
 
 - The MVP uses synchronous (non-streaming) Gemini calls. Streamed responses and LangChain LLM wrappers can be implemented in Phase 2.
 
+**RAG, PDF Ingestion & Web Scraper**
+
+- **Overview:** The project includes a Retrieval-Augmented Generation (RAG) pipeline used to index legal documents and support context-aware LLM responses. The pipeline components are:
+  - PDF/text ingestion using `app/services/pdf_processor.py` and the scripts under `scripts/`
+  - Embeddings using `sentence-transformers` (default: `all-MiniLM-L6-v2`)
+  - Vector store using ChromaDB (`chromadb` client)
+  - Retriever + LangChain prompt composition in `app/services/rag_service.py` and `app/services/langchain_service.py`
+  - Web scraping and scheduled ingestion via `app/services/web_scraper.py` and `app/services/rag_scheduler.py`
+
+- **Key files:**
+  - `scripts/batch_load_pdfs.py`, `scripts/load_pdfs.py` — batch PDF ingestion utilities
+  - `app/services/pdf_processor.py` — PDF extraction helpers
+  - `app/services/rag_service.py` — add/search documents in Chroma collection
+  - `app/services/web_scraper.py`, `app/services/web_scraper_service.py` — scraping logic
+  - `app/services/rag_scheduler.py`, `app/services/rag_scheduler_service.py` — APScheduler integration (72-hour interval by default)
+  - `app/api/routes/rag_scraper.py` — API endpoints to manage scraper and scheduler
+
+- **Environment variables (examples):**
+  - `EMBEDDING_MODEL=all-MiniLM-L6-v2`
+  - `CHROMA_PERSIST_DIR=./.chromadb` (set to a writable path for persistent storage)
+  - `RAG_COLLECTION_NAME=legalhub_docs`
+  - `SCRAPER_INTERVAL_HOURS=72` (scheduler interval)
+
+- **Quick commands:**
+
+```bash
+# Run the RAG system tests (PDF ingestion → embeddings → retrieval → LLM)
+python test_rag_system.py
+
+# Run the scraper & scheduler tests
+python test_rag_scraper.py
+```
+
+- **PDF ingestion (batch):**
+  - Place PDF files under `data/pdfs/` (create the folder if missing). Each PDF will be split and converted to documents with metadata.
+  - Run the batch loader:
+
+```bash
+python scripts/batch_load_pdfs.py --path data/pdfs
+```
+
+- **Web Scraper & Scheduler:**
+  - Sources and scraping configuration live in the scraper service. Use the API routes under `/api/rag/scraper` (see `app/api/routes/rag_scraper.py`) to add sources, check scheduler status, or manually trigger a run.
+  - Scheduler uses APScheduler with an interval trigger; change `SCRAPER_INTERVAL_HOURS` to modify cadence.
+
+- **Dependencies (additional):**
+  - `chromadb` — ChromaDB Python client
+  - `sentence-transformers` — embedding models
+  - `pypdf` — PDF parsing (`PdfReader`)
+  - `apscheduler` — scheduler for periodic ingestion
+
+- **Guides:** See the repository docs for detailed guides:
+  - `PDF_MANAGEMENT_GUIDE.md` — PDF ingestion and best practices
+  - `RAG_WEB_SCRAPER_GUIDE.md` — scraper setup and source configuration
+  - `RAG_SCRAPER_GUIDE.md` — scheduler and API usage examples
+
+_Notes:_ Ensure `CHROMA_PERSIST_DIR` is set if you want persistent vectors across restarts. In tests we default to in-memory stores unless configured otherwise.
+
 ## Tests
 
 Tests mock Firebase ID token verification and the Gemini adapter so they run locally without external services.
@@ -307,6 +365,8 @@ Run tests:
 ```bash
 pytest -q
 ```
+
+For the RAG-specific system tests use the dedicated scripts above (`test_rag_system.py`, `test_rag_scraper.py`). These tests use mock modes for Gemini and Firebase by default; set environment variables (see `DEV_MODE` / `DEBUG_MOCK_GEMINI`) to run against real services.
 
 ## Dev tips
 
