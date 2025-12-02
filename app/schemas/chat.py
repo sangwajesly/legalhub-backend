@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -12,9 +12,18 @@ class MessageRequest(BaseModel):
     message: str
 
 
+class RetrievedDocument(BaseModel):
+    """Schema for a retrieved document from RAG"""
+    id: str
+    content: str
+    score: float
+    metadata: Dict[str, Any] = {}
+
+
 class MessageResponse(BaseModel):
     reply: str
     sessionId: str
+    retrieved_documents: Optional[List[RetrievedDocument]] = None
 
 
 class ChatMessage(BaseModel):

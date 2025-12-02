@@ -9,6 +9,17 @@ from app.models.chat import ChatMessage  # Import ChatMessage
 
 logger = logging.getLogger(__name__)
 
+# Lazy import RAG service to avoid circular imports
+_rag_service = None
+
+def get_rag_service():
+    """Get or initialize the RAG service."""
+    global _rag_service
+    if _rag_service is None:
+        from app.services.rag_service import rag_service
+        _rag_service = rag_service
+    return _rag_service
+
 
 async def _build_context(
     session_id: Optional[str], max_messages: int = 10
@@ -159,3 +170,60 @@ async def generate_response_stream(
             createdAt=datetime.now(UTC),
         )
         await firebase_service.add_chat_message(session_id, assistant_chat_message)
+
+
+# ============================================
+# RAG-ENHANCED ENDPOINTS
+# ============================================
+
+async def generate_rag_response(
+    session_id: Optional[str],
+    user_id: Optional[str],
+    user_message: str,
+    use_rag: bool = True,
+    top_k: int = 3
+) -> tuple:
+    """
+    Generate a response with RAG augmentation.
+    
+    Args:
+        session_id: Chat session ID
+        user_id: User ID
+        user_message: User's message
+        use_rag: Whether to use RAG enhancement
+        top_k: Number of top documents to retrieve
+        
+    Returns:
+        Tuple of (response_text, retrieved_documents)
+    """
+    rag_service = get_rag_service()
+    return await rag_service.generate_rag_response(
+        session_id=session_id,
+        user_id=user_id,
+        user_message=user_message,
+        use_rag=use_rag,
+        top_k=top_k
+    )
+
+
+async def generate_rag_response_stream(
+    session_id: Optional[str],
+    user_id: Optional[str],
+    user_message: str,
+    use_rag: bool = True,
+    top_k: int = 3
+):
+    """
+    Stream a RAG-augmented response.
+    
+    Yields response chunks as they become available.
+    """
+    rag_service = get_rag_service()
+    async for chunk in rag_service.generate_rag_response_stream(
+        session_id=session_id,
+        user_id=user_id,
+        user_message=user_message,
+        use_rag=use_rag,
+        top_k=top_k
+    ):
+        yield chunk

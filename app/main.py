@@ -18,6 +18,7 @@ from app.api.routes import (
     bookings,
     lawyers,
     analytics,
+    rag,
 )
 from app.api.routes import debug
 
@@ -101,6 +102,7 @@ app.include_router(articles.router)
 app.include_router(bookings.router)
 app.include_router(lawyers.router)
 app.include_router(analytics.router)
+app.include_router(rag.router)
 if settings.DEBUG:
     app.include_router(debug.router)
 
