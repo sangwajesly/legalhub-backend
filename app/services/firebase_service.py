@@ -4,7 +4,7 @@ Firebase service for Firestore and Authentication operations
 import firebase_admin
 from firebase_admin import credentials, firestore, auth as firebase_auth
 from typing import Optional, Dict, Any, List
-from datetime import datetime, UTC
+from datetime import datetime, UTC, timedelta
 import os
 
 from app.config import settings
@@ -379,6 +379,39 @@ class FirebaseService:
         
         # Delete the session document itself
         session_ref.delete()
+
+    # ============================================
+    # STORAGE HELPERS
+    # ============================================
+
+    async def upload_file(self, path: str, content: bytes, content_type: str) -> str:
+        """Upload bytes to Firebase Storage and return a usable URL.
+
+        Tries to make the object public and return `public_url`. If signing is
+        available will attempt to generate a signed URL, otherwise returns a
+        gs:// path as a fallback.
+        """
+        try:
+            # import here to avoid module-level dependency at import time
+            from firebase_admin import storage as fb_storage
+
+            bucket = fb_storage.bucket()
+            blob = bucket.blob(path)
+            # upload_from_string accepts bytes
+            blob.upload_from_string(content, content_type=content_type)
+            try:
+                blob.make_public()
+                return blob.public_url
+            except Exception:
+                try:
+                    # Try signed url (may require google-cloud-storage credentials)
+                    url = blob.generate_signed_url(expiration=timedelta(hours=1))
+                    return url
+                except Exception:
+                    return f"gs://{bucket.name}/{path}"
+        except Exception as e:
+            # bubble up or return a fallback
+            raise Exception(f"Storage upload failed: {str(e)}")
 
 
 # Global Firebase service instance

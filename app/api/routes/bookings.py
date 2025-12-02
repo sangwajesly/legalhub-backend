@@ -20,6 +20,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.dependencies import get_current_user
 from app.services import firebase_service
+from app.services.notification_service import notification_service
 from app.models.booking import (
     Booking,
     BookingStatus,
@@ -96,6 +97,17 @@ async def create_booking(
         await firebase_service.set_document(f"bookings/{booking_id}", firestore_data)
         
         logger.info(f"Booking created successfully: {booking_id}")
+
+        # Notify the lawyer about the new booking (best-effort)
+        try:
+            await notification_service.send_to_user(
+                booking_data.lawyerId,
+                title="New booking received",
+                body=f"You have a new booking from {current_user.get('email') or current_user.get('uid')}",
+                data={"bookingId": booking_id}
+            )
+        except Exception:
+            pass
         return BookingDetailSchema(**new_booking.model_dump())
         
     except HTTPException:
@@ -462,6 +474,23 @@ async def update_booking(
         await firebase_service.update_document(f"bookings/{booking_id}", update_data)
         
         booking = firestore_booking_to_model(doc_data, booking_id)
+        # notify relevant parties about status update
+        try:
+            await notification_service.send_to_user(
+                booking.lawyerId,
+                title="Booking updated",
+                body=f"Booking {booking_id} updated",
+                data={"bookingId": booking_id, "status": booking.status}
+            )
+            await notification_service.send_to_user(
+                booking.userId,
+                title="Booking updated",
+                body=f"Your booking {booking_id} status is now {booking.status}",
+                data={"bookingId": booking_id, "status": booking.status}
+            )
+        except Exception:
+            pass
+
         return BookingDetailSchema(**booking.model_dump())
         
     except HTTPException:
@@ -527,6 +556,23 @@ async def update_booking_status(
         await firebase_service.update_document(f"bookings/{booking_id}", update_data)
         
         booking = firestore_booking_to_model(doc_data, booking_id)
+        # Notify parties about status change
+        try:
+            await notification_service.send_to_user(
+                booking.lawyerId,
+                title="Booking status changed",
+                body=f"Booking {booking_id} status: {booking.status}",
+                data={"bookingId": booking_id, "status": booking.status}
+            )
+            await notification_service.send_to_user(
+                booking.userId,
+                title="Booking status changed",
+                body=f"Your booking {booking_id} status is now {booking.status}",
+                data={"bookingId": booking_id, "status": booking.status}
+            )
+        except Exception:
+            pass
+
         return BookingDetailSchema(**booking.model_dump())
         
     except HTTPException:

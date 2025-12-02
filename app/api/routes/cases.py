@@ -20,6 +20,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 
 from app.dependencies import get_current_user
 from app.services import firebase_service
+from app.services.notification_service import notification_service
 from app.models.case import (
     Case,
     CaseStatus,
@@ -290,6 +291,26 @@ async def update_case(
         await firebase_service.update_document(f"cases/{case_id}", update_data)
         
         case = firestore_case_to_model(doc_data, case_id)
+        # Notify case owner and assigned party about status change (best-effort)
+        try:
+            owner = doc_data.get("userId")
+            if owner:
+                await notification_service.send_to_user(
+                    owner,
+                    title="Case status updated",
+                    body=f"Your case {case_id} status is now {case.status}",
+                    data={"caseId": case_id, "status": case.status}
+                )
+            assigned = doc_data.get("assignedTo")
+            if assigned:
+                await notification_service.send_to_user(
+                    assigned,
+                    title="Case assigned/updated",
+                    body=f"Case {case_id} assigned or updated: {case.status}",
+                    data={"caseId": case_id, "status": case.status}
+                )
+        except Exception:
+            pass
         return CaseDetailSchema(**case.model_dump())
         
     except HTTPException:
