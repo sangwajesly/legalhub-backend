@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     DEV_MODE: bool = False
 
     # Google Gemini API
-    GOOGLE_API_KEY: str = "AIzaSyB8KeaOwmAt5NIN17hDwNrXOpZRwFBvgz8"
+    GOOGLE_API_KEY: str = "AIzaSyC5mJNpSkdmp7jZBp2NwWjJjzzZILIkjjk"
     GEMINI_MODEL: str = "gemini-2.5-flash"
     GEMINI_API_URL: str = (
         "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # CORS Configuration
-    ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
+    ALLOWED_ORIGINS: str = "http://localhost:3001,http://localhost:5173"
 
     @property
     def allowed_origins_list(self) -> List[str]:

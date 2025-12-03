@@ -18,157 +18,15 @@ from typing import List, Optional
 
 from app.config import settings
 
-try:
-    from langchain_community.document_loaders import PyPDFLoader
-except ImportError:
-    from langchain.document_loaders import PyPDFLoader
 
-try:
-    from langchain_text_splitters import RecursiveCharacterTextSplitter
-except ImportError:
-    from langchain.text_splitter import RecursiveCharacterTextSplitter
-
-# Embedding adapter: try to import the google-genai LangChain integration with fallbacks
-try:
-    # Preferred integration provided by `langchain-google-genai`
-    from langchain_google_genai import GoogleGenAIEmbeddings  # type: ignore
-except Exception:
-    try:
-        # Fallback to older packaging
-        from langchain.embeddings import GoogleGenAIEmbeddings  # type: ignore
-    except Exception:
-        GoogleGenAIEmbeddings = None  # type: ignore
-
-try:
-    import chromadb
-    from chromadb.config import Settings as ChromaSettings
-except Exception:  # pragma: no cover - import-time fallback
-    chromadb = None  # type: ignore
-    ChromaSettings = None  # type: ignore
 
 logger = logging.getLogger(__name__)
 
 
-_chroma_client = None
 
 
-def _get_chroma_client():
-    """Lazy singleton Chroma client using the configured `CHROMADB_PATH`."""
-    global _chroma_client
-    if _chroma_client is not None:
-        return _chroma_client
-
-    if chromadb is None or ChromaSettings is None:
-        raise RuntimeError("chromadb is not installed. Please add 'chromadb' to requirements.")
-
-    settings_obj = ChromaSettings(persist_directory=settings.CHROMADB_PATH)
-    client = chromadb.Client(settings=settings_obj)
-    _chroma_client = client
-    return _chroma_client
 
 
-async def ingest_pdf(
-    pdf_path: str,
-    collection_name: str,
-    chunk_size: int = 1000,
-    chunk_overlap: int = 200,
-    metadata: Optional[dict] = None,
-):
-    """
-    Ingest a PDF file into a persistent ChromaDB collection.
-
-    Args:
-        pdf_path: Local path to the PDF file to ingest.
-        collection_name: Name of the ChromaDB collection to store vectors in.
-        chunk_size: Size of each text chunk (characters).
-        chunk_overlap: Overlap between adjacent chunks (characters).
-        metadata: Optional metadata to attach to each chunk.
-
-    Returns:
-        dict: summary with `n_chunks` and `collection` name.
-    """
-
-    # 1) Load PDF (blocking) in a thread
-    def _load_pdf(path: str):
-        loader = PyPDFLoader(path)
-        docs = loader.load()
-        return docs
-
-    logger.info("Loading PDF: %s", pdf_path)
-    docs = await asyncio.to_thread(_load_pdf, pdf_path)
-
-    # 2) Split into chunks
-    splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
-
-    def _split(docs):
-        return splitter.split_documents(docs)
-
-    logger.info("Splitting into chunks: size=%s overlap=%s", chunk_size, chunk_overlap)
-    chunks = await asyncio.to_thread(_split, docs)
-
-    texts = [d.page_content for d in chunks]
-    metadatas = [dict(d.metadata or {}) for d in chunks]
-    if metadata:
-        # merge provided metadata into each chunk's metadata
-        for m in metadatas:
-            m.update(metadata)
-
-    n_chunks = len(texts)
-    logger.info("Generated %d chunks from PDF", n_chunks)
-
-    # 3) Create embeddings
-    if GoogleGenAIEmbeddings is None:
-        raise RuntimeError(
-            "GoogleGenAIEmbeddings not available. Ensure 'langchain-google-genai' is installed."
-        )
-
-    def _make_embeddings(texts: List[str]):
-        # instantiate with API key from config if available
-        kwargs = {}
-        if getattr(settings, "GOOGLE_API_KEY", None):
-            kwargs["api_key"] = settings.GOOGLE_API_KEY
-        emb = GoogleGenAIEmbeddings(**kwargs)
-        # embedding method name depends on integration; try common names
-        if hasattr(emb, "embed_documents"):
-            return emb.embed_documents(texts)
-        if hasattr(emb, "embed"):
-            # some adapters use embed
-            return [emb.embed(t) for t in texts]
-        raise RuntimeError("Embedding adapter has no known embed method")
-
-    logger.info("Generating embeddings for %d chunks", n_chunks)
-    embeddings = await asyncio.to_thread(_make_embeddings, texts)
-
-    # 4) Save to Chroma
-    client = _get_chroma_client()
-    collection = client.get_collection(name=collection_name)
-
-    # If collection doesn't exist, create it
-    if collection is None:
-        collection = client.create_collection(name=collection_name)
-
-    # Prepare ids
-    ids = [f"{collection_name}-{i}" for i in range(n_chunks)]
-
-    # Upsert into collection (the API differs between chroma versions; attempt common methods)
-    try:
-        collection.add(ids=ids, documents=texts, metadatas=metadatas, embeddings=embeddings)
-    except Exception:
-        # older/newer client might use upsert
-        collection.upsert(ids=ids, documents=texts, metadatas=metadatas, embeddings=embeddings)
-
-    # persist to disk
-    try:
-        client.persist()
-    except Exception:
-        # some clients persist on the collection
-        try:
-            collection.persist()
-        except Exception:
-            logger.debug("Chroma client/collection has no explicit persist method; continuing")
-
-    logger.info("Ingestion complete: collection=%s chunks=%d", collection_name, n_chunks)
-    return {"collection": collection_name, "n_chunks": n_chunks}
 
 
 __all__ = ["ingest_pdf"]

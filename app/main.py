@@ -46,6 +46,9 @@ async def lifespan(app: FastAPI):
     print("Firebase MCP Client initialized")
 
     # Initialize RAG Scheduler
+    # Note: If running for the first time, the SentenceTransformer model used by the RAG system
+    # (e.g., 'all-MiniLM-L6-v2') will be downloaded. This requires internet access.
+    # Ensure Firebase and Gemini services are properly configured as well.
     await initialize_scheduler()
     print("RAG Scheduler initialized")
 
@@ -66,6 +69,7 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan,
 )
+
 
 # Configure CORS
 app.add_middleware(

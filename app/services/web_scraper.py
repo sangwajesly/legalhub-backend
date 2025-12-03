@@ -153,7 +153,7 @@ class GovernmentWebsiteSources:
         "International Court of Justice": "https://www.icj-cij.org/",
         
         # Government websites (generic - user can customize)
-        "Legal Information": "https://www.google.com/search?q=legal+documents",
+
         
         # Note: Add specific country government sites here
         # Example: "Cameroon Justice": "https://www.justice.gov.cm/",
