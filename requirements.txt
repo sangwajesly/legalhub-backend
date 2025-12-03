@@ -102,3 +102,4 @@ beautifulsoup4
 chromadb
 langchain-google-genai
 lxml
+email-validator
