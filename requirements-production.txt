@@ -1,0 +1,91 @@
+# Core FastAPI and server
+fastapi==0.121.3
+uvicorn==0.38.0
+starlette==0.50.0
+pydantic==2.12.4
+pydantic-settings==2.12.0
+pydantic_core==2.41.5
+email-validator
+
+# Auth and security
+python-jose==3.5.0
+PyJWT==2.10.1
+passlib==1.7.4
+bcrypt==5.0.0
+cryptography==46.0.3
+
+# Environment and config
+python-dotenv==1.2.1
+python-multipart==0.0.20
+
+# Firebase
+firebase_admin==7.1.0
+firebase==4.0.1
+
+# Database
+SQLAlchemy==2.0.44
+
+# HTTP and requests
+requests==2.32.5
+httpx==0.28.1
+aiofiles==25.1.0
+
+# Google Cloud (required by Firebase)
+google-auth==2.43.0
+google-api-python-client==2.187.0
+google-cloud-firestore==2.21.0
+google-cloud-storage==3.6.0
+google-api-core==2.28.1
+google-auth-httplib2==0.2.1
+google-cloud-core==2.5.0
+google-crc32c==1.7.1
+google-resumable-media==2.8.0
+googleapis-common-protos==1.72.0
+grpcio==1.76.0
+grpcio-status==1.71.2
+httplib2==0.31.0
+proto-plus==1.26.1
+protobuf==5.29.5
+pyasn1==0.6.1
+pyasn1_modules==0.4.2
+uritemplate==4.2.0
+
+# Utilities
+PyYAML==6.0.3
+typing_extensions==4.15.0
+annotated-types==0.7.0
+anyio==4.11.0
+certifi==2025.11.12
+charset-normalizer==3.4.4
+click==8.3.1
+idna==3.11
+orjson==3.11.4
+packaging==25.0
+sniffio==1.3.1
+tenacity==9.1.2
+urllib3==2.5.0
+h11==0.16.0
+httpcore==1.0.9
+
+# JSON and data handling
+jsonpatch==1.33
+jsonpointer==3.0.0
+
+# Async support
+greenlet==3.2.4
+
+# Crypto
+ecdsa==0.19.1
+pycparser==2.23
+cffi==2.0.0
+
+# File handling
+python-multipart==0.0.20
+
+# Other dependencies
+iniconfig==2.3.0
+six==1.17.0
+requests-toolbelt==1.0.0
+rsa==4.9.1
+cachetools==6.2.2
+CacheControl==0.14.4

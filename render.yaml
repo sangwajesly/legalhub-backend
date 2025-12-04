@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: legalhub-backend
+    env: python
+    region: oregon
+    plan: starter
+    buildCommand: |
+      # Upgrade pip and tools
+      pip install --upgrade pip setuptools wheel
+      
+      # Install production dependencies
+      # Using --no-cache-dir to reduce memory usage
+      pip install --no-cache-dir -r requirements-production.txt
+      
+      # Optional: Uncomment if you have AI features and upgraded Render plan
+      # pip install --no-cache-dir -r requirements-ai.txt
+    
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.0
+      - key: PORT
+        value: 8001
+      - key: PYTHONUNBUFFERED
+        value: 1
+      # Add your environment variables from Render dashboard:
+      # - DATABASE_URL
+      # - FIREBASE_CREDENTIALS
+      # - GOOGLE_API_KEY
+      # - JWT_SECRET_KEY
+      # etc.
+    
+    healthCheckPath: /health
+    
+    autoDeploy: true
