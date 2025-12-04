@@ -3,7 +3,7 @@ Configuration settings for LegalHub Backend
 """
 
 from pydantic_settings import BaseSettings
-from typing import List
+from typing import List, Optional
 
 
 class Settings(BaseSettings):
@@ -17,7 +17,11 @@ class Settings(BaseSettings):
     PORT: int = 8001
 
     # Firebase Configuration
-    FIREBASE_CREDENTIALS_PATH: str = "./firebase-credentials.json"
+    # Option 1: Path to credentials file (for local development)
+    FIREBASE_CREDENTIALS_PATH: Optional[str] = None
+    # Option 2: JSON string of credentials (for production/Render)
+    FIREBASE_CREDENTIALS_JSON: Optional[str] = None
+    
     FIREBASE_STORAGE_BUCKET: str = ""
     FIREBASE_EMULATOR_HOST: str = ""
     DEV_MODE: bool = False
