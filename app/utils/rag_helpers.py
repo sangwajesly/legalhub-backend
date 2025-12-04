@@ -10,7 +10,7 @@ This module provides convenient functions to:
 import asyncio
 import logging
 from typing import List, Dict, Optional, Any
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 from app.services.rag_service import rag_service
 
@@ -55,7 +55,7 @@ async def add_article_to_rag(
             "author": author or "unknown",
             "category": category or "general",
             "url": url or "",
-            "added_at": datetime.now(UTC).isoformat(),
+            "added_at": datetime.now(timezone.utc).isoformat(),
         }
         
         result = await rag_service.add_documents([document], metadata)
@@ -108,10 +108,10 @@ async def add_case_law_to_rag(
         metadata = {
             "case_id": case_id,
             "case_name": case_name,
-            "year": year or datetime.now(UTC).year,
+            "year": year or datetime.now(timezone.utc).year,
             "jurisdiction": jurisdiction or "unknown",
             "case_type": case_type or "general",
-            "added_at": datetime.now(UTC).isoformat(),
+            "added_at": datetime.now(timezone.utc).isoformat(),
         }
         
         result = await rag_service.add_documents([document], metadata)
@@ -167,7 +167,7 @@ async def add_statute_to_rag(
             "jurisdiction": jurisdiction or "unknown",
             "section": section or "N/A",
             "effective_date": effective_date or "",
-            "added_at": datetime.now(UTC).isoformat(),
+            "added_at": datetime.now(timezone.utc).isoformat(),
         }
         
         result = await rag_service.add_documents([document], metadata)

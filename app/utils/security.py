@@ -2,7 +2,7 @@
 Security utilities for password hashing and JWT token management
 """
 
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 from passlib.context import CryptContext
 from jose import JWTError, jwt
@@ -55,13 +55,13 @@ def create_access_token(
     to_encode = data.copy()
 
     if expires_delta:
-        expire = datetime.now(UTC) + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.now(UTC) + timedelta(
+        expire = datetime.now(timezone.utc) + timedelta(
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
         )
 
-    to_encode.update({"exp": expire, "iat": datetime.now(UTC), "type": "access"})
+    to_encode.update({"exp": expire, "iat": datetime.now(timezone.utc), "type": "access"})
 
     encoded_jwt = jwt.encode(
         to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM
@@ -81,9 +81,9 @@ def create_refresh_token(data: Dict[str, Any]) -> str:
         Encoded JWT refresh token
     """
     to_encode = data.copy()
-    expire = datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    expire = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
 
-    to_encode.update({"exp": expire, "iat": datetime.now(UTC), "type": "refresh"})
+    to_encode.update({"exp": expire, "iat": datetime.now(timezone.utc), "type": "refresh"})
 
     encoded_jwt = jwt.encode(
         to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM

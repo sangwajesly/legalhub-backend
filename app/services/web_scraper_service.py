@@ -6,7 +6,7 @@ Converts scraped content to embeddings and stores in RAG vector store.
 import asyncio
 import logging
 from typing import List, Dict, Optional, Set
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 import httpx
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
@@ -177,7 +177,7 @@ class WebScraperService:
                 "metadata": {
                     "url": page["url"],
                     "title": page["title"],
-                    "scraped_at": datetime.now(UTC).isoformat(),
+                    "scraped_at": datetime.now(timezone.utc).isoformat(),
                     "type": "web_content"
                 }
             }

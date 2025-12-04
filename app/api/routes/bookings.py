@@ -14,7 +14,7 @@ This module defines the HTTP endpoints for booking management operations:
 import logging
 from typing import Optional
 from uuid import uuid4
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -94,8 +94,8 @@ async def create_booking(
             paymentMethod=booking_data.paymentMethod,
             status=BookingStatus.PENDING,
             paymentStatus=PaymentStatus.PENDING,
-            createdAt=datetime.now(UTC),
-            updatedAt=datetime.now(UTC),
+            createdAt=datetime.now(timezone.utc),
+            updatedAt=datetime.now(timezone.utc),
         )
 
         # Convert to Firestore format and save
@@ -480,7 +480,7 @@ async def update_booking(
         if booking_data.meetingLink:
             update_data["meetingLink"] = booking_data.meetingLink
 
-        update_data["updatedAt"] = datetime.now(UTC)
+        update_data["updatedAt"] = datetime.now(timezone.utc)
 
         # Merge with existing data
         doc_data.update(update_data)
@@ -551,16 +551,16 @@ async def update_booking_status(
         # Update document
         update_data = {
             "status": status_data.status.value,
-            "updatedAt": datetime.now(UTC),
+            "updatedAt": datetime.now(timezone.utc),
         }
 
         # Handle status-specific updates
         if status_data.status == BookingStatus.CONFIRMED:
-            update_data["confirmedAt"] = datetime.now(UTC)
+            update_data["confirmedAt"] = datetime.now(timezone.utc)
         elif status_data.status == BookingStatus.COMPLETED:
-            update_data["completedAt"] = datetime.now(UTC)
+            update_data["completedAt"] = datetime.now(timezone.utc)
         elif status_data.status == BookingStatus.CANCELLED:
-            update_data["cancelledAt"] = datetime.now(UTC)
+            update_data["cancelledAt"] = datetime.now(timezone.utc)
             update_data["cancellationReason"] = status_data.cancellationReason
             update_data["cancellationBy"] = (
                 "client" if is_client else ("lawyer" if is_lawyer else "system")
@@ -628,12 +628,12 @@ async def cancel_booking(
 
         update_data = {
             "status": "cancelled",
-            "cancelledAt": datetime.now(UTC),
+            "cancelledAt": datetime.now(timezone.utc),
             "cancellationReason": reason,
             "cancellationBy": (
                 "client" if is_client else ("lawyer" if is_lawyer else "system")
             ),
-            "updatedAt": datetime.now(UTC),
+            "updatedAt": datetime.now(timezone.utc),
         }
 
         doc_data.update(update_data)
@@ -689,7 +689,7 @@ async def provide_feedback(
         elif is_lawyer:
             update_data["lawyerRating"] = feedback_data.rating
 
-        update_data["updatedAt"] = datetime.now(UTC)
+        update_data["updatedAt"] = datetime.now(timezone.utc)
 
         await firebase_service.update_document(f"bookings/{booking_id}", update_data)
 
@@ -745,7 +745,7 @@ async def get_booking_stats(
             "totalRevenue": 0.0,
             "paidAmount": 0.0,
             "averageRating": None,
-            "lastUpdatedAt": datetime.now(UTC).isoformat(),
+            "lastUpdatedAt": datetime.now(timezone.utc).isoformat(),
         }
 
         ratings = []

@@ -6,7 +6,7 @@ Handles 72-hour web scraping cycles and other scheduled tasks.
 import asyncio
 import logging
 from typing import Optional, List, Dict, Callable
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
@@ -108,7 +108,7 @@ class RAGScheduler:
             "successful": 0,
             "failed": 0,
             "total_documents_added": 0,
-            "started_at": datetime.now(UTC).isoformat(),
+            "started_at": datetime.now(timezone.utc).isoformat(),
             "details": []
         }
         
@@ -131,7 +131,7 @@ class RAGScheduler:
                 
                 stats["successful"] += 1
                 stats["total_documents_added"] += result.get("added", 0)
-                self.last_run_times[site["url"]] = datetime.now(UTC)
+                self.last_run_times[site["url"]] = datetime.now(timezone.utc)
                 
             except Exception as e:
                 logger.error(f"Failed to scrape {site['name']}: {str(e)}")
@@ -143,7 +143,7 @@ class RAGScheduler:
                     "error": str(e)
                 })
         
-        stats["completed_at"] = datetime.now(UTC).isoformat()
+        stats["completed_at"] = datetime.now(timezone.utc).isoformat()
         logger.info(f"Government website scraping job completed: {stats}")
         
         return stats
@@ -178,7 +178,7 @@ class RAGScheduler:
             exclude_patterns=site_config.get("exclude_patterns")
         )
         
-        self.last_run_times[site_url] = datetime.now(UTC)
+        self.last_run_times[site_url] = datetime.now(timezone.utc)
         return result
 
     def add_government_website(

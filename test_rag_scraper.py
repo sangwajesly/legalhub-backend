@@ -6,7 +6,7 @@ Validates scraper functionality without needing real websites.
 import asyncio
 import sys
 from pathlib import Path
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -362,7 +362,7 @@ async def test_configuration():
 async def run_all_tests():
     """Run all RAG scraper tests."""
     print(f"\n{Colors.BOLD}{Colors.OKBLUE}🌐 RAG WEB SCRAPER & 72-HOUR SCHEDULER TEST SUITE{Colors.ENDC}")
-    print(f"{Colors.OKBLUE}Testing at: {datetime.now(UTC).isoformat()}{Colors.ENDC}\n")
+    print(f"{Colors.OKBLUE}Testing at: {datetime.now(timezone.utc).isoformat()}{Colors.ENDC}\n")
     
     results = {
         "Government Sources": await test_government_sources(),

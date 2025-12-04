@@ -14,7 +14,7 @@ This module defines the HTTP endpoints for case management operations:
 import logging
 from typing import Optional
 from uuid import uuid4
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 
@@ -94,8 +94,8 @@ async def create_case(
             priority=case_data.priority,
             legalBasis=case_data.legalBasis,
             status=CaseStatus.SUBMITTED,
-            createdAt=datetime.now(UTC),
-            updatedAt=datetime.now(UTC),
+            createdAt=datetime.now(timezone.utc),
+            updatedAt=datetime.now(timezone.utc),
         )
 
         # Convert to Firestore format and save
@@ -131,7 +131,7 @@ async def get_case(
 
         # Increment view count
         doc_data["viewCount"] = doc_data.get("viewCount", 0) + 1
-        doc_data["updatedAt"] = datetime.now(UTC)
+        doc_data["updatedAt"] = datetime.now(timezone.utc)
         await firebase_service.update_document(f"cases/{case_id}", doc_data)
 
         return CaseDetailSchema(**case.model_dump())
@@ -303,7 +303,7 @@ async def update_case(
         if case_data.legalBasis:
             update_data["legalBasis"] = case_data.legalBasis
 
-        update_data["updatedAt"] = datetime.now(UTC)
+        update_data["updatedAt"] = datetime.now(timezone.utc)
 
         # Merge with existing data
         doc_data.update(update_data)
@@ -373,7 +373,7 @@ async def update_case_status(
         status_history.append(
             {
                 "status": status_data.status.value,
-                "changedAt": datetime.now(UTC).isoformat(),
+                "changedAt": datetime.now(timezone.utc).isoformat(),
                 "changedBy": current_user.get("uid"),
                 "notes": status_data.notes,
             }
@@ -384,22 +384,22 @@ async def update_case_status(
             "status": status_data.status.value,
             "statusHistory": status_history,
             "statusNotes": status_data.notes,
-            "updatedAt": datetime.now(UTC),
+            "updatedAt": datetime.now(timezone.utc),
         }
 
         # Handle resolution/closure
         if status_data.status in [CaseStatus.RESOLVED, CaseStatus.CLOSED]:
             update_data["resolvedAt"] = (
-                datetime.now(UTC) if status_data.status == CaseStatus.RESOLVED else None
+                datetime.now(timezone.utc) if status_data.status == CaseStatus.RESOLVED else None
             )
             update_data["closedAt"] = (
-                datetime.now(UTC) if status_data.status == CaseStatus.CLOSED else None
+                datetime.now(timezone.utc) if status_data.status == CaseStatus.CLOSED else None
             )
 
         # Assign if specified
         if status_data.assignedTo:
             update_data["assignedTo"] = status_data.assignedTo
-            update_data["assignedAt"] = datetime.now(UTC)
+            update_data["assignedAt"] = datetime.now(timezone.utc)
 
         doc_data.update(update_data)
         await firebase_service.update_document(f"cases/{case_id}", update_data)
@@ -493,7 +493,7 @@ async def upload_attachment(
             fileUrl=file_url,
             fileType=file.content_type or "application/octet-stream",
             fileSize=len(file_content),
-            uploadedAt=datetime.now(UTC),
+            uploadedAt=datetime.now(timezone.utc),
             uploadedBy=current_user.get("uid") if current_user else None,
         )
 
@@ -501,7 +501,7 @@ async def upload_attachment(
         attachments = doc_data.get("attachments", [])
         attachments.append(attachment.model_dump())
 
-        update_data = {"attachments": attachments, "updatedAt": datetime.now(UTC)}
+        update_data = {"attachments": attachments, "updatedAt": datetime.now(timezone.utc)}
 
         await firebase_service.update_document(f"cases/{case_id}", update_data)
 
@@ -511,7 +511,7 @@ async def upload_attachment(
             "attachmentId": attachment_id,
             "fileName": file.filename,
             "fileSize": len(file_content),
-            "uploadedAt": datetime.now(UTC).isoformat(),
+            "uploadedAt": datetime.now(timezone.utc).isoformat(),
         }
 
     except HTTPException:
@@ -553,7 +553,7 @@ async def get_case_stats(
             "resolvedCases": 0,
             "averageResolutionTime": None,
             "casesByLocation": {},
-            "lastUpdatedAt": datetime.now(UTC).isoformat(),
+            "lastUpdatedAt": datetime.now(timezone.utc).isoformat(),
         }
 
         # Aggregate statistics

@@ -11,7 +11,7 @@ This service orchestrates the RAG pipeline:
 import asyncio
 import logging
 from typing import List, Dict, Optional, Tuple
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 from app.config import settings
 from app.services import firebase_service, gemini_service
@@ -103,7 +103,7 @@ class RAGService:
                 # Prepare metadata
                 doc_metadata = {
                     "source": source,
-                    "created_at": datetime.now(UTC).isoformat(),
+                    "created_at": datetime.now(timezone.utc).isoformat(),
                 }
                 if metadata:
                     doc_metadata.update(metadata)
@@ -260,7 +260,7 @@ INSTRUCTIONS:
                     role="user",
                     text=user_message,
                     userId=user_id,
-                    createdAt=datetime.now(UTC)
+                    createdAt=datetime.now(timezone.utc)
                 )
                 await firebase_service.add_chat_message(session_id, user_chat_message)
 
@@ -298,7 +298,7 @@ INSTRUCTIONS:
                     role="assistant",
                     text=reply,
                     userId=user_id,
-                    createdAt=datetime.now(UTC)
+                    createdAt=datetime.now(timezone.utc)
                 )
                 await firebase_service.add_chat_message(session_id, assistant_chat_message)
 
@@ -330,7 +330,7 @@ INSTRUCTIONS:
                     role="user",
                     text=user_message,
                     userId=user_id,
-                    createdAt=datetime.now(UTC)
+                    createdAt=datetime.now(timezone.utc)
                 )
                 await firebase_service.add_chat_message(session_id, user_chat_message)
 
@@ -367,7 +367,7 @@ INSTRUCTIONS:
                     role="assistant",
                     text=final_reply,
                     userId=user_id,
-                    createdAt=datetime.now(UTC)
+                    createdAt=datetime.now(timezone.utc)
                 )
                 await firebase_service.add_chat_message(session_id, assistant_chat_message)
 

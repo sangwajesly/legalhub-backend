@@ -12,7 +12,7 @@ Tests cover:
 
 import pytest
 from fastapi.testclient import TestClient
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 
 from app.main import app
 from app.services import firebase_service
@@ -107,7 +107,7 @@ def mock_auth(mock_current_user):
 
 def test_create_booking_unauthenticated(client):
     """Test creating a booking without authentication"""
-    scheduled_time = (datetime.now(UTC) + timedelta(days=7)).isoformat()
+    scheduled_time = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
 
     response = client.post(
         "/api/bookings/",
@@ -127,7 +127,7 @@ def test_create_booking_lawyer_not_found(
     client, mock_current_user, mock_auth, mock_firebase
 ):
     """Test creating a booking with non-existent lawyer"""
-    scheduled_time = (datetime.now(UTC) + timedelta(days=7)).isoformat()
+    scheduled_time = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
 
     response = client.post(
         "/api/bookings/",
@@ -153,7 +153,7 @@ def test_create_booking_success(client, mock_current_user, mock_auth, mock_fireb
         "specialization": "employment",
     }
 
-    scheduled_time = (datetime.now(UTC) + timedelta(days=7)).isoformat()
+    scheduled_time = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
 
     response = client.post(
         "/api/bookings/",
@@ -193,12 +193,12 @@ def test_get_booking_success(client, mock_current_user, mock_auth, mock_firebase
         "lawyerId": "lawyer_123",
         "userId": "test_user_123",
         "consultationType": "video",
-        "scheduledAt": datetime.now(UTC).isoformat(),
+        "scheduledAt": datetime.now(timezone.utc).isoformat(),
         "duration": 30,
         "status": "confirmed",
         "paymentStatus": "paid",
         "fee": 50.0,
-        "createdAt": datetime.now(UTC).isoformat(),
+        "createdAt": datetime.now(timezone.utc).isoformat(),
     }
     mock_firebase["store"]["bookings/booking_123"] = booking_data
 
@@ -237,12 +237,12 @@ def test_update_booking(client, mock_current_user, mock_auth, mock_firebase):
         "bookingId": "booking_123",
         "lawyerId": "lawyer_123",
         "userId": "test_user_123",
-        "scheduledAt": datetime.now(UTC).isoformat(),
+        "scheduledAt": datetime.now(timezone.utc).isoformat(),
         "duration": 30,
         "notes": "Original notes",
     }
 
-    new_time = (datetime.now(UTC) + timedelta(days=8)).isoformat()
+    new_time = (datetime.now(timezone.utc) + timedelta(days=8)).isoformat()
 
     response = client.put(
         "/api/bookings/booking_123",
@@ -262,7 +262,7 @@ def test_update_booking_status(client, mock_current_user, mock_auth, mock_fireba
         "lawyerId": "test_user_123",
         "userId": "other_user",
         "status": "pending",
-        "createdAt": datetime.now(UTC).isoformat(),
+        "createdAt": datetime.now(timezone.utc).isoformat(),
     }
 
     response = client.put(
@@ -283,7 +283,7 @@ def test_cancel_booking(client, mock_current_user, mock_auth, mock_firebase):
         "lawyerId": "lawyer_123",
         "userId": "test_user_123",
         "status": "confirmed",
-        "createdAt": datetime.now(UTC).isoformat(),
+        "createdAt": datetime.now(timezone.utc).isoformat(),
     }
 
     response = client.put(
