@@ -61,6 +61,8 @@ class Settings(BaseSettings):
 
     # ChromaDB Configuration
     CHROMADB_PATH: str = "./chroma_db"
+    CHROMADB_HOST: Optional[str] = None  # New: Host for HTTP-only ChromaDB
+    CHROMADB_PORT: int = 8000           # New: Port for HTTP-only ChromaDB
 
     # RAG Scheduler Configuration
     RAG_SCRAPE_INTERVAL_HOURS: int = 72  # Scrape every 72 hours
