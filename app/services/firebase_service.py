@@ -6,7 +6,7 @@ from __future__ import annotations
 import firebase_admin
 from firebase_admin import credentials, firestore, auth as firebase_auth
 from typing import Optional, Dict, Any, List
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 import os
 
 from app.config import settings
@@ -128,8 +128,8 @@ class FirebaseService:
                 role=role,
                 phone_number=phone_number,
                 email_verified=False,
-                created_at=datetime.now(UTC),
-                updated_at=datetime.now(UTC),
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
                 profile_picture=(
                     firebase_user.photo_url
                     if hasattr(firebase_user, "photo_url")
@@ -214,7 +214,7 @@ class FirebaseService:
         try:
             # Add updated timestamp
             data["updated_at"] = datetime.now(
-                UTC
+                timezone.utc
             )  # Note: changed key from 'updatedAt' to 'updated_at' for consistency
 
             # Update Firestore
@@ -350,8 +350,8 @@ class FirebaseService:
             {
                 "sessionId": session_id,
                 "userId": user_id,
-                "createdAt": datetime.now(UTC),
-                "lastMessageAt": datetime.now(UTC),
+                "createdAt": datetime.now(timezone.utc),
+                "lastMessageAt": datetime.now(timezone.utc),
             }
         )
 
@@ -366,7 +366,7 @@ class FirebaseService:
                 message_dict["createdAt"]
             )
         elif message_dict.get("createdAt") is None:
-            message_dict["createdAt"] = datetime.now(UTC)
+            message_dict["createdAt"] = datetime.now(timezone.utc)
 
         # Add a unique ID for the message document
         message_id = (
@@ -386,7 +386,7 @@ class FirebaseService:
 
         # Update lastMessageAt for the session
         self.db.collection("chat_sessions").document(session_id).update(
-            {"lastMessageAt": datetime.now(UTC)}
+            {"lastMessageAt": datetime.now(timezone.utc)}
         )
 
     async def get_chat_history(self, session_id: str) -> List[ChatMessage]:
