@@ -2,17 +2,22 @@
 Simple test to check ChromaDB functionality
 """
 
-import chromadb
+import sys
+from pathlib import Path
 from chromadb.utils import embedding_functions
+
+# Add the project root to the Python path
+sys.path.insert(0, str(Path(__file__).parent))
+from app.utils.vector_store import get_chroma_client
 
 def test_chroma_basic():
     """Test basic ChromaDB functionality"""
     print("Testing ChromaDB basic functionality...")
 
     try:
-        # Try EphemeralClient first
-        client = chromadb.EphemeralClient()
-        print("✅ ChromaDB EphemeralClient created successfully")
+        # Use the centralized client getter
+        client = get_chroma_client()
+        print("✅ ChromaDB client created successfully via get_chroma_client")
 
         # Create a test collection
         collection = client.get_or_create_collection(
