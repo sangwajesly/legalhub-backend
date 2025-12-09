@@ -17,6 +17,7 @@ from app.api.routes import (
     articles,
     bookings,
     lawyers,
+    organizations,
     analytics,
     rag,
     rag_scraper,
@@ -113,6 +114,7 @@ app.include_router(cases.router)
 app.include_router(articles.router)
 app.include_router(bookings.router)
 app.include_router(lawyers.router)
+app.include_router(organizations.router)
 app.include_router(analytics.router)
 app.include_router(rag.router)
 app.include_router(rag_scraper.router)
