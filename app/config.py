@@ -36,13 +36,17 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # CORS Configuration
-    ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:3001,http://localhost:5173"
+    # CORS Configuration - Allow all localhost ports in development
+    ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:3001,http://localhost:5173,http://localhost:8000,http://localhost:8001"
 
     @property
     def allowed_origins_list(self) -> List[str]:
         """Convert comma-separated origins to list"""
-        return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",")]
+        origins = [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",")]
+        # In development, also allow all localhost with any port
+        if self.DEBUG:
+            origins.append("http://localhost:*")
+        return origins
 
     # LangChain Configuration
     LANGCHAIN_TRACING_V2: bool = False
