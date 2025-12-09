@@ -17,7 +17,7 @@ from app.schemas.article import (
 from app.models.user import UserRole
 
 
-router = APIRouter(prefix="/api/articles", tags=["Articles"])
+router = APIRouter(prefix="/api/v1/articles", tags=["Articles"])
 
 
 def _slugify(text: str) -> str:

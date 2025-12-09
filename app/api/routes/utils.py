@@ -3,7 +3,7 @@ from app.services import gemini_service
 from app.dependencies import get_current_user
 import logging
 
-router = APIRouter(prefix="/api/utils", tags=["utils"])
+router = APIRouter(prefix="/api/v1/utils", tags=["utils"])
 logger = logging.getLogger(__name__)
 
 @router.post("/transcribe")

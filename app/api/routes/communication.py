@@ -6,7 +6,7 @@ from app.dependencies import get_current_user
 from app.services import firebase_service
 from app.models.communication import DirectMessage, MessageCreate
 
-router = APIRouter(prefix="/api/communication", tags=["communication"])
+router = APIRouter(prefix="/api/v1/communication", tags=["communication"])
 
 @router.post("/messages", response_model=DirectMessage)
 async def send_message(

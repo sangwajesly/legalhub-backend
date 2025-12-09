@@ -19,7 +19,7 @@ from app.dependencies import get_current_user
 from app.models.user import User
 
 # Create router
-router = APIRouter(prefix="/api/auth", tags=["Authentication"])
+router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
 
 
 @router.post("/register", status_code=status.HTTP_200_OK)
@@ -328,20 +328,16 @@ async def verify_email(user_id: str):
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user_info(current_user: User = Depends(get_current_user)):
+async def get_current_user_info(current_user: dict = Depends(get_current_user)):
     """
     Get current authenticated user information
 
     Requires authentication.
     """
     return UserResponse(
-        uid=current_user.uid,
-        email=current_user.email,
-        display_name=current_user.display_name,
-        role=current_user.role.value,
-        phone_number=current_user.phone_number,
-        profile_picture=current_user.profile_picture,
-        email_verified=current_user.email_verified,
-        created_at=current_user.created_at,
-        updated_at=current_user.updated_at,
+        uid=current_user.get("uid"),
+        email=current_user.get("email"),
+        displayName=current_user.get("displayName") or current_user.get("display_name"),
+        photoURL=current_user.get("photoURL") or current_user.get("profile_picture"),
+        role=current_user.get("role", "client"),
     )

@@ -15,7 +15,7 @@ from app.schemas.analytics import (
 from app.dependencies import require_roles, require_lawyer, require_organization
 from app.models.user import UserRole
 
-router = APIRouter(prefix="/api/analytics", tags=["Analytics"])
+router = APIRouter(prefix="/api/v1/analytics", tags=["Analytics"])
 
 
 @router.get("/overview", response_model=OverviewResponse)

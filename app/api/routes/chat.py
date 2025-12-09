@@ -1,9 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+﻿from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse
 from typing import Optional, List
 import uuid
 
-from app.dependencies import get_current_user
 from app.dependencies import get_current_user
 from app.services import firebase_service, langchain_service, file_service
 from app.config import settings
@@ -13,28 +12,22 @@ from app.schemas.chat import (
     MessageResponse,
     HistoryResponse,
     FeedbackRequest,
-    ChatMessage as ChatMessageSchema,  # Import ChatMessage from schemas for response
+    ChatMessage as ChatMessageSchema,
 )
 from app.models.chat import (
     ChatMessage as ChatMessageModel,
-)  # Import ChatMessage from models for internal use
+)
+
+# FIXED: Changed prefix from /api/chat to /api/v1/chat to match frontend
+router = APIRouter(prefix="/api/v1/chat", tags=["chat"])
 
 
-router = APIRouter(prefix="/api/chat", tags=["chat"])
-
-
-@router.post("/session", response_model=CreateSessionResponse)
+@router.post("/sessions", response_model=CreateSessionResponse)
 async def create_session(user: Optional[dict] = Depends(get_current_user)):
     """Create a new chat session for the authenticated user."""
     session_id = str(uuid.uuid4())
     await langchain_service.create_session(user.get("uid"), session_id)
     return {"sessionId": session_id}
-
-
-@router.post("", response_model=CreateSessionResponse)
-async def create_new_chat(user: Optional[dict] = Depends(get_current_user)):
-    """Create a new chat session (alias for /session to support frontend)"""
-    return await create_session(user)
 
 
 @router.get("/sessions")
@@ -48,10 +41,11 @@ async def get_sessions(user: Optional[dict] = Depends(get_current_user)):
         return {"sessions": []}
 
 
-@router.delete("/session/{id}")
+@router.delete("/sessions/{id}")
 async def delete_session(id: str, user: Optional[dict] = Depends(get_current_user)):
+    """Delete a chat session"""
     try:
-        await firebase_service.delete_chat_session(id)  # Await the async function
+        await firebase_service.delete_chat_session(id)
     except Exception:
         raise HTTPException(
             status_code=404, detail="Session not found or delete failed"
@@ -59,6 +53,70 @@ async def delete_session(id: str, user: Optional[dict] = Depends(get_current_use
     return {"ok": True}
 
 
+@router.post("/sessions/{session_id}/messages", response_model=MessageResponse)
+async def send_message_to_session(
+    session_id: str,
+    payload: MessageRequest,
+    user: Optional[dict] = Depends(get_current_user)
+):
+    """Send a message to a specific session"""
+    # Call LangChain service
+    reply_text = await langchain_service.generate_response(
+        session_id=session_id,
+        user_id=user.get("uid"),
+        user_message=payload.message,
+        attachments=payload.attachments if hasattr(payload, 'attachments') else None
+    )
+
+    return {"reply": reply_text, "sessionId": session_id}
+
+
+@router.get("/sessions/{session_id}/messages", response_model=HistoryResponse)
+async def get_session_messages(
+    session_id: str,
+    user: Optional[dict] = Depends(get_current_user)
+):
+    """Get message history for a specific session"""
+    try:
+        chat_message_models: List[ChatMessageModel] = (
+            await firebase_service.get_chat_history(session_id)
+        )
+        msgs = [
+            ChatMessageSchema.model_validate(m.model_dump(by_alias=True)).model_dump(
+                by_alias=True
+            )
+            for m in chat_message_models
+        ]
+    except Exception as e:
+        print(f"Error getting chat history: {e}")
+        msgs = []
+    return {"messages": msgs}
+
+
+@router.post("/sessions/{session_id}/messages/{message_id}/feedback")
+async def submit_message_feedback(
+    session_id: str,
+    message_id: str,
+    payload: FeedbackRequest,
+    user: Optional[dict] = Depends(get_current_user)
+):
+    """Submit feedback for a specific message"""
+    try:
+        firebase_service.db.collection("chat_feedback").add(
+            {
+                "sessionId": session_id,
+                "messageId": message_id,
+                "userId": user.get("uid"),
+                "rating": payload.rating,
+                "feedback": payload.feedback,
+            }
+        )
+        return {"ok": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Feedback submission failed: {str(e)}")
+
+
+# Legacy endpoints for backward compatibility
 @router.post("/upload")
 async def upload_file(
     file: UploadFile = File(...),
@@ -69,97 +127,7 @@ async def upload_file(
     Returns: {"fileId": "..."}
     """
     try:
-        # Save file using FileService
         file_id = await file_service.file_service.save_upload(file)
         return {"fileId": file_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
-
-
-@router.post("/message", response_model=MessageResponse)
-async def send_message(
-    payload: MessageRequest, user: Optional[dict] = Depends(get_current_user)
-):
-    # create session if missing
-    session_id = payload.sessionId or str(uuid.uuid4())
-    if not payload.sessionId:
-        await langchain_service.create_session(user.get("uid"), session_id)
-
-    # call LangChain service
-    reply_text = await langchain_service.generate_response(
-        session_id=session_id, 
-        user_id=user.get("uid"), 
-        user_message=payload.message,
-        attachments=payload.attachments
-    )
-
-    return {"reply": reply_text, "sessionId": session_id}
-
-
-@router.get("/history", response_model=HistoryResponse)
-async def get_history(sessionId: str, user: Optional[dict] = Depends(get_current_user)):
-    try:
-        # Get ChatMessageModel objects from firebase_service
-        chat_message_models: List[ChatMessageModel] = (
-            await firebase_service.get_chat_history(sessionId)
-        )
-        # Convert ChatMessageModel objects to ChatMessageSchema dictionaries for the response
-        msgs = [
-            ChatMessageSchema.model_validate(m.model_dump(by_alias=True)).model_dump(
-                by_alias=True
-            )
-            for m in chat_message_models
-        ]
-    except Exception as e:
-        # Log the error for debugging
-        print(f"Error getting chat history: {e}")
-        msgs = []
-    return {"messages": msgs}
-
-
-@router.post("/feedback")
-async def feedback(
-    payload: FeedbackRequest, user: Optional[dict] = Depends(get_current_user)
-):
-    # store feedback in a collection
-    try:
-        # Corrected: Use firebase_service.db directly
-        firebase_service.db.collection("chat_feedback").add(
-            {
-                "sessionId": payload.sessionId,
-                "messageId": payload.messageId,
-                "rating": payload.rating,
-            }
-        )
-    except Exception:
-        pass
-    return {"ok": True}
-
-
-@router.post("/message/stream")
-async def send_message_stream(
-    payload: MessageRequest, user: Optional[dict] = Depends(get_current_user)
-):
-    """Stream the AI response back to the client using Server-Sent Events (SSE).
-
-    The client should connect and parse `text/event-stream` messages. Each
-    chunk is sent as an `data: ...` SSE event.
-    """
-    session_id = payload.sessionId or str(uuid.uuid4())
-    if not payload.sessionId:
-        await langchain_service.create_session(user.get("uid"), session_id)
-
-    async def event_stream():
-        # yield initial comment to establish the stream
-        yield ": stream open\n\n"
-        async for chunk in langchain_service.generate_response_stream(
-            session_id=session_id, user_id=user.get("uid"), user_message=payload.message
-        ):
-            # Format as SSE
-            # Escape newlines in chunk data
-            if chunk is None:
-                continue
-            data = str(chunk).replace("\n", "\ndata: ")
-            yield f"data: {data}\n\n"
-
-    return StreamingResponse(event_stream(), media_type="text/event-stream")

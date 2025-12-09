@@ -10,21 +10,19 @@ from app.services.rag_scheduler import get_rag_scheduler
 from app.services.web_scraper import GovernmentWebsiteSources, scrape_government_websites
 from app.services.rag_service import rag_service
 
-router = APIRouter(prefix="/api/rag", tags=["RAG Scraper"])
+router = APIRouter(prefix="/api/v1/rag-scraper", tags=["RAG Scraper"])
 
 
 # ============================================================================
-# Scheduler Management Endpoints
+# Scheduler Endpoints
 # ============================================================================
 
 @router.get("/scheduler/status")
 async def get_scheduler_status(user: Optional[dict] = Depends(get_current_user)):
     """
-    Get the current status of the RAG scheduler.
+    Get the status of the RAG scheduler.
     
     Returns:
-        - is_running: Whether the scheduler is running
-        - last_run: Timestamp of last run
         - last_run_status: Status of last run
         - jobs: List of scheduled jobs
     """

@@ -1,16 +1,29 @@
-"""
-FAISS-based vector store implementation (replacing ChromaDB)
-
-FAISS (Facebook AI Similarity Search) is simpler and has no C++ build issues on Windows.
-"""
-
-import faiss
-import numpy as np
-import pickle
+import logging
 import os
-from typing import Optional, List, Dict, Any
-from sentence_transformers import SentenceTransformer
+import pickle
+from typing import List, Optional, Any, Dict
 from app.config import settings
+
+logger = logging.getLogger(__name__)
+
+try:
+    import faiss
+    import numpy as np
+    FAISS_AVAILABLE = True
+except ImportError:
+    faiss = None
+    np = None
+    FAISS_AVAILABLE = False
+    logger.warning("FAISS or numpy not installed. RAG features will be disabled.")
+
+try:
+    from sentence_transformers import SentenceTransformer
+    SENTENCE_TRANSFORMERS_AVAILABLE = True
+except ImportError as e:
+    SentenceTransformer = None
+    SENTENCE_TRANSFORMERS_AVAILABLE = False
+    logger.error(f"Failed to import sentence-transformers: {e}")
+    logger.warning("RAG features will be disabled.")
 
 
 class FAISSVectorStore:
@@ -19,8 +32,15 @@ class FAISSVectorStore:
     def __init__(self, collection_name: str = "legalhub_documents", dimension: int = 384):
         self.collection_name = collection_name
         self.dimension = dimension
+        self.index = None
+        self.documents = []
+        self.embedding_model = None
+
+        if not FAISS_AVAILABLE or not SENTENCE_TRANSFORMERS_AVAILABLE:
+            logger.error("Attempted to initialize FAISSVectorStore but dependencies are missing. RAG Disabled.")
+            return
+
         self.index = faiss.IndexFlatL2(dimension)  # L2 distance
-        self.documents = []  # Store document metadata
         self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
         
         # Try to load existing index
@@ -52,6 +72,9 @@ class FAISSVectorStore:
     
     def _save_index(self):
         """Save index and documents to disk"""
+        if not self.index:
+            return
+
         try:
             faiss.write_index(self.index, self._get_index_path())
             with open(self._get_docs_path(), 'wb') as f:
@@ -69,6 +92,10 @@ class FAISSVectorStore:
         Returns:
             Dict with count of added documents
         """
+        if not self.index or not self.embedding_model:
+            logger.warning("RAG dependencies missing. Documents not added.")
+            return {"added": 0, "total": 0}
+
         texts = [doc['content'] for doc in documents]
         embeddings = self.embedding_model.encode(texts)
         
@@ -95,6 +122,9 @@ class FAISSVectorStore:
         Returns:
             List of documents with scores
         """
+        if not self.index or not self.embedding_model:
+            return []
+
         if len(self.documents) == 0:
             return []
         

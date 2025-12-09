@@ -20,7 +20,7 @@ from app.schemas.organization import (
     OrganizationListResponse,
 )
 
-router = APIRouter(prefix="/api/organizations", tags=["Organizations"])
+router = APIRouter(prefix="/api/v1/organizations", tags=["Organizations"])
 
 
 @router.get("", response_model=OrganizationListResponse)

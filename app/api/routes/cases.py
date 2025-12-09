@@ -41,7 +41,7 @@ from app.schemas.case import (
 from app.models.user import UserRole
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/cases", tags=["cases"])
+router = APIRouter(prefix="/api/v1/cases", tags=["cases"])
 
 
 # POST /api/cases - Create a new case
@@ -170,20 +170,13 @@ async def list_cases(
     """
     List cases with optional filtering by category, status, or priority
     
-    RESTRICTED: Only Lawyers, Organizations, and Admins can view the general case feed.
-    Regular users should use /api/cases/user/{uid} to view their own cases.
+    Accessible to all authenticated users. Cases are public to allow community awareness.
+    Use /api/v1/cases/user/{uid} to view your own cases specifically.
     """
     try:
-        # Enforce RBAC
+        # Require authentication (but allow all roles)
         if not current_user:
              raise HTTPException(status_code=401, detail="Authentication required")
-        
-        user_role = current_user.get("role")
-        if user_role not in [UserRole.LAWYER, UserRole.ORGANIZATION, UserRole.ADMIN]:
-             raise HTTPException(
-                 status_code=403, 
-                 detail="Access denied. Regular users cannot view the public case feed. Use /api/cases/user/{uid}."
-             )
 
         logger.info(
             f"Listing cases: page={page}, page_size={page_size}, category={category}, status={status}"

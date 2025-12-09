@@ -40,13 +40,13 @@ def test_list_cases_rbac_anonymous(mock_firebase_service):
     # Override current_user to be None (unauthenticated)
     app.dependency_overrides[get_current_user] = lambda: None
     
-    response = client.get("/api/cases")
+    response = client.get("/api/v1/cases")
     assert response.status_code == 401
 
     # Override current_user to be Regular User
     app.dependency_overrides[get_current_user] = lambda: {"uid": "u1", "role": UserRole.USER, "email": "user@example.com"}
     
-    response = client.get("/api/cases")
+    response = client.get("/api/v1/cases")
     assert response.status_code == 403
     assert "Access denied" in response.json()["detail"]
 
@@ -61,7 +61,7 @@ async def test_list_cases_rbac_lawyer(mock_firebase_service):
     # Mock Firestore query
     mock_firebase_service.query_collection = AsyncMock(return_value=([], 0))
     
-    response = client.get("/api/cases")
+    response = client.get("/api/v1/cases")
     assert response.status_code == 200
     app.dependency_overrides = {}
 
@@ -82,7 +82,7 @@ def test_get_case_rbac_owner(mock_firebase_service):
 
     app.dependency_overrides[get_current_user] = lambda: {"uid": "u1", "role": UserRole.USER}
     
-    response = client.get("/api/cases/c1")
+    response = client.get("/api/v1/cases/c1")
     assert response.status_code == 200
     assert response.json()["title"] == "My Case"
     app.dependency_overrides = {}
@@ -100,7 +100,7 @@ def test_get_case_rbac_forbidden(mock_firebase_service):
     # Request as u2
     app.dependency_overrides[get_current_user] = lambda: {"uid": "u2", "role": UserRole.USER}
     
-    response = client.get("/api/cases/c1")
+    response = client.get("/api/v1/cases/c1")
     assert response.status_code == 403
     app.dependency_overrides = {}
 
@@ -118,7 +118,7 @@ def test_create_case_anonymous(mock_firebase_service):
         "contactName": "Anon"
     }
     
-    response = client.post("/api/cases/", json=payload)
+    response = client.post("/api/v1/cases/", json=payload)
     assert response.status_code == 201
     assert response.json()["isAnonymous"] is True
     app.dependency_overrides = {}
@@ -129,11 +129,11 @@ def test_get_case_stats_admin_only(mock_firebase_service):
     
     # As lawyer (should fail)
     app.dependency_overrides[get_current_user] = lambda: {"uid": "l1", "role": UserRole.LAWYER}
-    response = client.get("/api/cases/stats/overview")
+    response = client.get("/api/v1/cases/stats/overview")
     assert response.status_code == 403
     
     # As Admin
     app.dependency_overrides[get_current_user] = lambda: {"uid": "a1", "role": UserRole.ADMIN, "is_admin": True}
-    response = client.get("/api/cases/stats/overview")
+    response = client.get("/api/v1/cases/stats/overview")
     assert response.status_code == 200
     app.dependency_overrides = {}

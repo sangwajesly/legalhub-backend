@@ -1,7 +1,7 @@
 import logging
 import asyncio
 import asyncio
-from typing import Optional, Any, Dict, List
+from typing import Optional, Any, Dict, List, Union
 import httpx
 from app.config import settings
 

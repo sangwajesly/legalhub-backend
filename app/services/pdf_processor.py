@@ -2,10 +2,18 @@
 Service for robust text extraction from PDF documents.
 """
 
-from pypdf import PdfReader
+try:
+    from pypdf import PdfReader
+    PYPDF_AVAILABLE = True
+except ImportError:
+    PYPDF_AVAILABLE = False
+    PdfReader = None
+
 from typing import List, Dict, Any, Tuple
 import io
+import logging
 
+logger = logging.getLogger(__name__)
 
 class PDFProcessor:
     """
@@ -25,21 +33,29 @@ class PDFProcessor:
             - The extracted text content as a single string.
             - A dictionary of extracted metadata.
         """
-        reader = PdfReader(io.BytesIO(pdf_content))
+        if not PYPDF_AVAILABLE:
+            logger.warning("pypdf not installed. PDF extraction disabled.")
+            return "", {}
 
-        # Extract text
-        text_content = ""
-        for page in reader.pages:
-            text_content += page.extract_text() + "\n"  # Add newline between pages
+        try:
+            reader = PdfReader(io.BytesIO(pdf_content))
+            
+            # Extract text
+            text_content = ""
+            for page in reader.pages:
+                text_content += (page.extract_text() or "") + "\n"
 
-        # Extract metadata
-        metadata = reader.metadata
-        if metadata:
-            metadata = {k: str(v) for k, v in metadata.items()}
-        else:
-            metadata = {}
+            # Extract metadata
+            metadata = reader.metadata
+            if metadata:
+                metadata = {k: str(v) for k, v in metadata.items()}
+            else:
+                metadata = {}
 
-        return text_content, metadata
+            return text_content, metadata
+        except Exception as e:
+            logger.error(f"Error extracting PDF text: {e}")
+            return "", {}
 
     @staticmethod
     def extract_text_by_page(pdf_content: bytes) -> List[str]:
@@ -52,9 +68,16 @@ class PDFProcessor:
         Returns:
             A list of strings, where each string is the text from a single page.
         """
-        reader = PdfReader(io.BytesIO(pdf_content))
-        page_texts = [page.extract_text() for page in reader.pages]
-        return page_texts
+        if not PYPDF_AVAILABLE:
+            return []
+
+        try:
+            reader = PdfReader(io.BytesIO(pdf_content))
+            page_texts = [(page.extract_text() or "") for page in reader.pages]
+            return page_texts
+        except Exception as e:
+            logger.error(f"Error extracting PDF pages: {e}")
+            return []
 
     # Future improvements:
     # - OCR for scanned PDFs

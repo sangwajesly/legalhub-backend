@@ -40,7 +40,7 @@ from app.schemas.booking import (
 )
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/bookings", tags=["bookings"])
+router = APIRouter(prefix="/api/v1/bookings", tags=["bookings"])
 
 def _parse_datetime(value):
     """Helper to parse datetime from Firestore"""

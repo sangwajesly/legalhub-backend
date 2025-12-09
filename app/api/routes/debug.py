@@ -5,7 +5,7 @@ from typing import Optional
 from app.config import settings
 from app.services import gemini_service
 
-router = APIRouter(prefix="/api/debug", tags=["debug"])
+router = APIRouter(prefix="/api/v1/debug", tags=["debug"])
 
 
 @router.post("/gemini")

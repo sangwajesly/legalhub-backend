@@ -18,7 +18,7 @@ from app.utils.rag_helpers import (
     batch_add_documents,
 )
 
-router = APIRouter(prefix="/api/rag", tags=["RAG"])
+router = APIRouter(prefix="/api/v1/rag", tags=["RAG"])
 
 
 @router.post("/documents/add")

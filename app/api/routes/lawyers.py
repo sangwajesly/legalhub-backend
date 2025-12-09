@@ -18,18 +18,9 @@ from app.schemas.lawyer import (
     LawyerCreate,
     LawyerUpdate,
 )
-from app.models.lawyer import (
-    firestore_lawyer_to_model,
-    lawyer_model_to_firestore,
-    Lawyer,
-)
-
-router = APIRouter(prefix="/api/lawyers", tags=["lawyers"])
 
 
-def utc_now():
-    return datetime.now(timezone.utc)
-
+router = APIRouter(prefix="/api/v1/lawyers", tags=["lawyers"])
 
 @router.get("", response_model=LawyerListResponse)
 async def list_lawyers(

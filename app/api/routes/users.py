@@ -11,7 +11,7 @@ from app.dependencies import get_current_user, get_optional_user
 from app.models.user import User
 
 # Create router
-router = APIRouter(prefix="/api/users", tags=["Users"])
+router = APIRouter(prefix="/api/v1/users", tags=["Users"])
 
 
 @router.get("/profile", response_model=UserResponse)

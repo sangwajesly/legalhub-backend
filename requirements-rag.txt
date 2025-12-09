@@ -4,3 +4,6 @@ langchain-google-genai
 pypdf
 beautifulsoup4
 lxml
+faiss-cpu
+sentence-transformers
+faiss

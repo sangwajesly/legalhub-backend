@@ -5,7 +5,7 @@ from app.dependencies import get_current_user
 from app.models.payment import PaymentInitiateRequest, PaymentInitiateResponse, PaymentProvider
 from app.services.payment_service import payment_service
 
-router = APIRouter(prefix="/api/payments", tags=["payments"])
+router = APIRouter(prefix="/api/v1/payments", tags=["payments"])
 
 @router.post("/initiate", response_model=PaymentInitiateResponse)
 async def initiate_payment(
