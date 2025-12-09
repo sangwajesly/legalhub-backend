@@ -30,6 +30,23 @@ async def create_session(user: Optional[dict] = Depends(get_current_user)):
     return {"sessionId": session_id}
 
 
+@router.post("", response_model=CreateSessionResponse)
+async def create_new_chat(user: Optional[dict] = Depends(get_current_user)):
+    """Create a new chat session (alias for /session to support frontend)"""
+    return await create_session(user)
+
+
+@router.get("/sessions")
+async def get_sessions(user: Optional[dict] = Depends(get_current_user)):
+    """Get all chat sessions for the current user"""
+    try:
+        sessions = await firebase_service.get_user_chat_sessions(user.get("uid"))
+        return {"sessions": sessions}
+    except Exception as e:
+        print(f"Error fetching sessions: {e}")
+        return {"sessions": []}
+
+
 @router.delete("/session/{id}")
 async def delete_session(id: str, user: Optional[dict] = Depends(get_current_user)):
     try:

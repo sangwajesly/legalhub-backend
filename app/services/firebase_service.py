@@ -355,6 +355,51 @@ class FirebaseService:
             }
         )
 
+    async def get_user_chat_sessions(self, user_id: str) -> List[Dict[str, Any]]:
+        """
+        Retrieves all chat sessions for a specific user, ordered by lastMessageAt desc.
+        """
+        try:
+            # Note: This query requires a composite index on [userId, lastMessageAt DESC]
+            # If failing, check Firebase console indexes.
+            sessions_ref = self.db.collection("chat_sessions")
+            query = (
+                sessions_ref.where("userId", "==", user_id)
+                .order_by("lastMessageAt", direction=firestore.Query.DESCENDING)
+                .stream()
+            )
+
+            sessions = []
+            for doc in query:
+                data = doc.to_dict()
+                # Ensure sessionId is present (it should be, but good to be safe)
+                if "sessionId" not in data:
+                    data["sessionId"] = doc.id
+                sessions.append(data)
+            return sessions
+
+        except Exception as e:
+            # Fallback if index is missing: try without ordering first, or handle gracefully
+            print(f"DEBUG: Failed to query sessions with order: {e}")
+            try:
+                # Retry without ordering (might be slower or unsorted, but works without index)
+                query = sessions_ref.where("userId", "==", user_id).stream()
+                sessions = []
+                for doc in query:
+                    data = doc.to_dict()
+                    if "sessionId" not in data:
+                        data["sessionId"] = doc.id
+                    sessions.append(data)
+                
+                # Sort in memory
+                sessions.sort(
+                    key=lambda x: x.get("lastMessageAt", datetime.min), reverse=True
+                )
+                return sessions
+            except Exception as e2:
+                print(f"Error getting user sessions: {e2}")
+                return []
+
     async def add_chat_message(self, session_id: str, message: ChatMessage):
         """
         Adds a chat message to a session's subcollection in Firestore.

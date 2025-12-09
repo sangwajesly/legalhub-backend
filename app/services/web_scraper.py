@@ -143,20 +143,9 @@ class GovernmentWebsiteSources:
     
     # Legal and government sources
     SOURCES = {
-        # African legal resources
-        "African Legal Support Facility": "https://www.alsf.int/",
-        "ECOWAS Court": "https://www.courtecowas.justice.org/",
-        "Pan African Parliament": "https://www.parl.org.au/",
-        
-        # International legal resources
-        "UN Treaties": "https://treaties.un.org/",
-        "International Court of Justice": "https://www.icj-cij.org/",
-        
-        # Government websites (generic - user can customize)
-
-        
-        # Note: Add specific country government sites here
-        # Example: "Cameroon Justice": "https://www.justice.gov.cm/",
+        # Cameroon Government Sources
+        "Presidency of Cameroon": "https://www.prc.cm/en",
+        "Ministry of Justice": "http://www.minjustice.gov.cm",
     }
     
     @classmethod

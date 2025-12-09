@@ -61,7 +61,26 @@ async def register(payload: dict):
 
                 create_user(uid, user_data)
             except Exception:
-                pass
+                # User might already exist, try to update profile if needed
+                try:
+                    # Logic to sync profile if user exists but we are in this "register" flow check
+                    # (This handles the case where existing user hits this endpoint)
+                    # We can use the firestore client directly for a quick update
+                    db = firestore.client()
+                    user_ref = db.collection("users").document(uid)
+                    
+                    update_fields = {}
+                    if display_name:
+                        update_fields["displayName"] = display_name
+                    
+                    token_picture = decoded.get("picture")
+                    if token_picture:
+                        update_fields["profilePicture"] = token_picture
+                        
+                    if update_fields:
+                        user_ref.update(update_fields)
+                except Exception as e:
+                    print(f"DEBUG: Failed to sync profile in register check: {e}")
 
             # Return minimal flat response for client-side Firebase flow (tests expect this shape)
             return {"uid": uid, "displayName": display_name}
@@ -99,6 +118,51 @@ async def register(payload: dict):
             detail=f"Registration failed: {str(e)}",
         )
 
+@router.post("/google", response_model=AuthResponse)
+async def google_login(payload: dict):
+    """
+    Authenticate with Google using Firebase ID Token
+    
+    - **idToken**: valid Firebase ID token from client
+    
+    Returns user data and authentication tokens
+    """
+    try:
+        id_token = payload.get("idToken")
+        if not id_token:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, 
+                detail="idToken is required"
+            )
+            
+        result = await auth_service.authenticate_with_social_provider(id_token)
+        
+        # Convert user to response format
+        user_response = UserResponse(
+            uid=result["user"].uid,
+            email=result["user"].email,
+            display_name=result["user"].display_name,
+            role=result["user"].role,
+            phone_number=result["user"].phone_number,
+            profile_picture=result["user"].profile_picture,
+            email_verified=result["user"].email_verified,
+            created_at=result["user"].created_at,
+            updated_at=result["user"].updated_at,
+        )
+        
+        # Convert tokens to response format
+        token_response = Token(**result["tokens"])
+        
+        return AuthResponse(user=user_response, tokens=token_response)
+
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Google login failed: {str(e)}",
+        )
+
 
 @router.post("/login")
 async def login(payload: dict):
@@ -120,6 +184,32 @@ async def login(payload: dict):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid ID token"
                 )
+                
+            # Sync profile data from token
+            try:
+                uid = decoded.get("uid")
+                token_name = decoded.get("name")
+                token_picture = decoded.get("picture")
+                
+                if uid and (token_name or token_picture):
+                    # We need to check current values to avoid unnecessary writes, 
+                    # but for performance in this specific endpoint (often used for initial auth),
+                    # we might just blindly update OR fetch first. 
+                    # Fetching first is safer.
+                    from app.services.firebase_service import firebase_service
+                    
+                    # Update firestore directly
+                    update_fields = {}
+                    if token_name:
+                         update_fields["displayName"] = token_name
+                    if token_picture:
+                         update_fields["profilePicture"] = token_picture
+                    
+                    if update_fields:
+                        firebase_service.db.collection("users").document(uid).update(update_fields)
+            except Exception as e:
+                print(f"DEBUG: Failed to sync profile in login: {e}")
+                
             return {"uid": decoded.get("uid"), "email": decoded.get("email")}
 
         # Otherwise, perform server-side login flow

@@ -14,6 +14,9 @@ from app.utils.security import (
     hash_password,
 )
 from app.models.user import User
+from datetime import datetime, UTC
+from app.services.firebase_service import firebase_service, user_to_firestore_dict
+
 from app.schemas.auth import UserRegister, UserLogin
 
 
@@ -21,7 +24,8 @@ def verify_id_token(id_token: str) -> dict | None:
     """Convenience wrapper to verify Firebase ID tokens for simple use in routes/tests."""
     try:
         return firebase_auth.verify_id_token(id_token)
-    except Exception:
+    except Exception as e:
+        print(f"DEBUG: Token verification failed: {e}")
         return None
 
 
@@ -231,6 +235,119 @@ class AuthService:
             User object or None
         """
         return await self.firebase.get_user_by_uid(user_id)
+
+
+    async def authenticate_with_social_provider(self, id_token: str) -> Dict[str, Any]:
+        """
+        Authenticate a user with a social provider (Google, etc.) using a Firebase ID token.
+        
+        Args:
+            id_token: Firebase ID token from the client
+            
+        Returns:
+            Dictionary containing user and tokens
+        """
+        try:
+            # 1. Verify the token
+            decoded_token = verify_id_token(id_token)
+            if not decoded_token:
+                raise ValueError("Invalid ID token")
+            
+            uid = decoded_token.get("uid")
+            email = decoded_token.get("email")
+            
+            if not email:
+                raise ValueError("Token must contain an email address")
+
+            # 2. Check if user exists in our Firestore
+            user = await self.firebase.get_user_by_uid(uid)
+            
+            if not user:
+                # 3. Create new user if not exists
+                # Extract profile info from token
+                display_name = decoded_token.get("name", "")
+                picture = decoded_token.get("picture", None)
+                
+                # We need to create the user in Firestore.
+                # Since auth record already exists in Firebase Auth (social login),
+                # we just need to create the Firestore document.
+                
+                user = User(
+                    uid=uid,
+                    email=email,
+                    display_name=display_name,
+                    role="user", # Default role
+                    email_verified=decoded_token.get("email_verified", False),
+                    profile_picture=picture,
+                    created_at=datetime.now(UTC),
+                    updated_at=datetime.now(UTC),
+                    phone_number=decoded_token.get("phone_number")
+                )
+                
+                # Use the firebase service's logic to save to Firestore
+                # We can't use create_user because that tries to create in Auth too
+                firestore_data = user_to_firestore_dict(user)
+                self.firebase.db.collection("users").document(uid).set(firestore_data)
+                
+                # Also create a default profile if needed
+                await self.firebase.update_user_profile(uid, {"bio": f"Joined via Google Login"})
+            
+            else:
+                # 3b. Use existing user - CHECK FOR UPDATES
+                # Check if display name or profile picture has changed in the Google profile
+                should_update = False
+                update_data = {}
+                
+                token_name = decoded_token.get("name")
+                token_picture = decoded_token.get("picture")
+                
+                # Check display name (if token has one and it differs)
+                if token_name and token_name != user.display_name:
+                    update_data["display_name"] = token_name
+                    should_update = True
+                    
+                # Check profile picture (if token has one and it differs)
+                if token_picture and token_picture != user.profile_picture:
+                    update_data["profile_picture"] = token_picture
+                    should_update = True
+                
+                if should_update:
+                    try:
+                        # Update user in Firestore
+                        user_ref = self.firebase.db.collection("users").document(uid)
+                        # We use field updates directly to avoid full object replacement
+                        # Map internal field names to Firestore field names if needed
+                        # Based on user_model_to_firestore in user.py model:
+                        firestore_update = {}
+                        if "display_name" in update_data:
+                            firestore_update["displayName"] = update_data["display_name"]
+                        if "profile_picture" in update_data:
+                            firestore_update["profilePicture"] = update_data["profile_picture"]
+                        
+                        if firestore_update:
+                            user_ref.update(firestore_update)
+                            
+                            # Update local user object to return updated info
+                            if "display_name" in update_data:
+                                user.display_name = update_data["display_name"]
+                            if "profile_picture" in update_data:
+                                user.profile_picture = update_data["profile_picture"]
+                                
+                    except Exception as e:
+                        print(f"DEBUG: Failed to auto-update user profile: {e}")
+                        # Non-critical, continue with login
+            
+            # 4. Generate backend tokens
+            tokens = create_token_pair(
+                user_id=user.uid, email=user.email, role=user.role
+            )
+            
+            return {"user": user, "tokens": tokens}
+            
+        except ValueError as e:
+            raise e
+        except Exception as e:
+            raise Exception(f"Social authentication failed: {str(e)}")
 
 
 # Global auth service instance

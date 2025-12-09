@@ -2,7 +2,7 @@
 RAG (Retrieval-Augmented Generation) Service
 
 This service orchestrates the RAG pipeline:
-1. Retrieves relevant documents from ChromaDB based on user query
+1. Retrieves relevant documents from FAISS vector store based on user query
 2. Augments the LLM prompt with retrieved context
 3. Generates responses using the augmented prompt
 4. Manages the integration between embeddings, vector store, and LLM
@@ -15,22 +15,11 @@ from datetime import datetime, UTC
 
 from app.config import settings
 from app.services import firebase_service, gemini_service
-from app.services.embedding_service import EmbeddingService
-from app.utils.vector_store import get_chroma_client, get_or_create_collection
+from app.utils.faiss_store import get_vector_store
+
 from app.models.chat import ChatMessage
 
 logger = logging.getLogger(__name__)
-
-# Global embedding service (lazy-loaded)
-_embedding_service = None
-
-
-def get_embedding_service() -> EmbeddingService:
-    """Get or initialize the embedding service."""
-    global _embedding_service
-    if _embedding_service is None:
-        _embedding_service = EmbeddingService(model_name="all-MiniLM-L6-v2")
-    return _embedding_service
 
 
 class RAGService:
@@ -38,7 +27,7 @@ class RAGService:
     Retrieval-Augmented Generation service for LegalHub.
     
     Provides methods for:
-    - Ingesting documents into ChromaDB
+    - Ingesting documents into FAISS vector store
     - Retrieving relevant documents based on queries
     - Augmenting prompts with retrieved context
     - Generating RAG-enhanced responses
@@ -49,21 +38,17 @@ class RAGService:
         Initialize RAG service.
         
         Args:
-            collection_name: Name of the ChromaDB collection to use
+            collection_name: Name of the FAISS collection to use
         """
         self.collection_name = collection_name
-        self.embedding_service = get_embedding_service()
         self._initialize_collection()
 
     def _initialize_collection(self):
-        """Initialize or get the ChromaDB collection."""
+        """Initialize or get the FAISS vector store."""
         try:
-            self.chroma_client = get_chroma_client()
-            self.collection = get_or_create_collection(
-                self.collection_name,
-                client=self.chroma_client
-            )
-            logger.info(f"RAG collection '{self.collection_name}' initialized")
+            self.vector_store = get_vector_store(self.collection_name)
+            logger.info(f"RAG collection '{self.collection_name}' initialized with FAISS")
+            print(f"[OK] FAISS vector store initialized: {self.vector_store.count()} documents")
         except Exception as e:
             logger.error(f"Failed to initialize RAG collection: {e}")
             raise
@@ -84,43 +69,13 @@ class RAGService:
             Dict with counts of added documents
         """
         try:
-            ids = []
-            texts = []
-            metadatas = []
-
-            for doc in documents:
-                doc_id = doc.get("id", f"doc_{len(ids)}")
-                content = doc.get("content", "")
-                source = doc.get("source", "unknown")
-                
-                if not content:
-                    logger.warning(f"Skipping document {doc_id} with empty content")
-                    continue
-
-                ids.append(doc_id)
-                texts.append(content)
-                
-                # Prepare metadata
-                doc_metadata = {
-                    "source": source,
-                    "created_at": datetime.now(UTC).isoformat(),
-                }
-                if metadata:
-                    doc_metadata.update(metadata)
-                metadatas.append(doc_metadata)
-
-            # Add to collection
-            if ids:
-                await asyncio.to_thread(
-                    self.collection.add,
-                    ids=ids,
-                    documents=texts,
-                    metadatas=metadatas
-                )
-                logger.info(f"Added {len(ids)} documents to RAG collection")
-                return {"added": len(ids), "skipped": len(documents) - len(ids)}
-            else:
-                return {"added": 0, "skipped": len(documents)}
+            # FAISS add_documents is synchronous, run in thread pool
+            result = await asyncio.to_thread(
+                self.vector_store.add_documents,
+                documents
+            )
+            logger.info(f"Added {result.get('added', 0)} documents to FAISS vector store")
+            return result
 
         except Exception as e:
             logger.error(f"Error adding documents to RAG: {e}")
@@ -144,28 +99,15 @@ class RAGService:
             List of retrieved documents with metadata and scores
         """
         try:
-            # Query the collection
+            # FAISS search is synchronous, run in thread pool
             results = await asyncio.to_thread(
-                self.collection.query,
-                query_texts=[query],
-                n_results=top_k
+                self.vector_store.search,
+                query,
+                top_k
             )
 
-            # Process results
-            documents = []
-            if results and results.get("documents") and results["documents"]:
-                for i, doc in enumerate(results["documents"][0]):
-                    score = results.get("distances", [[]])[0][i] if results.get("distances") else 0
-                    # Convert distance to similarity (1 - distance for L2)
-                    similarity = 1 - score if score else 0
-                    
-                    if similarity >= score_threshold:
-                        documents.append({
-                            "id": results.get("ids", [[]])[0][i] if results.get("ids") else f"doc_{i}",
-                            "content": doc,
-                            "score": similarity,
-                            "metadata": results.get("metadatas", [[]])[0][i] if results.get("metadatas") else {}
-                        })
+            # Filter by score threshold
+            documents = [doc for doc in results if doc.get('score', 0) >= score_threshold]
 
             logger.info(f"Retrieved {len(documents)} documents for query: {query[:50]}...")
             return documents
@@ -201,7 +143,8 @@ class RAGService:
         for doc in retrieved_docs:
             content = doc.get("content", "")
             score = doc.get("score", 0)
-            source = doc.get("metadata", {}).get("source", "unknown")
+            # Source can be in doc directly or in metadata
+            source = doc.get("source") or doc.get("metadata", {}).get("source", "unknown")
             
             # Format context chunk
             chunk = f"[Source: {source} (relevance: {score:.2f})]\n{content}\n"

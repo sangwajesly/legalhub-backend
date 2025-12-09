@@ -119,39 +119,6 @@ async def send_message(prompt: str, model: Optional[str] = None) -> Dict[str, An
 
 
 
-    """Send a prompt to Gemini (or return a mock response in DEV).
-
-    Returns a normalized dict: {"model": ..., "response": <str>, "raw": <original>}
-    """
-    model = model or settings.GEMINI_MODEL
-    if settings.DEBUG_MOCK_GEMINI or not settings.GOOGLE_API_KEY:
-        # Return a deterministic mock response for local dev and tests
-        mock = {
-            "model": model,
-            "response": f"(mock) Answer to: {prompt[:200]}",
-            "raw": {"mock": True},
-        }
-        logger.debug("Using mock Gemini response")
-        return mock
-
-    if not settings.GEMINI_API_URL:
-        raise RuntimeError(
-            "GEMINI_API_URL not configured; enable DEBUG_MOCK_GEMINI or set GEMINI_API_URL"
-        )
-
-    url = f"{settings.GEMINI_API_URL}?key={settings.GOOGLE_API_KEY}"  # Append API key to URL
-    headers = {"Content-Type": "application/json"}  # Remove Authorization header
-    payload = {"model": model, "prompt": prompt}
-
-    logger.debug("Sending prompt to Gemini endpoint: %s", url)
-    print(f"Gemini API URL: {url}")
-    print(f"Gemini Request Headers: {headers}")
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        r = await client.post(url, json=payload, headers=headers)
-        r.raise_for_status()
-        raw = r.json()
-        response_text = _extract_text_from_api_response(raw)
-        return {"model": model, "response": response_text, "raw": raw}
 
 
 async def stream_send_message(prompt: str, model: Optional[str] = None):

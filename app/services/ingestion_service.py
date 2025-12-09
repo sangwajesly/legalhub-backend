@@ -35,15 +35,12 @@ Service for ingesting documents (PDFs, text) into the vector store.
 Orchestrates PDF processing, chunking, embedding, and ChromaDB storage.
 """
 
+# ... (previous imports)
 from typing import List, Dict, Any, Optional
 
 from app.services.pdf_processor import PDFProcessor
 from app.services.embedding_service import EmbeddingService
-from app.utils.vector_store import (
-    get_chroma_client,
-    get_or_create_collection,
-    get_sentence_transformer_ef,
-)
+from app.utils.faiss_store import get_vector_store
 import logging
 
 logger = logging.getLogger(__name__)
@@ -51,26 +48,20 @@ logger = logging.getLogger(__name__)
 
 class IngestionService:
     """
-    Manages the ingestion pipeline for various document types into ChromaDB.
+    Manages the ingestion pipeline for various document types into FAISS.
     """
 
-    def __init__(self, collection_name: str = "legal_documents"):
+    def __init__(self, collection_name: str = "legalhub_documents"):
         self.pdf_processor = PDFProcessor()
         self.embedding_service = EmbeddingService()
-        # Defer creating chroma client and collection until actually needed
-        self.chroma_client = None
-        self.collection = None
+        self.vector_store = None
         self.collection_name = collection_name
 
     def _ensure_collection(self):
-        """Lazily initialize Chroma client and collection."""
-        if self.collection is not None:
+        """Lazily initialize FAISS vector store."""
+        if self.vector_store is not None:
             return
-        self.chroma_client = get_chroma_client()
-        # get_or_create_collection will lazily initialize embedding function
-        self.collection = get_or_create_collection(
-            collection_name=self.collection_name, client=self.chroma_client
-        )
+        self.vector_store = get_vector_store(self.collection_name)
 
     async def ingest_document(
         self,
@@ -80,7 +71,7 @@ class IngestionService:
         metadata: Optional[Dict[str, Any]] = None,
     ) -> List[str]:
         """
-        Ingests a document into the ChromaDB vector store.
+        Ingests a document into the FAISS vector store.
 
         Args:
             content: The raw content of the document (bytes for PDF, str for text).
@@ -120,65 +111,58 @@ class IngestionService:
         metadata["document_id"] = document_id
         metadata["document_type"] = document_type
 
-        # Ensure vector store collection exists
+        # Ensure vector store exists
         self._ensure_collection()
 
         # Chunk the text
         chunks = self.embedding_service.semantic_chunk_text(full_text)
 
-        # Prepare data for ChromaDB
-        chunk_contents: List[str] = []
-        chunk_metadatas: List[Dict[str, Any]] = []
-        chunk_ids: List[str] = []
+        # Prepare data for FAISS
+        documents_for_faiss = []
+        chunk_ids = []
 
         for i, chunk in enumerate(chunks):
             chunk_id = f"{document_id}_chunk_{i}"
-            chunk_contents.append(chunk["content"])
-
+            
             chunk_metadata = metadata.copy()
             chunk_metadata["chunk_id"] = chunk_id
             chunk_metadata["chunk_index"] = i
             chunk_metadata["text_length"] = len(chunk["content"])
-            chunk_metadatas.append(chunk_metadata)
+            
+            # Combine content and metadata into a single dict for FAISS store
+            doc = {
+                "id": chunk_id,
+                "content": chunk["content"],
+                "source": metadata.get("source", "unknown"),
+                **chunk_metadata
+            }
+            
+            documents_for_faiss.append(doc)
             chunk_ids.append(chunk_id)
 
-        if not chunk_contents:
+        if not documents_for_faiss:
             logger.warning(
                 f"No chunks generated for document {document_id}. Skipping embedding and storage."
             )
             return []
 
-        # Generate embeddings and add to ChromaDB
+        # Add to FAISS
         try:
-            # Note: ChromaDB's get_or_create_collection function takes an embedding_function
-            # so it will handle embedding generation internally if a custom one is passed.
-            # If default embedding_function is used, we need to generate embeddings here.
-            # For now, let's rely on the collection's embedding_function if set.
-            # If not, we'd do:
-            # embeddings = [self.embedding_service.generate_embedding(c) for c in chunk_contents]
-            # self.collection.add(
-            #     documents=chunk_contents,
-            #     embeddings=embeddings,
-            #     metadatas=chunk_metadatas,
-            #     ids=chunk_ids
-            # )
-
-            # Use ChromaDB's internal embedding function as specified during collection creation
-            # (collection will initialize embedding function lazily if needed)
-            self.collection.add(
-                documents=chunk_contents, metadatas=chunk_metadatas, ids=chunk_ids
-            )
+            # Note: FAISSVectorStore handles embedding generation internally using SentenceTransformer
+            # if we pass raw text content.
+            self.vector_store.add_documents(documents_for_faiss)
+            
             logger.info(
-                f"Successfully ingested {len(chunk_ids)} chunks for document {document_id} into ChromaDB."
+                f"Successfully ingested {len(chunk_ids)} chunks for document {document_id} into FAISS."
             )
             return chunk_ids
         except Exception as e:
-            logger.error(f"Failed to ingest document {document_id} into ChromaDB: {e}")
+            logger.error(f"Failed to ingest document {document_id} into FAISS: {e}")
             raise
 
     async def ingest_firestore_articles(self) -> int:
         """
-        Fetches all articles from Firestore and ingests them into ChromaDB.
+        Fetches all articles from Firestore and ingests them into FAISS.
         """
         from app.services.firebase_service import (
             firebase_service,
@@ -217,7 +201,7 @@ class IngestionService:
                     f"Failed to ingest Firestore article {article.article_id}: {e}"
                 )
         logger.info(
-            f"Successfully ingested {ingested_count} Firestore articles into ChromaDB."
+            f"Successfully ingested {ingested_count} Firestore articles into FAISS."
         )
         return ingested_count
 

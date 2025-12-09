@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # CORS Configuration
-    ALLOWED_ORIGINS: str = "http://localhost:3001,http://localhost:5173"
+    ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:3001,http://localhost:5173"
 
     @property
     def allowed_origins_list(self) -> List[str]:
@@ -55,13 +55,14 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     EMAIL_FROM: str = "noreply@legalhub.com"
 
-    # ChromaDB Configuration
-    CHROMADB_PATH: str = "./chroma_db"
 
     # RAG Scheduler Configuration
     RAG_SCRAPE_INTERVAL_HOURS: int = 72  # Scrape every 72 hours
     RAG_SCRAPE_ENABLED: bool = True  # Enable/disable automatic scraping
     RAG_SCRAPE_ON_STARTUP: bool = False  # Run scraper immediately on startup
+
+    # FAISS/Vector Store Configuration
+    CHROMADB_PATH: str = "./chroma_db"  # Path for FAISS index storage (legacy name kept for compatibility)
 
     model_config = {"env_file": ".env", "case_sensitive": True, "extra": "allow"}
 
