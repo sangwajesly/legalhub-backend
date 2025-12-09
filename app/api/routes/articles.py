@@ -14,6 +14,7 @@ from app.schemas.article import (
     ArticleResponse,
     ArticleListResponse,
 )
+from app.models.user import UserRole
 
 
 router = APIRouter(prefix="/api/articles", tags=["Articles"])
@@ -44,58 +45,45 @@ async def list_articles(
     pageSize: int = 20,
     current_user=Depends(get_optional_user),
 ):
-    """List articles with optional simple query and pagination"""
-    # Simple implementation: fetch all and filter in-memory for small datasets/tests
-    coll = firebase_service.db.collection("articles")
-    docs = coll.stream()
+    """List articles with pagination"""
+    filters = {}
+    
+    # Text search support (Simple)
+    # Note: If 'q' is provided, we might fail if dataset is large because Firestore doesn't do "contains".
+    # For now, we ignore 'q' in database query and just list recent articles.
+    # Real solution requires Algolia/Elasticsearch or generic partial scan (slow).
+    
+    # Only show published articles by default
+    filters["published"] = True
+    
+    # If admin or author, logic to see unpublished is complex to do in one query with filters.
+    # We will prioritize the main use case: Public Feed.
+    # Users/Authors seeing their own unpublished articles should be a separate endpoint "/my".
+    
+    docs, total_count = await firebase_service.query_collection(
+        "articles",
+        filters=filters,
+        limit=pageSize,
+        offset=(page - 1) * pageSize
+    )
 
     items = []
-    for doc in docs:
-        data = doc.to_dict()
-        is_published = data.get("published", False)
-        # include published always; include unpublished when the current_user is the author or admin
-        include = False
-        if is_published:
-            include = True
-        else:
-            if current_user:
-                uid = (
-                    getattr(current_user, "uid", None)
-                    or (
-                        current_user.get("uid")
-                        if isinstance(current_user, dict)
-                        else None
-                    )
-                    or (
-                        current_user.get("sub")
-                        if isinstance(current_user, dict)
-                        else None
-                    )
-                )
-                role = getattr(current_user, "role", None) or (
-                    current_user.get("role") if isinstance(current_user, dict) else None
-                )
-                if uid and data.get("authorId") == uid:
-                    include = True
-                if role == "admin":
-                    include = True
-        if not include:
+    for doc_id, doc_data in docs:
+        try:
+             # Basic client-side filter for 'q' if provided (only filters the page, imperfect but safe)
+             if q:
+                 text = (doc_data.get("title", "") + " " + doc_data.get("content", "")).lower()
+                 if q.lower() not in text:
+                     continue
+            
+             items.append(firestore_article_to_model(doc_data, doc_id))
+        except Exception:
             continue
-        if q:
-            if q.lower() not in (
-                data.get("title", "").lower() + data.get("content", "").lower()
-            ):
-                continue
-        items.append(firestore_article_to_model(data, doc.id))
-
-    # sort by createdAt desc if available
-    items.sort(key=lambda x: x.created_at or datetime.min, reverse=True)
-
-    total = len(items)
-    start = (page - 1) * pageSize
-    end = start + pageSize
-    page_items = items[start:end]
-
+            
+    # Calculate pages
+    # Note: total_count from query_collection might be limited or estimated in some implementatons, 
+    # but our service does a separate count query.
+    
     return ArticleListResponse(
         articles=[
             ArticleResponse(
@@ -111,9 +99,9 @@ async def list_articles(
                 likesCount=a.likes_count,
                 views=a.views,
             )
-            for a in page_items
+            for a in items
         ],
-        total=total,
+        total=total_count,
         page=page,
         pageSize=pageSize,
     )
@@ -190,15 +178,15 @@ async def create_article(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required"
         )
 
-    # allow users, lawyers and organizations (and admin) to create articles
+    # allow lawyers, organizations (and admin) to create articles
     role = getattr(current_user, "role", None) or (
         current_user.get("role") if isinstance(current_user, dict) else None
     )
-    allowed_roles = {"user", "lawyer", "organization", "admin"}
+    allowed_roles = {UserRole.LAWYER, UserRole.ORGANIZATION, UserRole.ADMIN, "lawyer", "organization", "admin"}
     if role not in allowed_roles:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Insufficient role to create articles",
+            detail="Only professionals can publish articles.",
         )
 
     coll = firebase_service.db.collection("articles")

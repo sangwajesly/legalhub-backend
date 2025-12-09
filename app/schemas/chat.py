@@ -8,8 +8,9 @@ class CreateSessionResponse(BaseModel):
 
 
 class MessageRequest(BaseModel):
-    sessionId: Optional[str]
+    sessionId: Optional[str] = None
     message: str
+    attachments: List[str] = []
 
 
 class RetrievedDocument(BaseModel):

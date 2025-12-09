@@ -84,3 +84,15 @@ async def load_pdfs_from_folder(pdf_folder: str) -> Dict[str, int]:
             stats["failed"] += 1
     
     return stats
+
+def extract_text_from_pdf(pdf_path: str) -> str:
+    """Helper to extract text from a single PDF file."""
+    try:
+        pdf_processor = PDFProcessor()
+        with open(pdf_path, "rb") as f:
+            content = f.read()
+        text, _ = pdf_processor.extract_text_from_pdf(content)
+        return text
+    except Exception as e:
+        logger.error(f"Failed to extract text from {pdf_path}: {e}")
+        return ""

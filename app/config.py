@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     DEV_MODE: bool = False
 
     # Google Gemini API
-    GOOGLE_API_KEY: str = "AIzaSyC5mJNpSkdmp7jZBp2NwWjJjzzZILIkjjk"
+    GOOGLE_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-2.5-flash"
     GEMINI_API_URL: str = (
         "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     DEBUG_MOCK_GEMINI: bool = False
 
     # JWT Configuration
-    JWT_SECRET_KEY: str = "your_super_secret_jwt_key_change_this_in_production"
+    JWT_SECRET_KEY: str = ""
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7

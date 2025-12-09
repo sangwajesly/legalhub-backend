@@ -71,6 +71,28 @@ class TokenRefresh(BaseModel):
     refresh_token: str
 
 
+class PublicUserResponse(BaseModel):
+    """Schema for public user profile (safe for viewing by others)"""
+    uid: str
+    display_name: Optional[str] = None
+    role: str
+    profile_picture: Optional[str] = None
+    created_at: datetime
+    # Exclude email, phone_number, updated_at, email_verified
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "uid": "abc123xyz",
+                "display_name": "John Doe",
+                "role": "user",
+                "profile_picture": "https://example.com/photo.jpg",
+                "created_at": "2024-01-15T10:30:00Z",
+            }
+        }
+    )
+
+
 class UserResponse(BaseModel):
     """Schema for user data response"""
 
@@ -109,6 +131,7 @@ class UserUpdate(BaseModel):
     profile_picture: Optional[str] = None
     bio: Optional[str] = Field(None, max_length=500)
     location: Optional[str] = None
+    language_preference: Optional[str] = None
 
     model_config = ConfigDict(
         json_schema_extra={

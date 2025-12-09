@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse
 from typing import Optional, List
 import uuid
 
 from app.dependencies import get_current_user
-from app.services import firebase_service, langchain_service
+from app.dependencies import get_current_user
+from app.services import firebase_service, langchain_service, file_service
 from app.config import settings
 from app.schemas.chat import (
     CreateSessionResponse,
@@ -58,6 +59,23 @@ async def delete_session(id: str, user: Optional[dict] = Depends(get_current_use
     return {"ok": True}
 
 
+@router.post("/upload")
+async def upload_file(
+    file: UploadFile = File(...),
+    user: Optional[dict] = Depends(get_current_user)
+):
+    """
+    Upload a file for chat context.
+    Returns: {"fileId": "..."}
+    """
+    try:
+        # Save file using FileService
+        file_id = await file_service.file_service.save_upload(file)
+        return {"fileId": file_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+
 @router.post("/message", response_model=MessageResponse)
 async def send_message(
     payload: MessageRequest, user: Optional[dict] = Depends(get_current_user)
@@ -69,7 +87,10 @@ async def send_message(
 
     # call LangChain service
     reply_text = await langchain_service.generate_response(
-        session_id=session_id, user_id=user.get("uid"), user_message=payload.message
+        session_id=session_id, 
+        user_id=user.get("uid"), 
+        user_message=payload.message,
+        attachments=payload.attachments
     )
 
     return {"reply": reply_text, "sessionId": session_id}

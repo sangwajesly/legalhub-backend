@@ -1,6 +1,7 @@
 import logging
 import asyncio
-from typing import Optional, Any, Dict
+import asyncio
+from typing import Optional, Any, Dict, List
 import httpx
 from app.config import settings
 
@@ -59,10 +60,17 @@ GEMINI_REST_ENDPOINT = "https://generativelanguage.googleapis.com/v1/models/{mod
 
 # ... rest of the file ...
 
-async def send_message(prompt: str, model: Optional[str] = None) -> Dict[str, Any]:
+async def send_message(
+    prompt: str, 
+    model: Optional[str] = None, 
+    images: Optional[List[Dict[str, Any]]] = None
+) -> Dict[str, Any]:
     """Send a prompt to Gemini (or return a mock response in DEV).
     
-    This version correctly constructs the Gemini REST API request body.
+    Args:
+        prompt: Text prompt
+        model: Model name
+        images: List of dicts checks {"mime_type": "image/jpeg", "data": b64_string}
     """
     model = model or settings.GEMINI_MODEL
     
@@ -82,10 +90,22 @@ async def send_message(prompt: str, model: Optional[str] = None) -> Dict[str, An
     headers = {"Content-Type": "application/json"} 
     
     # 2. Construct the Correct Payload (Contents and System Instruction)
+    parts = [{"text": prompt}]
+    
+    # Append images if present
+    if images:
+        for img in images:
+            parts.append({
+                "inline_data": {
+                    "mime_type": img["mime_type"],
+                    "data": img["data"]
+                }
+            })
+
     payload = {
         # The prompt should be inside 'contents'
         "contents": [
-            {"role": "user", "parts": [{"text": prompt}]}
+            {"role": "user", "parts": parts}
         ],
         # System instructions/safety settings go here if needed,
         # but for simplicity, the prompt itself contains the system instructions.
@@ -167,3 +187,45 @@ async def stream_send_message(prompt: str, model: Optional[str] = None):
                     yield {"model": model, "response": text, "raw": parsed}
                 else:
                     yield {"model": model, "response": chunk, "raw": None}
+
+
+async def transcribe_audio(audio_bytes: bytes, mime_type: str = "audio/webm") -> str:
+    """Transcribe audio using Gemini Flash (multimodal)."""
+    
+    if settings.DEBUG_MOCK_GEMINI or not settings.GOOGLE_API_KEY:
+        return "(Mock Transcription) This is a simulated transcription of the audio file."
+
+    # Gemini API for multimodal content needs "parts" with "inlineData"
+    url = f"{GEMINI_REST_ENDPOINT.format(model=settings.GEMINI_MODEL)}?key={settings.GOOGLE_API_KEY}"
+    headers = {"Content-Type": "application/json"}
+    
+    import base64
+    b64_audio = base64.b64encode(audio_bytes).decode('utf-8')
+    
+    payload = {
+        "contents": [{
+            "parts": [
+                {"text": "Transcribe this audio file exactly as it is spoken. Output only the transcription."},
+                {
+                    "inline_data": {
+                        "mime_type": mime_type,
+                        "data": b64_audio
+                    }
+                }
+            ]
+        }]
+    }
+    
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        try:
+            r = await client.post(url, json=payload, headers=headers)
+            r.raise_for_status()
+            
+            raw = r.json()
+            # Extract text
+            text = raw.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+            return text.strip()
+            
+        except Exception as e:
+            logger.error("Gemini Transcription Error: %s", e)
+            raise RuntimeError(f"Transcription failed: {str(e)}")

@@ -3,7 +3,10 @@ import asyncio
 import logging
 from datetime import datetime, UTC
 
-from app.services import firebase_service, gemini_service
+from app.services import firebase_service, gemini_service, file_service
+from app.services.pdf_ingestion_service import extract_text_from_pdf
+import mimetypes
+import base64
 from app.config import settings
 from app.models.chat import ChatMessage  # Import ChatMessage
 from app.prompts import LEGALHUB_CORE_SYSTEM_PROMPT
@@ -72,7 +75,10 @@ async def create_session(user_id: str, session_id: str):
 
 
 async def generate_response(
-    session_id: Optional[str], user_id: Optional[str], user_message: str
+    session_id: Optional[str], 
+    user_id: Optional[str], 
+    user_message: str,
+    attachments: Optional[List[str]] = None
 ) -> str:
     """Generate a response for a user message using the Gemini adapter.
 
@@ -84,14 +90,51 @@ async def generate_response(
         user_chat_message = ChatMessage(
             role="user", text=user_message, userId=user_id, createdAt=datetime.now(UTC)
         )
+        # Note: We might want to store attachment refs in Firestore too, but sticking to text for MVP
         await firebase_service.add_chat_message(session_id, user_chat_message)
 
     context = await _build_context(session_id)  # Await _build_context
-    prompt = _compose_prompt(context, user_message)
+    
+    # Process Attachments
+    images_for_gemini = []
+    doc_text = ""
+    
+    if attachments:
+        for file_id in attachments:
+            path = file_service.file_service.get_file_path(file_id)
+            if not path:
+                continue
+                
+            mime_type, _ = mimetypes.guess_type(path)
+            if not mime_type:
+                continue
+                
+            if mime_type.startswith("image/"):
+                # Prepare for Gemini
+                content = path.read_bytes()
+                b64_data = base64.b64encode(content).decode('utf-8')
+                images_for_gemini.append({"mime_type": mime_type, "data": b64_data})
+                
+            elif mime_type == "application/pdf":
+                # Extract text
+                text = extract_text_from_pdf(str(path))
+                doc_text += f"\n[Attached PDF Content]:\n{text[:5000]}..." # Limit size
+                
+            elif mime_type.startswith("text/"):
+                text = path.read_text(encoding='utf-8', errors='ignore')
+                doc_text += f"\n[Attached Text Content]:\n{text[:5000]}..."
+
+    # Append doc content to message
+    full_message = user_message
+    if doc_text:
+        full_message += f"\n\n--- Referenced Documents ---\n{doc_text}"
+
+    prompt = _compose_prompt(context, full_message)
 
     # Call gemini adapter (mocked in DEV by default)
     try:
-        ai_result = await gemini_service.send_message(prompt)
+        # Pass images if available
+        ai_result = await gemini_service.send_message(prompt, images=images_for_gemini)
     except Exception as e:
         logger.error("LLM call failed: %s", e)
         # Return a safe fallback message

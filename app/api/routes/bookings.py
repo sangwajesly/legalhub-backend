@@ -14,10 +14,11 @@ This module defines the HTTP endpoints for booking management operations:
 import logging
 from typing import Optional
 from uuid import uuid4
-from datetime import datetime, UTC
+from datetime import datetime, UTC, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from app.models.user import UserRole
 from app.dependencies import get_current_user
 from app.services import firebase_service
 from app.services.notification_service import notification_service
@@ -40,6 +41,19 @@ from app.schemas.booking import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/bookings", tags=["bookings"])
+
+def _parse_datetime(value):
+    """Helper to parse datetime from Firestore"""
+    if value is None:
+        return datetime.now(UTC)
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value)
+        except:
+            pass
+    return datetime.now(UTC)
 
 
 # POST /api/bookings - Create a new booking
@@ -76,6 +90,50 @@ async def create_booking(
         ):
             # This is a booking by a client for a lawyer
             pass
+
+        # 1. Validate Future Date
+        if booking_data.scheduledAt <= datetime.now(UTC) + timedelta(minutes=15):
+             raise HTTPException(
+                 status_code=400, 
+                 detail="Bookings must be scheduled at least 15 minutes in advance"
+             )
+
+        # 2. Check Availability (Conflict Detection)
+        # Calculate end time
+        requested_start = booking_data.scheduledAt
+        requested_end = requested_start + timedelta(minutes=booking_data.duration)
+        
+        # Query existing bookings for this lawyer around this time
+        # Note: Firestore generic query is limited, but we can filter in memory for now OR use composite index.
+        # Ideally, we query bookings for this lawyer where status != CANCELLED
+        # checking overlap: (StartA < EndB) and (EndA > StartB)
+        
+        # Optimized: Fetch bookings for this lawyer for the same day (or active ones)
+        # For MVP/PoC, we'll fetch 'pending' and 'confirmed' bookings for this lawyer.
+        # CAUTION: If lawyer has 1000s of bookings, this is slow. 
+        # Better approach: Query by date range if possible, or just fetch recent active ones.
+        # We will iterate and check overlap.
+        
+        existing_bookings_docs, _ = await firebase_service.query_collection(
+            "bookings",
+            filters={"lawyerId": booking_data.lawyerId},
+            limit=100  # Check 100 most recent bookings roughly
+        )
+        
+        for _, doc in existing_bookings_docs:
+            if doc.get("status") in [BookingStatus.CANCELLED.value, BookingStatus.NO_SHOW.value]:
+                continue
+            
+            existing_start = _parse_datetime(doc.get("scheduledAt"))
+            existing_duration = doc.get("duration", 30)
+            existing_end = existing_start + timedelta(minutes=existing_duration)
+            
+            # Check overlap
+            if requested_start < existing_end and requested_end > existing_start:
+                 raise HTTPException(
+                     status_code=409,
+                     detail="The lawyer is already booked for this time slot."
+                 )
 
         # Create booking model
         booking_id = f"booking_{uuid4().hex[:12]}"
@@ -232,15 +290,21 @@ async def list_bookings(
             filters["status"] = status
 
         # Apply role-based filtering
-        if not current_user.get("is_admin"):
-            # Non-admin users can only see their own bookings
-            filters["userId"] = current_user.get("uid")
-        else:
+        user_role = current_user.get("role")
+        user_uid = current_user.get("uid")
+        
+        if current_user.get("is_admin") or user_role == UserRole.ADMIN:
             # Admin can filter by specific user/lawyer if requested
             if userId:
                 filters["userId"] = userId
             if lawyerId:
                 filters["lawyerId"] = lawyerId
+        elif user_role == UserRole.LAWYER:
+             # Lawyers see bookings assigned to them
+             filters["lawyerId"] = user_uid
+        else:
+             # Regular users (clients) see their own bookings
+             filters["userId"] = user_uid
 
         # Query Firestore
         docs, total_count = await firebase_service.query_collection(

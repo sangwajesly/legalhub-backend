@@ -5,9 +5,9 @@ User profile management API endpoints
 from fastapi import APIRouter, HTTPException, status, Depends
 from typing import Dict, Any
 
-from app.schemas.auth import UserResponse, UserUpdate
+from app.schemas.auth import UserResponse, UserUpdate, PublicUserResponse
 from app.services.firebase_service import firebase_service
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_optional_user
 from app.models.user import User
 
 # Create router
@@ -35,14 +35,12 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
     )
 
 
-@router.get("/profile/{user_id}", response_model=UserResponse)
-async def get_user_by_id(user_id: str):
+@router.get("/profile/{user_id}", response_model=UserResponse | PublicUserResponse)
+async def get_user_by_id(user_id: str, current_user=Depends(get_optional_user)):
     """
     Get user profile by ID
-
-    - **user_id**: User's unique identifier
-
-    Returns public user profile information.
+    
+    Returns Public profile for others, Full profile for owner/admin.
     """
     try:
         user = await firebase_service.get_user_by_uid(user_id)
@@ -52,17 +50,43 @@ async def get_user_by_id(user_id: str):
                 status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
             )
 
-        return UserResponse(
-            uid=user.uid,
-            email=user.email,
-            display_name=user.display_name,
-            role=user.role.value,
-            phone_number=user.phone_number,
-            profile_picture=user.profile_picture,
-            email_verified=user.email_verified,
-            created_at=user.created_at,
-            updated_at=user.updated_at,
-        )
+        # Check if owner or admin
+        is_owner = False
+        if current_user:
+            # current_user might be a dict (from JWT) or User model object
+            uid = None
+            role = None
+            if isinstance(current_user, dict):
+                uid = current_user.get("uid")
+                role = current_user.get("role")
+            else:
+                 uid = getattr(current_user, "uid", None)
+                 role = getattr(current_user, "role", None)
+            
+            if uid == user.uid or role == "admin":
+                is_owner = True
+
+        if is_owner:
+            return UserResponse(
+                uid=user.uid,
+                email=user.email,
+                display_name=user.display_name,
+                role=user.role.value if hasattr(user.role, 'value') else user.role,
+                phone_number=user.phone_number,
+                profile_picture=user.profile_picture,
+                email_verified=user.email_verified,
+                created_at=user.created_at,
+                updated_at=user.updated_at,
+            )
+        else:
+            # Public view - no PII
+            return PublicUserResponse(
+                uid=user.uid,
+                display_name=user.display_name,
+                role=user.role.value if hasattr(user.role, 'value') else user.role,
+                profile_picture=user.profile_picture,
+                created_at=user.created_at,
+            )
 
     except HTTPException:
         raise
@@ -116,6 +140,9 @@ async def update_user_profile(
 
         if profile_data.location is not None:
             profile_update["location"] = profile_data.location
+
+        if profile_data.language_preference is not None:
+            profile_update["language_preference"] = profile_data.language_preference
 
         if profile_update:
             await firebase_service.update_user_profile(current_user.get("uid"), profile_update)

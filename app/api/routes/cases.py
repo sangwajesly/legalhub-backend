@@ -38,6 +38,7 @@ from app.schemas.case import (
     CaseDetailSchema,
     CaseListSchema,
 )
+from app.models.user import UserRole
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/cases", tags=["cases"])
@@ -126,6 +127,19 @@ async def get_case(
         if not doc_data:
             raise HTTPException(status_code=404, detail="Case not found")
 
+        # RBAC Check
+        # 1. Allow if Public/Anonymous? -> Policy decision: Cases are private by default unless owner consents.
+        #    However, specialized users (Lawyers/Orgs) need to see them to take them.
+        
+        is_owner = current_user and current_user.get("uid") == doc_data.get("userId")
+        user_role = current_user.get("role") if current_user else None
+        is_professional = user_role in [UserRole.LAWYER, UserRole.ORGANIZATION, UserRole.ADMIN]
+        
+        if not (is_owner or is_professional):
+             # If user is anonymous owner (no userId on case), we might allow if they have a "secret key" (future feature)
+             # For now, strict: only logged in professionals or the logged-in owner can view details.
+             raise HTTPException(status_code=403, detail="Not authorized to view this case")
+
         # Convert to model
         case = firestore_case_to_model(doc_data, case_id)
 
@@ -155,11 +169,22 @@ async def list_cases(
 ):
     """
     List cases with optional filtering by category, status, or priority
-
-    Pagination: page and page_size query parameters
-    Filtering: optional category, status, priority filters
+    
+    RESTRICTED: Only Lawyers, Organizations, and Admins can view the general case feed.
+    Regular users should use /api/cases/user/{uid} to view their own cases.
     """
     try:
+        # Enforce RBAC
+        if not current_user:
+             raise HTTPException(status_code=401, detail="Authentication required")
+        
+        user_role = current_user.get("role")
+        if user_role not in [UserRole.LAWYER, UserRole.ORGANIZATION, UserRole.ADMIN]:
+             raise HTTPException(
+                 status_code=403, 
+                 detail="Access denied. Regular users cannot view the public case feed. Use /api/cases/user/{uid}."
+             )
+
         logger.info(
             f"Listing cases: page={page}, page_size={page_size}, category={category}, status={status}"
         )
@@ -198,6 +223,8 @@ async def list_cases(
             pages=total_pages if hasattr(CaseListSchema, "pages") else None,
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error listing cases: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to retrieve cases")
@@ -532,7 +559,7 @@ async def get_case_stats(
     Returns counts by category, status, priority, and resolution metrics
     """
     try:
-        if not current_user or not current_user.get("is_admin"):
+        if not current_user or current_user.get("role") != UserRole.ADMIN:
             raise HTTPException(status_code=403, detail="Admin access required")
 
         logger.info("Fetching case statistics")
