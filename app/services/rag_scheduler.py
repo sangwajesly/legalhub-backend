@@ -12,7 +12,9 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from app.services.web_scraper import scrape_government_websites
 from app.services.rag_service import rag_service
+from app.services.pdf_ingestion_service import load_pdfs_from_folder
 from app.config import settings
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -48,14 +50,21 @@ class RAGScrapeScheduler:
             
             logger.info(f"✓ Scraped {len(documents)} documents")
             
-            # Ingest into RAG
-            logger.info("🔄 Ingesting documents into RAG vector store...")
+            # Ingest local PDFs
+            logger.info("📂 Checking for local PDFs in data/pdfs...")
+            pdf_path = os.path.join(os.getcwd(), "data", "pdfs")
+            pdf_stats = await load_pdfs_from_folder(pdf_path)
+            
+            logger.info(f"✓ PDF Ingestion: {pdf_stats['success']} added")
+
+            # Ingest into RAG (Web Documents)
+            logger.info("🔄 Ingesting web documents into RAG vector store...")
             result = await rag_service.add_documents(documents)
             
             added = result.get("added", 0)
             skipped = result.get("skipped", 0)
             
-            logger.info(f"✓ Ingestion complete: {added} added, {skipped} skipped")
+            logger.info(f"✓ Web Ingestion complete: {added} added, {skipped} skipped")
             self.last_run_status = "success"
             
             # Log summary
@@ -65,8 +74,8 @@ class RAGScrapeScheduler:
 ╠════════════════════════════════════════╣
 ║ Timestamp: {self.last_run.isoformat()}
 ║ Websites Scraped: {len(documents)}
-║ Documents Added: {added}
-║ Documents Skipped: {skipped}
+║ Web Docs Added: {added}
+║ Local PDFs Added: {pdf_stats['success']}
 ║ Next Run: 72 hours from now
 ╚════════════════════════════════════════╝
             """)

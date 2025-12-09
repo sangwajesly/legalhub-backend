@@ -18,6 +18,7 @@ from app.services import firebase_service, gemini_service
 from app.utils.faiss_store import get_vector_store
 
 from app.models.chat import ChatMessage
+from app.prompts import RAG_SYSTEM_PROMPT_TEMPLATE, LEGALHUB_CORE_SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -158,20 +159,10 @@ class RAGService:
 
         # Construct augmented prompt
         context = "\n".join(context_parts)
-        augmented_prompt = f"""You are a legal assistant. Use the following context from legal documents to answer the user's question.
-
-LEGAL CONTEXT:
-{context}
-
-USER QUESTION: {user_query}
-
-INSTRUCTIONS:
-- Base your answer on the provided legal context
-- If the context doesn't contain relevant information, state that clearly
-- Provide accurate legal information based on the documents
-- When uncertain, recommend consulting with a qualified lawyer"""
-
-        return augmented_prompt
+        return RAG_SYSTEM_PROMPT_TEMPLATE.format(
+            context=context,
+            user_query=user_query
+        )
 
     async def generate_rag_response(
         self,
@@ -337,10 +328,7 @@ INSTRUCTIONS:
             except Exception as e:
                 logger.warning(f"Failed to load chat history: {e}")
 
-        system = (
-            "You are LegalHub's assistant: provide concise, accurate legal information, "
-            "explain legal terms in plain language, and when unsure, state that you are not a lawyer."
-        )
+        system = LEGALHUB_CORE_SYSTEM_PROMPT
         
         prompt_parts = [f"System: {system}"]
         if context:

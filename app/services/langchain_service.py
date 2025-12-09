@@ -6,6 +6,7 @@ from datetime import datetime, UTC
 from app.services import firebase_service, gemini_service
 from app.config import settings
 from app.models.chat import ChatMessage  # Import ChatMessage
+from app.prompts import LEGALHUB_CORE_SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -49,10 +50,7 @@ async def _build_context(
 
 
 def _compose_prompt(context: List[str], user_message: str) -> str:
-    system = (
-        "You are LegalHub's assistant: provide concise, accurate legal information, "
-        "explain legal terms in plain language, and when unsure, state that you are not a lawyer."
-    )
+    system = LEGALHUB_CORE_SYSTEM_PROMPT
     prompt_parts = [f"System: {system}"]
     if context:
         prompt_parts.append("Conversation so far:")

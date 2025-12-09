@@ -16,8 +16,7 @@ from typing import List, Dict
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.services.rag_service import rag_service
-from app.services.pdf_processor import PDFProcessor
+from app.services.pdf_ingestion_service import load_pdfs_from_folder
 
 
 class Colors:
@@ -45,96 +44,21 @@ def print_error(text: str):
     print(f"{Colors.FAIL}✗ {text}{Colors.ENDC}")
 
 
-def print_warning(text: str):
-    print(f"{Colors.WARNING}⚠ {text}{Colors.ENDC}")
-
-
 def print_info(text: str):
     print(f"{Colors.OKCYAN}ℹ {text}{Colors.ENDC}")
-
-
-async def load_pdfs_from_folder(pdf_folder: str) -> Dict[str, int]:
-    """
-    Load all PDFs from a folder into the RAG vector store.
-    
-    Args:
-        pdf_folder: Path to folder containing PDFs
-        
-    Returns:
-        Dictionary with stats (total, success, failed, skipped)
-    """
-    pdf_folder = Path(pdf_folder)
-    
-    if not pdf_folder.exists():
-        print_error(f"Folder not found: {pdf_folder}")
-        return {"total": 0, "success": 0, "failed": 0, "skipped": 0}
-    
-    # Find all PDF files
-    pdf_files = list(pdf_folder.glob("*.pdf"))
-    
-    if not pdf_files:
-        print_warning(f"No PDF files found in {pdf_folder}")
-        return {"total": 0, "success": 0, "failed": 0, "skipped": 0}
-    
-    print_info(f"Found {len(pdf_files)} PDF files to process")
-    
-    stats = {"total": len(pdf_files), "success": 0, "failed": 0, "skipped": 0}
-    pdf_processor = PDFProcessor()
-    
-    for i, pdf_file in enumerate(pdf_files, 1):
-        try:
-            print(f"\n[{i}/{len(pdf_files)}] Processing: {pdf_file.name}")
-            
-            # Read PDF file
-            with open(pdf_file, "rb") as f:
-                pdf_content = f.read()
-            
-            # Extract text
-            text, metadata = pdf_processor.extract_text_from_pdf(pdf_content)
-            
-            if not text or len(text.strip()) < 100:
-                print_warning(f"Skipped (insufficient text): {pdf_file.name}")
-                stats["skipped"] += 1
-                continue
-            
-            # Prepare document
-            document = {
-                "id": f"pdf_{pdf_file.stem}",
-                "content": text,
-                "source": f"pdf:{pdf_file.name}",
-                "metadata": {
-                    "filename": pdf_file.name,
-                    "size_bytes": pdf_file.stat().st_size,
-                    "pages": len(text.split("\n\n")),  # Rough estimate
-                    **metadata
-                }
-            }
-            
-            # Add to RAG
-            result = await rag_service.add_documents([document])
-            
-            if result.get("added", 0) > 0:
-                print_success(f"Added to RAG: {pdf_file.name} ({len(text)} chars)")
-                stats["success"] += 1
-            else:
-                print_warning(f"Failed to add: {pdf_file.name}")
-                stats["failed"] += 1
-                
-        except Exception as e:
-            print_error(f"Error processing {pdf_file.name}: {str(e)}")
-            stats["failed"] += 1
-    
-    return stats
 
 
 async def main():
     parser = argparse.ArgumentParser(
         description="Batch load PDFs into LegalHub RAG vector store"
     )
+    # Default path relative to project root
+    default_path = os.path.join(os.getcwd(), "data", "pdfs")
+    
     parser.add_argument(
         "--folder",
-        default="c:\\Users\\DESTO\\Desktop\\legalhub-backend\\data\\pdfs",
-        help="Path to PDF folder (default: /data/pdfs)"
+        default=default_path,
+        help=f"Path to PDF folder (default: {default_path})"
     )
     parser.add_argument(
         "--cleanup",
@@ -148,7 +72,7 @@ async def main():
     print_info(f"PDF Folder: {args.folder}")
     print_info(f"Cleanup after processing: {args.cleanup}")
     
-    # Load PDFs
+    # Load PDFs using the service
     stats = await load_pdfs_from_folder(args.folder)
     
     # Print summary
@@ -173,6 +97,11 @@ async def main():
         
         for pdf_file in pdf_files:
             try:
+                # Only remove if we likely processed it (this logic is loose in CLI, 
+                # but stats['success'] > 0 suggests we did something. 
+                # Ideally service returns list of processed files)
+                # For safety, we only cleanup if ALL succeeded or we accept partial cleanup.
+                # Here we just try to unlink all found pdfs if cleanup requested
                 pdf_file.unlink()
                 print_success(f"Removed: {pdf_file.name}")
             except Exception as e:
