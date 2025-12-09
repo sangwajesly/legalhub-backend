@@ -470,6 +470,64 @@ class FirebaseService:
         session_ref.delete()
 
     # ============================================
+    # DIRECT MESSAGING OPERATIONS
+    # ============================================
+
+    async def add_direct_message(self, message: "DirectMessage"):
+        """
+        Adds a direct message to the 'direct_messages' collection.
+        Messages are stored in a top-level collection for simplicity in MVP.
+        """
+        msg_dict = message.model_dump(by_alias=True)
+        if isinstance(msg_dict.get("timestamp"), str):
+             msg_dict["timestamp"] = datetime.fromisoformat(msg_dict["timestamp"])
+        
+        # Use provided ID or generate one
+        if not message.id:
+            ref = self.db.collection("direct_messages").document()
+            message.id = ref.id
+            msg_dict["id"] = ref.id
+        else:
+             ref = self.db.collection("direct_messages").document(message.id)
+
+        ref.set(msg_dict)
+        return message
+
+    async def get_direct_messages(self, user1_id: str, user2_id: str, limit: int = 50) -> List["DirectMessage"]:
+        """
+        Get messages between two users (bidirectional).
+        Requires a composite index on [senderId, receiverId, timestamp] AND [receiverId, senderId, timestamp]
+        OR we query twice and merge (simpler for MVP without custom indexes).
+        """
+        from app.models.communication import DirectMessage
+        
+        # Query 1: user1 -> user2
+        q1 = (
+            self.db.collection("direct_messages")
+            .where("senderId", "==", user1_id)
+            .where("receiverId", "==", user2_id)
+            .stream()
+        )
+        
+        # Query 2: user2 -> user1
+        q2 = (
+            self.db.collection("direct_messages")
+            .where("senderId", "==", user2_id)
+            .where("receiverId", "==", user1_id)
+            .stream()
+        )
+        
+        msgs = []
+        for d in q1:
+            msgs.append(DirectMessage(**d.to_dict()))
+        for d in q2:
+            msgs.append(DirectMessage(**d.to_dict()))
+            
+        # Sort by timestamp
+        msgs.sort(key=lambda x: x.timestamp)
+        return msgs
+
+    # ============================================
     # STORAGE HELPERS
     # ============================================
 

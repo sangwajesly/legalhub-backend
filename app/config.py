@@ -56,7 +56,11 @@ class Settings(BaseSettings):
     EMAIL_FROM: str = "noreply@legalhub.com"
 
 
-    # RAG Scheduler Configuration
+    # Payment Settings
+    STRIPE_SECRET_KEY: str = ""
+    STRIPE_WEBHOOK_SECRET: str = ""
+    MTN_MOMO_API_KEY: str = ""
+    MTN_MOMO_USER_ID: str = ""
     RAG_SCRAPE_INTERVAL_HOURS: int = 72  # Scrape every 72 hours
     RAG_SCRAPE_ENABLED: bool = True  # Enable/disable automatic scraping
     RAG_SCRAPE_ON_STARTUP: bool = False  # Run scraper immediately on startup

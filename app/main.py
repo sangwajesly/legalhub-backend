@@ -23,7 +23,10 @@ from app.api.routes import (
     analytics,
     rag,
     rag_scraper,
+    rag_scraper,
     utils,
+    communication,
+    payments,
 )
 from app.api.routes import debug
 
@@ -122,6 +125,8 @@ app.include_router(analytics.router)
 app.include_router(rag.router)
 app.include_router(rag_scraper.router)
 app.include_router(utils.router)
+app.include_router(communication.router)
+app.include_router(payments.router)
 if settings.DEBUG:
     app.include_router(debug.router)
 

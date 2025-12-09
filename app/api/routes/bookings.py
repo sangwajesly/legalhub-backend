@@ -856,3 +856,43 @@ async def get_booking_stats(
     except Exception as e:
         logger.error(f"Error fetching booking statistics: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to retrieve statistics")
+@router.post("/{booking_id}/join_call", status_code=200)
+async def join_call(
+    booking_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Generate a generic Jitsi Meet URL for the booking.
+    Real-world: You'd want to use JWT tokens with Jitsi to secure this room.
+    For this MVP/Demo: We generate a unique hash-based room name.
+    """
+    try:
+        booking_data = await firebase_service.get_document(f"bookings/{booking_id}")
+        if not booking_data:
+             raise HTTPException(status_code=404, detail="Booking not found")
+        
+        booking = firestore_booking_to_model(booking_data, booking_id)
+        
+        # RBAC: Only participants (or admin)
+        uid = current_user.get("uid")
+        if uid != booking.userId and uid != booking.lawyerId and not current_user.get("is_admin"):
+             raise HTTPException(status_code=403, detail="Not a participant")
+
+        # Time Validation (Optional: allow joining +/- 1 hour of scheduled time)
+        # For simplicity, we allow joining anytime to facilitate testing.
+        
+        # Generate Room Name: 'LegalHub-{BookingID}' (Unique enough for public Jitsi)
+        room_name = f"LegalHub-Consultation-{booking_id}"
+        
+        # Return the join URL
+        # We can implement a simple 'redirect' or return the JSON
+        return {
+            "roomUrl": f"https://meet.jit.si/{room_name}",
+            "roomName": room_name
+        }
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Error joining call: {e}")
+        raise HTTPException(status_code=500, detail="Failed to join call")
