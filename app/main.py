@@ -41,6 +41,7 @@ async def lifespan(app: FastAPI):
     print(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
     print(f"Debug mode: {settings.DEBUG}")
     print(f"Dev mode: {settings.DEV_MODE}")
+    print(f"Allowed CORS origins: {settings.allowed_origins_list}")
 
     # Initialize Firebase (already done in firebase_service)
     from app.services.firebase_service import firebase_service
@@ -80,13 +81,25 @@ app = FastAPI(
 )
 
 
-# Configure CORS
+# Configure CORS - Must be added BEFORE any routes
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins_list,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=[
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "Origin",
+        "User-Agent",
+        "DNT",
+        "Cache-Control",
+        "X-Requested-With",
+        "X-CSRF-Token",
+    ],
+    expose_headers=["X-Process-Time"],
+    max_age=3600,  # Cache preflight requests for 1 hour
 )
 
 
@@ -155,6 +168,7 @@ async def health_check():
         "debug_mode": settings.DEBUG,
         "firebase_configured": bool(settings.FIREBASE_CREDENTIALS_PATH),
         "gemini_configured": bool(settings.GOOGLE_API_KEY),
+        "cors_origins": settings.allowed_origins_list,
     }
 
 
