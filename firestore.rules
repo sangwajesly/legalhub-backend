@@ -1,0 +1,129 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Function to check if the user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Function to check if the requesting user is the owner of the document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Collection: users
+    match /users/{userId} {
+      allow read: if isAuthenticated(); // Authenticated users can read any user profile (public info)
+      allow create: if isAuthenticated() && request.auth.uid == userId; // Users can create their own profile
+      allow update, delete: if isOwner(userId); // Users can update/delete their own profile
+    }
+
+    // Collection: user_profiles
+    match /user_profiles/{userId} {
+      allow read: if isOwner(userId); // Users can read their own profile
+      allow create: if isAuthenticated() && request.auth.uid == userId; // Users can create their own profile
+      allow update, delete: if isOwner(userId); // Users can update/delete their own profile
+    }
+
+    // Collection: lawyers (assuming lawyers are also users, with additional profiles)
+    // This collection stores lawyer-specific details, linked to the user's UID.
+    match /lawyers/{lawyerId} {
+      allow read: if isAuthenticated(); // Authenticated users can read any lawyer profile
+      // A lawyer can create their own profile (assuming lawyerId is their UID)
+      allow create: if isOwner(lawyerId);
+      // A lawyer can update/delete their own profile
+      allow update, delete: if isOwner(lawyerId);
+    }
+
+    // Collection: organizations
+    match /organizations/{organizationId} {
+      allow read: if isAuthenticated(); // All authenticated users can read organization profiles
+      // Only authenticated users can create organizations
+      allow create: if isAuthenticated();
+      // Only the organization owner (or admin) can update/delete.
+      // This requires a field in the organization document to identify the owner.
+      allow update, delete: if isOwner(resource.data.ownerId); // Assuming an 'ownerId' field
+    }
+
+    // Collection: organization_members (to manage many-to-many relationship)
+    // e.g., /organizations/{organizationId}/members/{memberId} or /organization_members/{docId}
+    // Let's assume a top-level collection for simplicity initially
+    match /organization_members/{memberId} { // memberId could be a unique ID for the membership
+      allow read: if isAuthenticated(); // All authenticated users can read
+      allow create: if isAuthenticated(); // Only authenticated users can create membership records
+      // Only the owner of the organization or the member themselves can delete/update their membership
+      allow update, delete: if isOwner(resource.data.memberUserId) || isOwner(resource.data.organizationOwnerId);
+    }
+
+
+    // Collection: bookings
+    match /bookings/{bookingId} {
+      allow create: if isAuthenticated(); // Any authenticated user can create a booking
+      // User can read/update their own bookings, lawyer can read/update bookings they are part of
+      allow read, update: if isOwner(resource.data.userId) || isOwner(resource.data.lawyerId);
+      // Only the user who created the booking can delete it, or potentially the lawyer if booking is cancelled.
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    // Collection: transactions (linked to bookings)
+    match /transactions/{transactionId} {
+      // Only allow read access to the user who owns the transaction
+      allow read: if isOwner(resource.data.userId);
+      // Create/update/delete should ideally be done by backend services, not directly by clients.
+      // For now, disallow direct client writes for security.
+      allow write: if false;
+    }
+
+    // Collection: chat_sessions
+    match /chat_sessions/{sessionId} {
+      // Allow read/write only to participants of the chat session
+      allow read, update: if isOwner(resource.data.user1Id) || isOwner(resource.data.user2Id);
+      allow create: if isAuthenticated(); // Authenticated user can create a session
+      allow delete: if isOwner(resource.data.user1Id) || isOwner(resource.data.user2Id); // Participants can delete
+
+      // Sub-collection: messages within chat_sessions
+      match /messages/{messageId} {
+        allow read, create: if isOwner(getParent(2).data.user1Id) || isOwner(getParent(2).data.user2Id);
+        // Allow participants to update/delete their own messages
+        allow update, delete: if isOwner(resource.data.senderId);
+      }
+    }
+
+    // Collection: articles
+    match /articles/{articleId} {
+      allow read: if true; // All users can read articles
+      allow create: if isAuthenticated(); // Only authenticated users can create articles
+      // Only the author can update/delete their own articles
+      allow update, delete: if isOwner(resource.data.authorId);
+
+      // Sub-collection: comments
+      match /comments/{commentId} {
+        allow read: if true; // All users can read comments
+        allow create: if isAuthenticated(); // Only authenticated users can create comments
+        allow update: if isOwner(resource.data.authorId); // Only author can update their comment
+        allow delete: if isOwner(resource.data.authorId) || isOwner(getParent(2).data.authorId); // Author or article author can delete
+      }
+
+      // Sub-collection: likes
+      match /likes/{likeId} { // likeId could be the userId for unique likes
+        allow read: if true; // All users can read likes (e.g., count)
+        allow create: if isAuthenticated() && request.auth.uid == likeId; // User can like once
+        allow delete: if isOwner(likeId); // User can unlike
+      }
+    }
+
+    // Collection: cases
+    match /cases/{caseId} {
+      allow create: if isAuthenticated(); // Authenticated user can create a case
+      allow read, update, delete: if isOwner(resource.data.userId); // User can manage their own cases
+      // Potentially add rules for lawyers assigned to the case
+      // allow read: if exists(/databases/$(database)/documents/cases/$(caseId)/assignedLawyers/$(request.auth.uid));
+    }
+
+    // Sub-collection: bookmarks under users
+    match /users/{userId}/bookmarks/{bookmarkId} {
+      allow read, write: if isOwner(userId); // User can manage their own bookmarks
+    }
+  }
+}

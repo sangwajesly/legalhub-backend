@@ -61,6 +61,8 @@ class AuthService:
                 display_name=user_data.display_name,
                 role=user_data.role,
                 phone_number=user_data.phone_number,
+                email_verified=False, # Explicitly set for new registrations
+                is_new_user=True, # Explicitly set for new registrations
             )
 
             # Create tokens
@@ -75,38 +77,50 @@ class AuthService:
         except Exception as e:
             raise Exception(f"Registration failed: {str(e)}")
 
-    async def login_user(self, login_data: UserLogin) -> Dict[str, Any]:
+    async def login_user(self, id_token: str) -> Dict[str, Any]:
         """
-        Authenticate user and generate tokens
+        Authenticate user via Firebase ID token and generate internal tokens.
 
         Args:
-            login_data: User login credentials
+            id_token: Firebase ID token obtained from the client-side authentication.
 
         Returns:
-            Dictionary containing user and tokens
+            Dictionary containing user and internal tokens.
 
         Raises:
-            ValueError: If credentials are invalid
+            ValueError: If the ID token is invalid or user not found.
         """
         try:
-            # Get user from database
-            user = await self.firebase.get_user_by_email(login_data.email)
+            # 1. Verify the Firebase ID token
+            decoded_token = verify_id_token(id_token)
+            if not decoded_token:
+                raise ValueError("Invalid Firebase ID token.")
+
+            uid = decoded_token.get("uid")
+            email = decoded_token.get("email")
+
+            if not uid or not email:
+                raise ValueError("Firebase ID token missing UID or email.")
+
+            # 2. Get user from our Firestore database
+            user = await self.firebase.get_user_by_uid(uid)
             if not user:
-                raise ValueError("Invalid email or password")
-
-            # Verify password with Firebase Authentication
-            try:
-                # This requires the Firebase REST API since Admin SDK doesn't have signInWithPassword
-                # For now, we'll use a workaround with custom tokens
-                firebase_user = firebase_auth.get_user_by_email(login_data.email)
-
-                # In production, you should verify the password using Firebase REST API
-                # For this implementation, we'll create tokens directly
-
-            except firebase_auth.UserNotFoundError:
-                raise ValueError("Invalid email or password")
-
-            # Create tokens
+                # If user exists in Firebase Auth but not in our Firestore, create them
+                # This handles cases where a user logs in via Firebase Auth for the first time
+                # but hasn't been synced to our Firestore 'users' collection yet.
+                user = await self.firebase.create_user(
+                    email=email,
+                    # Password is not needed here as Firebase Auth has already verified it
+                    password=None, # Explicitly mark as not used for this path
+                    display_name=decoded_token.get("name", email.split("@")[0]),
+                    role="user", # Default role
+                    phone_number=decoded_token.get("phone_number"),
+                    email_verified=decoded_token.get("email_verified", False),
+                    photo_url=decoded_token.get("picture"),
+                    is_new_user=False # Not a new user from this path in create_user context
+                )
+            
+            # 3. Create internal tokens (access and refresh)
             tokens = create_token_pair(
                 user_id=user.uid, email=user.email, role=user.role
             )
@@ -272,22 +286,15 @@ class AuthService:
                 # Since auth record already exists in Firebase Auth (social login),
                 # we just need to create the Firestore document.
                 
-                user = User(
-                    uid=uid,
+                user = await self.firebase.create_user(
                     email=email,
                     display_name=display_name,
-                    role="user", # Default role
+                    role="user",  # Default role
                     email_verified=decoded_token.get("email_verified", False),
-                    profile_picture=picture,
-                    created_at=datetime.now(UTC),
-                    updated_at=datetime.now(UTC),
-                    phone_number=decoded_token.get("phone_number")
+                    photo_url=picture,
+                    phone_number=decoded_token.get("phone_number"),
+                    is_new_user=False,  # User already exists in Firebase Auth
                 )
-                
-                # Use the firebase service's logic to save to Firestore
-                # We can't use create_user because that tries to create in Auth too
-                firestore_data = user_to_firestore_dict(user)
-                self.firebase.db.collection("users").document(uid).set(firestore_data)
                 
                 # Also create a default profile if needed
                 await self.firebase.update_user_profile(uid, {"bio": f"Joined via Google Login"})

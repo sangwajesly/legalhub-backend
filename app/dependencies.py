@@ -19,7 +19,7 @@ security_optional = HTTPBearer(auto_error=False)
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-) -> dict:
+) -> User:
     """
     Dependency to get the current authenticated user from JWT token
 
@@ -27,7 +27,7 @@ async def get_current_user(
         credentials: HTTP Authorization credentials
 
     Returns:
-        Current user as a dictionary
+        Current user as a User Pydantic model
 
     Raises:
         HTTPException: If token is invalid or user not found
@@ -39,44 +39,39 @@ async def get_current_user(
     )
 
     try:
-        # Extract token from credentials
         token = credentials.credentials
-
-        # First try to verify using our internal access-token system
         payload = None
+        user_id: str | None = None
+
         try:
             payload = verify_access_token(token)
-        except Exception:
-            payload = None
-
-        # If we have an internal JWT payload, get user id from it
-        user_id: str | None = None
-        if payload:
             user_id = payload.get("sub")
+        except Exception:
+            pass # Internal token verification failed, try Firebase
+
+        if user_id:
+            user = await auth_module.auth_service.get_current_user(user_id)
+            if user is None:
+                raise credentials_exception
+            return user
+
+        # If internal token didn't work, try Firebase ID token
+        try:
+            decoded = auth_module.verify_id_token(token)
+        except Exception:
+            decoded = None
+
+        if decoded:
+            firebase_uid = decoded.get("uid")
+            if firebase_uid:
+                user = await auth_module.auth_service.get_current_user(firebase_uid)
+                if user is None:
+                    # User authenticated via Firebase but not found in our DB
+                    raise credentials_exception
+                return user
 
     except JWTError:
         raise credentials_exception
-
-    # If we verified an internal token, fetch the user model
-    if user_id:
-        user = await auth_module.auth_service.get_current_user(user_id)
-        if user is None:
-            raise credentials_exception
-        # Convert User object to dict if needed
-        if isinstance(user, User):
-            return user.model_dump()
-        return user
-
-    # Otherwise try verifying as a Firebase ID token (frontend flow)
-    try:
-        decoded = auth_module.verify_id_token(token)
-    except Exception:
-        decoded = None
-
-    if decoded:
-        # decoded is a dict-like structure containing uid/email/name
-        # Return it directly so routes that expect a dict work
-        return decoded
 
     # Nothing worked
     raise credentials_exception

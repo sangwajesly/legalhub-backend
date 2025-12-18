@@ -158,35 +158,22 @@ async def stream_send_message(prompt: str, model: Optional[str] = None):
             yield {"model": model, "response": p + " ", "raw": {"mock": True}}
         return
 
-    if not settings.GEMINI_API_URL:
-        raise RuntimeError(
-            "GEMINI_API_URL not configured; enable DEBUG_MOCK_GEMINI or set GEMINI_API_URL"
-        )
-
-    url = f"{settings.GEMINI_API_URL}?key={settings.GOOGLE_API_KEY}"  # Append API key to URL
-    headers = {"Content-Type": "application/json"}  # Remove Authorization header
-    payload = {"model": model, "prompt": prompt}
-
-    print(f"Gemini API URL (stream): {url}")
-    print(f"Gemini Request Headers (stream): {headers}")
-    async with httpx.AsyncClient(timeout=None) as client:
-        async with client.stream("POST", url, json=payload, headers=headers) as resp:
-            resp.raise_for_status()
-            # httpx provides an async iterator over text chunks
-            async for chunk in resp.aiter_text():
-                if not chunk:
-                    continue
-                # try to parse chunk as json, but fallback to raw text
-                parsed = None
-                try:
-                    parsed = httpx.Response(200, content=chunk).json()
-                except Exception:
-                    parsed = None
-                if parsed:
-                    text = _extract_text_from_api_response(parsed)
-                    yield {"model": model, "response": text, "raw": parsed}
-                else:
-                    yield {"model": model, "response": chunk, "raw": None}
+    # NOTE:
+    # This repository's "streaming" implementation previously tried to call a custom
+    # GEMINI_API_URL with a non-Gemini payload shape. That breaks real Gemini calls.
+    # To keep the system working reliably, we provide a safe fallback that performs
+    # a normal generateContent call and yields a single chunk.
+    try:
+        result = await send_message(prompt, model=model)
+        text = ""
+        if isinstance(result, dict):
+            text = result.get("response") or ""
+        else:
+            text = str(result)
+        yield {"model": model, "response": text, "raw": result if isinstance(result, dict) else None}
+    except Exception as e:
+        logger.error("Gemini streaming fallback failed: %s", e)
+        yield {"model": model, "response": "", "raw": None}
 
 
 async def transcribe_audio(audio_bytes: bytes, mime_type: str = "audio/webm") -> str:

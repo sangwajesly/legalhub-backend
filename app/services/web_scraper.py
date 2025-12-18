@@ -8,8 +8,16 @@ import logging
 from typing import List, Dict, Optional
 from datetime import datetime
 from urllib.parse import urljoin, urlparse
-import aiohttp
-from bs4 import BeautifulSoup
+
+try:
+    import aiohttp
+except ImportError:  # pragma: no cover
+    aiohttp = None
+
+try:
+    from bs4 import BeautifulSoup
+except ImportError:  # pragma: no cover
+    BeautifulSoup = None
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +37,10 @@ class WebScraper:
     
     async def __aenter__(self):
         """Async context manager entry."""
+        if aiohttp is None:
+            raise RuntimeError(
+                "aiohttp is not installed. Install scraper dependencies or disable RAG scraping."
+            )
         self.session = aiohttp.ClientSession(
             timeout=aiohttp.ClientTimeout(total=self.timeout)
         )
@@ -82,6 +94,9 @@ class WebScraper:
             Extracted text
         """
         try:
+            if BeautifulSoup is None:
+                return ""
+
             soup = BeautifulSoup(html, 'html.parser')
             
             # Remove script and style tags
@@ -188,6 +203,12 @@ async def scrape_government_websites(
         List of scraped documents
     """
     sources = custom_sources or GovernmentWebsiteSources.get_sources()
+
+    if aiohttp is None or BeautifulSoup is None:
+        logger.warning(
+            "Web scraper dependencies missing (aiohttp/bs4). Returning 0 scraped documents."
+        )
+        return []
     
     logger.info(f"Starting scrape of {len(sources)} websites")
     documents = []

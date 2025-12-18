@@ -43,6 +43,18 @@ class UserRegister(BaseModel):
     )
 
 
+class AuthTokenRequest(BaseModel):
+    """Schema for requests containing a Firebase ID token."""
+    id_token: str = Field(..., description="Firebase ID token from client-side authentication.")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "id_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6..."
+            }
+        }
+    )
+
 class UserLogin(BaseModel):
     """Schema for user login"""
 

@@ -13,6 +13,7 @@ from app.schemas.auth import (
     UserResponse,
     AuthResponse,
     PasswordReset,
+    AuthTokenRequest, # Added AuthTokenRequest
 )
 from app.services.auth_service import auth_service
 from app.dependencies import get_current_user
@@ -23,7 +24,7 @@ router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
 
 
 @router.post("/register", status_code=status.HTTP_200_OK)
-async def register(payload: dict):
+async def register(user_data: UserRegister): # Changed payload to user_data using UserRegister
     """
     Register a new user
 
@@ -36,57 +37,6 @@ async def register(payload: dict):
     Returns user data and authentication tokens
     """
     try:
-        # Support two registration flows:
-        # 1) Client provides a Firebase `idToken` (from frontend) and optional displayName
-        # 2) Full server-side registration with email/password (UserRegister payload)
-        if payload.get("idToken"):
-            id_token = payload.get("idToken")
-            display_name = payload.get("displayName")
-            # Verify token
-            import app.services.auth_service as auth_module
-
-            decoded = auth_module.verify_id_token(id_token)
-            if not decoded:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid ID token"
-                )
-            uid = decoded.get("uid")
-            user_data = {
-                "email": decoded.get("email"),
-                "display_name": display_name or decoded.get("name"),
-            }
-            # Create or ensure user exists in Firestore
-            try:
-                from app.services.firebase_service import create_user
-
-                create_user(uid, user_data)
-            except Exception:
-                # User might already exist, try to update profile if needed
-                try:
-                    # Logic to sync profile if user exists but we are in this "register" flow check
-                    # (This handles the case where existing user hits this endpoint)
-                    # We can use the firestore client directly for a quick update
-                    db = firestore.client()
-                    user_ref = db.collection("users").document(uid)
-                    
-                    update_fields = {}
-                    if display_name:
-                        update_fields["displayName"] = display_name
-                    
-                    token_picture = decoded.get("picture")
-                    if token_picture:
-                        update_fields["profilePicture"] = token_picture
-                        
-                    if update_fields:
-                        user_ref.update(update_fields)
-                except Exception as e:
-                    print(f"DEBUG: Failed to sync profile in register check: {e}")
-
-            # Return minimal flat response for client-side Firebase flow (tests expect this shape)
-            return {"uid": uid, "displayName": display_name}
-
-        # Otherwise treat as full server-side registration
-        user_data = UserRegister(**payload)
         result = await auth_service.register_user(user_data)
 
         # Convert user to response format
@@ -106,7 +56,7 @@ async def register(payload: dict):
         token_response = Token(**result["tokens"])
 
         # Return structured response for server-side registration
-        return {"user": user_response, "tokens": token_response}
+        return AuthResponse(user=user_response, tokens=token_response)
 
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -164,57 +114,18 @@ async def google_login(payload: dict):
         )
 
 
-@router.post("/login")
-async def login(payload: dict):
+@router.post("/login", response_model=AuthResponse)
+async def login(request: AuthTokenRequest): # Changed payload to request using AuthTokenRequest
     """
-    Authenticate user and receive tokens
+    Authenticate user with Firebase ID Token and receive internal tokens
 
-    - **email**: User's email address
-    - **password**: User's password
+    - **id_token**: Firebase ID token obtained from client-side authentication
 
     Returns user data and authentication tokens
     """
     try:
-        # Support token-based login (client obtains Firebase idToken)
-        if payload.get("idToken"):
-            import app.services.auth_service as auth_module
-
-            decoded = auth_module.verify_id_token(payload.get("idToken"))
-            if not decoded:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid ID token"
-                )
-                
-            # Sync profile data from token
-            try:
-                uid = decoded.get("uid")
-                token_name = decoded.get("name")
-                token_picture = decoded.get("picture")
-                
-                if uid and (token_name or token_picture):
-                    # We need to check current values to avoid unnecessary writes, 
-                    # but for performance in this specific endpoint (often used for initial auth),
-                    # we might just blindly update OR fetch first. 
-                    # Fetching first is safer.
-                    from app.services.firebase_service import firebase_service
-                    
-                    # Update firestore directly
-                    update_fields = {}
-                    if token_name:
-                         update_fields["displayName"] = token_name
-                    if token_picture:
-                         update_fields["profilePicture"] = token_picture
-                    
-                    if update_fields:
-                        firebase_service.db.collection("users").document(uid).update(update_fields)
-            except Exception as e:
-                print(f"DEBUG: Failed to sync profile in login: {e}")
-                
-            return {"uid": decoded.get("uid"), "email": decoded.get("email")}
-
-        # Otherwise, perform server-side login flow
-        login_data = UserLogin(**payload)
-        result = await auth_service.login_user(login_data)
+        # Call the updated login_user from auth_service
+        result = await auth_service.login_user(request.id_token)
 
         # Convert user to response format
         user_response = UserResponse(
@@ -236,8 +147,6 @@ async def login(payload: dict):
 
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -328,16 +237,20 @@ async def verify_email(user_id: str):
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user_info(current_user: dict = Depends(get_current_user)):
+async def get_current_user_info(current_user: User = Depends(get_current_user)):
     """
     Get current authenticated user information
 
     Requires authentication.
     """
     return UserResponse(
-        uid=current_user.get("uid"),
-        email=current_user.get("email"),
-        displayName=current_user.get("displayName") or current_user.get("display_name"),
-        photoURL=current_user.get("photoURL") or current_user.get("profile_picture"),
-        role=current_user.get("role", "client"),
+        uid=current_user.uid,
+        email=current_user.email,
+        display_name=current_user.display_name,
+        role=current_user.role,
+        phone_number=current_user.phone_number,
+        profile_picture=current_user.profile_picture,
+        email_verified=current_user.email_verified,
+        created_at=current_user.created_at,
+        updated_at=current_user.updated_at,
     )

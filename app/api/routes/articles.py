@@ -343,18 +343,14 @@ async def toggle_save(article_id: str, current_user=Depends(get_current_user)):
         )
 
     # save as users/{uid}/bookmarks/{article_id}
-    bm_ref = (
-        firebase_service.db.collection("users")
-        .document(uid)
-        .collection("bookmarks")
-        .document(article_id)
-    )
-    existing = bm_ref.get()
-    if existing.exists:
-        bm_ref.delete()
+    existing = await firebase_service.get_bookmark(uid, article_id)
+    if existing:
+        # remove bookmark
+        await firebase_service.remove_bookmark(uid, article_id)
         saved = False
     else:
-        bm_ref.set({"articleId": article_id, "createdAt": datetime.now(timezone.utc)})
+        # add bookmark
+        await firebase_service.add_bookmark(uid, article_id)
         saved = True
     return {"saved": saved}
 

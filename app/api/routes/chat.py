@@ -38,7 +38,8 @@ async def get_sessions(user: Optional[dict] = Depends(get_current_user)):
         return {"sessions": sessions}
     except Exception as e:
         print(f"Error fetching sessions: {e}")
-        return {"sessions": []}
+        # Ensure items is always a list, even if empty, to prevent frontend TypeError
+        return SessionsPaginatedResponse(items=[], total=0, page=page, size=size)
 
 
 @router.delete("/sessions/{id}")
