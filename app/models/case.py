@@ -47,55 +47,49 @@ class CaseCategory(str, Enum):
 class CaseAttachment(BaseModel):
     """
     Attachment model for case evidence and documents
-
-    Attributes:
-        attachmentId: Unique identifier for the attachment
-        fileName: Original filename of the attachment
-        fileUrl: Firebase Storage URL to the file
-        fileType: MIME type of the file
-        fileSize: Size of the file in bytes
-        uploadedAt: Timestamp when the file was uploaded
-        uploadedBy: UID of the user who uploaded the file
     """
 
-    attachmentId: str = Field(..., description="Unique attachment identifier")
-    fileName: str = Field(..., description="Original filename")
-    fileUrl: str = Field(..., description="Firebase Storage URL to the file")
-    fileType: str = Field(
-        ..., description="MIME type (e.g., image/jpeg, application/pdf)"
+    attachment_id: str = Field(
+        ..., description="Unique attachment identifier", alias="attachmentId")
+    file_name: str = Field(...,
+                           description="Original filename", alias="fileName")
+    file_url: str = Field(...,
+                          description="Firebase Storage URL to the file", alias="fileUrl")
+    file_type: str = Field(
+        ..., description="MIME type (e.g., image/jpeg, application/pdf)", alias="fileType"
     )
-    fileSize: int = Field(..., description="File size in bytes")
-    uploadedAt: datetime = Field(
-        default_factory=utc_now, description="Upload timestamp"
+    file_size: int = Field(...,
+                           description="File size in bytes", alias="fileSize")
+    uploaded_at: datetime = Field(
+        default_factory=utc_now, description="Upload timestamp", alias="uploadedAt"
     )
-    uploadedBy: Optional[str] = Field(
-        default=None, description="UID of uploader (None if anonymous)"
+    uploaded_by: Optional[str] = Field(
+        default=None, description="UID of uploader (None if anonymous)", alias="uploadedBy"
     )
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class CaseLocation(BaseModel):
     """
     Location model for case geolocation data
-
-    Attributes:
-        latitude: Geographic latitude
-        longitude: Geographic longitude
-        address: Human-readable address
-        city: City name
-        region: State/Province/Region
-        country: Country name
-        postalCode: Postal code
     """
 
-    latitude: Optional[float] = Field(default=None, description="Geographic latitude")
-    longitude: Optional[float] = Field(default=None, description="Geographic longitude")
+    latitude: Optional[float] = Field(
+        default=None, description="Geographic latitude")
+    longitude: Optional[float] = Field(
+        default=None, description="Geographic longitude")
     address: Optional[str] = Field(
         default=None, max_length=500, description="Full address"
     )
     city: Optional[str] = Field(default=None, description="City name")
-    region: Optional[str] = Field(default=None, description="State/Province/Region")
+    region: Optional[str] = Field(
+        default=None, description="State/Province/Region")
     country: Optional[str] = Field(default=None, description="Country name")
-    postalCode: Optional[str] = Field(default=None, description="Postal code")
+    postal_code: Optional[str] = Field(
+        default=None, description="Postal code", alias="postalCode")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class CaseBase(BaseModel):
@@ -115,30 +109,33 @@ class CaseBase(BaseModel):
         default_factory=list, max_length=10, description="Case tags for categorization"
     )
 
+    model_config = ConfigDict(populate_by_name=True)
+
 
 class Case(CaseBase):
     """
     Complete Case model representing a case in Firestore
 
-    Supports both anonymous and identified case submissions.
-
     Collection: cases/
     Document ID: caseId (auto-generated)
     """
 
-    caseId: str = Field(..., description="Unique case identifier")
-    userId: Optional[str] = Field(
-        default=None, description="Firebase UID of reporter (None if anonymous)"
+    case_id: str = Field(...,
+                         description="Unique case identifier", alias="caseId")
+    user_id: Optional[str] = Field(
+        default=None, description="Firebase UID of reporter (None if anonymous)", alias="userId"
     )
-    isAnonymous: bool = Field(
-        default=False, description="Whether the case is reported anonymously"
+    is_anonymous: bool = Field(
+        default=False, description="Whether the case is reported anonymously", alias="isAnonymous"
     )
 
     # Contact information (optional for anonymous cases)
-    email: Optional[str] = Field(default=None, description="Reporter's email address")
-    phone: Optional[str] = Field(default=None, description="Reporter's phone number")
-    contactName: Optional[str] = Field(
-        default=None, description="Name of the person reporting"
+    email: Optional[str] = Field(
+        default=None, description="Reporter's email address")
+    phone: Optional[str] = Field(
+        default=None, description="Reporter's phone number")
+    contact_name: Optional[str] = Field(
+        default=None, description="Name of the person reporting", alias="contactName"
     )
 
     # Case status and management
@@ -150,11 +147,11 @@ class Case(CaseBase):
     )
 
     # Assignment and handling
-    assignedTo: Optional[str] = Field(
-        default=None, description="UID of assigned lawyer/handler"
+    assigned_to: Optional[str] = Field(
+        default=None, description="UID of assigned lawyer/handler", alias="assignedTo"
     )
-    assignedAt: Optional[datetime] = Field(
-        default=None, description="When the case was assigned"
+    assigned_at: Optional[datetime] = Field(
+        default=None, description="When the case was assigned", alias="assignedAt"
     )
 
     # Attachments and evidence
@@ -163,53 +160,56 @@ class Case(CaseBase):
     )
 
     # Case timeline
-    createdAt: datetime = Field(
-        default_factory=utc_now, description="Case submission timestamp"
+    created_at: datetime = Field(
+        default_factory=utc_now, description="Case submission timestamp", alias="createdAt"
     )
-    updatedAt: datetime = Field(
-        default_factory=utc_now, description="Last update timestamp"
+    updated_at: datetime = Field(
+        default_factory=utc_now, description="Last update timestamp", alias="updatedAt"
     )
-    resolvedAt: Optional[datetime] = Field(
-        default=None, description="Case resolution timestamp"
+    resolved_at: Optional[datetime] = Field(
+        default=None, description="Case resolution timestamp", alias="resolvedAt"
     )
-    closedAt: Optional[datetime] = Field(
-        default=None, description="Case closure timestamp"
+    closed_at: Optional[datetime] = Field(
+        default=None, description="Case closure timestamp", alias="closedAt"
     )
 
     # Additional metadata
-    viewCount: int = Field(
-        default=0, description="Number of times case has been viewed"
+    view_count: int = Field(
+        default=0, description="Number of times case has been viewed", alias="viewCount"
     )
-    isEncrypted: bool = Field(
-        default=True, description="Whether case data is encrypted"
+    is_encrypted: bool = Field(
+        default=True, description="Whether case data is encrypted", alias="isEncrypted"
     )
-    encryptionKey: Optional[str] = Field(
-        default=None, description="Encryption key reference (for encrypted cases)"
+    encryption_key: Optional[str] = Field(
+        default=None, description="Encryption key reference (for encrypted cases)", alias="encryptionKey"
     )
 
     # Legal relevance
-    legalBasis: Optional[str] = Field(
+    legal_basis: Optional[str] = Field(
         default=None,
         max_length=1000,
         description="Legal basis or statute relevant to the case",
+        alias="legalBasis"
     )
 
     # Status update notes
-    statusNotes: Optional[str] = Field(
+    status_notes: Optional[str] = Field(
         default=None,
         max_length=2000,
         description="Internal notes about case status changes",
+        alias="statusNotes"
     )
 
     # Analytics and tracking
-    hasNotified: bool = Field(
-        default=False, description="Whether reporter has been notified of status change"
+    has_notified: bool = Field(
+        default=False, description="Whether reporter has been notified of status change", alias="hasNotified"
     )
-    lastNotificationAt: Optional[datetime] = Field(
-        default=None, description="Last notification timestamp"
+    last_notification_at: Optional[datetime] = Field(
+        default=None, description="Last notification timestamp", alias="lastNotificationAt"
     )
 
     model_config = ConfigDict(
+        populate_by_name=True,
         json_schema_extra={
             "example": {
                 "caseId": "case_123456",
@@ -247,21 +247,22 @@ class CaseCreateRequest(CaseBase):
     Either userId or anonymous contact information should be provided.
     """
 
-    isAnonymous: bool = Field(
-        default=False, description="Whether to report anonymously"
+    is_anonymous: bool = Field(
+        default=False, description="Whether to report anonymously", alias="isAnonymous"
     )
     email: Optional[str] = Field(
         default=None, description="Contact email (required if anonymous)"
     )
-    phone: Optional[str] = Field(default=None, description="Contact phone (optional)")
-    contactName: Optional[str] = Field(
-        default=None, description="Name (required if anonymous)"
+    phone: Optional[str] = Field(
+        default=None, description="Contact phone (optional)")
+    contact_name: Optional[str] = Field(
+        default=None, description="Name (required if anonymous)", alias="contactName"
     )
     priority: Literal["low", "medium", "high", "critical"] = Field(
         default="medium", description="Initial priority level"
     )
-    legalBasis: Optional[str] = Field(
-        default=None, description="Relevant legal statute or basis"
+    legal_basis: Optional[str] = Field(
+        default=None, description="Relevant legal statute or basis", alias="legalBasis"
     )
 
 
@@ -279,7 +280,10 @@ class CaseUpdateRequest(BaseModel):
     location: Optional[CaseLocation] = None
     tags: Optional[List[str]] = Field(None, max_length=10)
     priority: Optional[Literal["low", "medium", "high", "critical"]] = None
-    legalBasis: Optional[str] = Field(None, max_length=1000)
+    legal_basis: Optional[str] = Field(
+        None, max_length=1000, alias="legalBasis")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class CaseStatusUpdateRequest(BaseModel):
@@ -293,9 +297,11 @@ class CaseStatusUpdateRequest(BaseModel):
     notes: Optional[str] = Field(
         None, max_length=2000, description="Status update notes"
     )
-    assignedTo: Optional[str] = Field(
-        None, description="UID of handler/lawyer to assign"
+    assigned_to: Optional[str] = Field(
+        None, description="UID of handler/lawyer to assign", alias="assignedTo"
     )
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class CaseResponse(Case):
@@ -307,9 +313,11 @@ class CaseResponse(Case):
     """
 
     # Hide sensitive fields in response
-    encryptionKey: Optional[str] = Field(default=None, exclude=True)
+    encryption_key: Optional[str] = Field(
+        default=None, exclude=True, alias="encryptionKey")
 
     model_config = ConfigDict(
+        populate_by_name=True,
         json_schema_extra={
             "example": {
                 "caseId": "case_123456",
@@ -332,7 +340,9 @@ class CaseListResponse(BaseModel):
     cases: List[CaseResponse] = Field(..., description="List of cases")
     total: int = Field(..., description="Total count of cases")
     page: int = Field(..., description="Current page number")
-    pageSize: int = Field(..., description="Page size")
+    pageSize: int = Field(..., description="Page size", alias="pageSize")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class CaseDetailResponse(CaseResponse):
@@ -354,124 +364,49 @@ class CaseStats(BaseModel):
     Can be stored as a separate document or calculated on-demand.
     """
 
-    totalCases: int = Field(default=0, description="Total number of cases")
-    totalAnonymousCases: int = Field(default=0, description="Total anonymous cases")
-    totalIdentifiedCases: int = Field(default=0, description="Total identified cases")
+    total_cases: int = Field(
+        default=0, description="Total number of cases", alias="totalCases")
+    total_anonymous_cases: int = Field(
+        default=0, description="Total anonymous cases", alias="totalAnonymousCases")
+    total_identified_cases: int = Field(
+        default=0, description="Total identified cases", alias="totalIdentifiedCases")
 
-    casesByCategory: dict = Field(
-        default_factory=dict, description="Cases grouped by category"
+    cases_by_category: dict = Field(
+        default_factory=dict, description="Cases grouped by category", alias="casesByCategory"
     )
-    casesByStatus: dict = Field(
-        default_factory=dict, description="Cases grouped by status"
+    cases_by_status: dict = Field(
+        default_factory=dict, description="Cases grouped by status", alias="casesByStatus"
     )
-    casesByPriority: dict = Field(
-        default_factory=dict, description="Cases grouped by priority"
-    )
-
-    averageResolutionTime: Optional[float] = Field(
-        default=None, description="Average time to resolve cases in days"
-    )
-    pendingCases: int = Field(default=0, description="Currently pending cases")
-    resolvedCases: int = Field(default=0, description="Total resolved cases")
-
-    casesByLocation: dict = Field(
-        default_factory=dict, description="Cases grouped by location/country"
+    cases_by_priority: dict = Field(
+        default_factory=dict, description="Cases grouped by priority", alias="casesByPriority"
     )
 
-    lastUpdatedAt: datetime = Field(
-        default_factory=utc_now, description="Last stats update"
+    average_resolution_time: Optional[float] = Field(
+        default=None, description="Average time to resolve cases in days", alias="averageResolutionTime"
     )
+    pending_cases: int = Field(
+        default=0, description="Currently pending cases", alias="pendingCases")
+    resolved_cases: int = Field(
+        default=0, description="Total resolved cases", alias="resolvedCases")
+
+    cases_by_location: dict = Field(
+        default_factory=dict, description="Cases grouped by location/country", alias="casesByLocation"
+    )
+
+    last_updated_at: datetime = Field(
+        default_factory=utc_now, description="Last stats update", alias="lastUpdatedAt"
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 # Helper function to convert Firestore document to Case model
-def firestore_case_to_model(doc_data: dict, caseId: str) -> Case:
-    """
-    Convert Firestore document data to Case model
-
-    Args:
-        doc_data: Dictionary from Firestore document
-        caseId: Case ID
-
-    Returns:
-        Case model instance
-    """
-    # Parse attachments
-    attachments = []
-    if "attachments" in doc_data and doc_data["attachments"]:
-        attachments = [CaseAttachment(**att) for att in doc_data["attachments"]]
-
-    # Parse location
-    location = None
-    if "location" in doc_data and doc_data["location"]:
-        location = CaseLocation(**doc_data["location"])
-
-    return Case(
-        caseId=caseId,
-        userId=doc_data.get("userId"),
-        isAnonymous=doc_data.get("isAnonymous", False),
-        category=doc_data.get("category", "other"),
-        title=doc_data.get("title"),
-        description=doc_data.get("description"),
-        location=location,
-        email=doc_data.get("email"),
-        phone=doc_data.get("phone"),
-        contactName=doc_data.get("contactName"),
-        status=doc_data.get("status", "submitted"),
-        priority=doc_data.get("priority", "medium"),
-        assignedTo=doc_data.get("assignedTo"),
-        assignedAt=doc_data.get("assignedAt"),
-        attachments=attachments,
-        tags=doc_data.get("tags", []),
-        createdAt=doc_data.get("createdAt"),
-        updatedAt=doc_data.get("updatedAt"),
-        resolvedAt=doc_data.get("resolvedAt"),
-        closedAt=doc_data.get("closedAt"),
-        viewCount=doc_data.get("viewCount", 0),
-        isEncrypted=doc_data.get("isEncrypted", True),
-        encryptionKey=doc_data.get("encryptionKey"),
-        legalBasis=doc_data.get("legalBasis"),
-        statusNotes=doc_data.get("statusNotes"),
-        hasNotified=doc_data.get("hasNotified", False),
-        lastNotificationAt=doc_data.get("lastNotificationAt"),
-    )
+def firestore_case_to_model(doc_data: dict, case_id: str) -> Case:
+    return Case.model_validate({**doc_data, "caseId": case_id})
 
 
 # Helper function to convert Case model to Firestore document
 def case_model_to_firestore(case: Case) -> dict:
-    """
-    Convert Case model to Firestore document format
-
-    Args:
-        case: Case model instance
-
-    Returns:
-        Dictionary for Firestore storage
-    """
-    return {
-        "userId": case.userId,
-        "isAnonymous": case.isAnonymous,
-        "category": case.category.value,
-        "title": case.title,
-        "description": case.description,
-        "location": case.location.model_dump() if case.location else None,
-        "email": case.email,
-        "phone": case.phone,
-        "contactName": case.contactName,
-        "status": case.status.value,
-        "priority": case.priority,
-        "assignedTo": case.assignedTo,
-        "assignedAt": case.assignedAt,
-        "attachments": [att.model_dump() for att in case.attachments],
-        "tags": case.tags,
-        "createdAt": case.createdAt,
-        "updatedAt": case.updatedAt,
-        "resolvedAt": case.resolvedAt,
-        "closedAt": case.closedAt,
-        "viewCount": case.viewCount,
-        "isEncrypted": case.isEncrypted,
-        "encryptionKey": case.encryptionKey,
-        "legalBasis": case.legalBasis,
-        "statusNotes": case.statusNotes,
-        "hasNotified": case.hasNotified,
-        "lastNotificationAt": case.lastNotificationAt,
-    }
+    data = case.model_dump(by_alias=True)
+    data.pop("caseId", None)
+    return data

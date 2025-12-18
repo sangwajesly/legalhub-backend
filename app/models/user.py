@@ -31,15 +31,16 @@ class UserBase(BaseModel):
 
     email: EmailStr
     display_name: str = Field(
-        ..., min_length=2, max_length=100, description="User's display name"
+        ..., min_length=2, max_length=100, description="User's display name", alias="displayName"
     )
     role: Literal["user", "lawyer", "organization"] = Field(
         default="user", description="User role in the system"
     )
     profile_picture: Optional[str] = Field(
-        default=None, description="URL to profile picture"
+        default=None, description="URL to profile picture", alias="profilePicture"
     )
     model_config = ConfigDict(
+        populate_by_name=True,
         json_schema_extra={
             "example": {
                 "email": "john.doe@example.com",
@@ -60,21 +61,26 @@ class User(UserBase):
     """
 
     uid: str = Field(..., description="Firebase Authentication UID")
-    email_verified: bool = Field(default=False, description="Whether email is verified")
-    phone_number: Optional[str] = Field(default=None, description="User's phone number")
-    is_active: bool = Field(default=True, description="Whether account is active")
-    is_deleted: bool = Field(default=False, description="Soft delete flag")
+    email_verified: bool = Field(
+        default=False, description="Whether email is verified", alias="emailVerified")
+    phone_number: Optional[str] = Field(
+        default=None, description="User's phone number", alias="phoneNumber")
+    is_active: bool = Field(
+        default=True, description="Whether account is active", alias="isActive")
+    is_deleted: bool = Field(
+        default=False, description="Soft delete flag", alias="isDeleted")
     created_at: Optional[datetime] = Field(
-        default_factory=utc_now, description="Account creation timestamp"
+        default_factory=utc_now, description="Account creation timestamp", alias="createdAt"
     )
     updated_at: Optional[datetime] = Field(
-        default_factory=utc_now, description="Last update timestamp"
+        default_factory=utc_now, description="Last update timestamp", alias="updatedAt"
     )
     last_login: Optional[datetime] = Field(
-        default=None, description="Last login timestamp"
+        default=None, description="Last login timestamp", alias="lastLogin"
     )
 
     model_config = ConfigDict(
+        populate_by_name=True,
         json_schema_extra={
             "example": {
                 "uid": "firebase_user_uid_123",
@@ -106,67 +112,50 @@ class UserProfile(BaseModel):
     bio: Optional[str] = Field(
         default=None, max_length=500, description="User biography"
     )
-    location: Optional[str] = Field(default=None, description="User's location/city")
+    location: Optional[str] = Field(
+        default=None, description="User's location/city")
     country: Optional[str] = Field(default=None, description="User's country")
     language_preference: str = Field(
-        default="en", description="Preferred language code"
+        default="en", description="Preferred language code", alias="languagePreference"
     )
     timezone: str = Field(default="UTC", description="User's timezone")
 
     # Notification preferences
     email_notifications: bool = Field(
-        default=True, description="Receive email notifications"
+        default=True, description="Receive email notifications", alias="emailNotifications"
     )
     push_notifications: bool = Field(
-        default=True, description="Receive push notifications"
+        default=True, description="Receive push notifications", alias="pushNotifications"
     )
     sms_notifications: bool = Field(
-        default=False, description="Receive SMS notifications"
+        default=False, description="Receive SMS notifications", alias="smsNotifications"
     )
 
     # Privacy settings
     profile_visibility: Literal["public", "private", "connections"] = Field(
-        default="public", description="Who can view the profile"
+        default="public", description="Who can view the profile", alias="profileVisibility"
     )
-    show_email: bool = Field(default=False, description="Show email on public profile")
+    show_email: bool = Field(
+        default=False, description="Show email on public profile", alias="showEmail")
 
     # Additional metadata
     interests: list[str] = Field(
         default_factory=list, description="Legal topics of interest"
     )
     preferred_contact_method: Optional[Literal["email", "phone", "chat"]] = Field(
-        default="email", description="Preferred method of contact"
+        default="email", description="Preferred method of contact", alias="preferredContactMethod"
     )
 
     # FCM token for push notifications
     fcm_token: Optional[str] = Field(
-        default=None, description="Firebase Cloud Messaging token"
+        default=None, description="Firebase Cloud Messaging token", alias="fcmToken"
     )
 
-    created_at: datetime = Field(default_factory=utc_now)
-    updated_at: datetime = Field(default_factory=utc_now)
+    created_at: datetime = Field(default_factory=utc_now, alias="createdAt")
+    updated_at: datetime = Field(default_factory=utc_now, alias="updatedAt")
 
     model_config = ConfigDict(
-        json_schema_extra={
-            "example": {
-                "uid": "firebase_user_uid_123",
-                "bio": "Legal enthusiast interested in human rights law",
-                "location": "Bamenda",
-                "country": "Cameroon",
-                "language_preference": "en",
-                "timezone": "Africa/Douala",
-                "email_notifications": True,
-                "push_notifications": True,
-                "sms_notifications": False,
-                "profile_visibility": "public",
-                "show_email": False,
-                "interests": ["human rights", "criminal law", "civil rights"],
-                "preferred_contact_method": "email",
-                "fcm_token": "fcm_token_string_here",
-                "created_at": "2024-01-01T00:00:00",
-                "updated_at": "2024-01-01T00:00:00",
-            }
-        }
+        populate_by_name=True,
     )
 
 
@@ -177,22 +166,22 @@ class UserInDB(User):
     """
 
     password_hash: Optional[str] = Field(
-        default=None, description="Hashed password (for email/password auth)"
+        default=None, description="Hashed password (for email/password auth)", alias="passwordHash"
     )
     refresh_token: Optional[str] = Field(
-        default=None, description="Current refresh token"
+        default=None, description="Current refresh token", alias="refreshToken"
     )
     password_reset_token: Optional[str] = Field(
-        default=None, description="Password reset token"
+        default=None, description="Password reset token", alias="passwordResetToken"
     )
     password_reset_expires: Optional[datetime] = Field(
-        default=None, description="Reset token expiration"
+        default=None, description="Reset token expiration", alias="passwordResetExpires"
     )
     failed_login_attempts: int = Field(
-        default=0, description="Count of failed login attempts"
+        default=0, description="Count of failed login attempts", alias="failedLoginAttempts"
     )
     account_locked_until: Optional[datetime] = Field(
-        default=None, description="Account lock expiration"
+        default=None, description="Account lock expiration", alias="accountLockedUntil"
     )
 
 
@@ -203,87 +192,39 @@ class UserStats(BaseModel):
     """
 
     uid: str
-    total_chats: int = Field(default=0, description="Total chat sessions")
-    total_cases_reported: int = Field(default=0, description="Total cases reported")
-    total_bookings: int = Field(default=0, description="Total lawyer bookings")
-    total_articles_read: int = Field(default=0, description="Articles read count")
+    total_chats: int = Field(
+        default=0, description="Total chat sessions", alias="totalChats")
+    total_cases_reported: int = Field(
+        default=0, description="Total cases reported", alias="totalCasesReported")
+    total_bookings: int = Field(
+        default=0, description="Total lawyer bookings", alias="totalBookings")
+    total_articles_read: int = Field(
+        default=0, description="Articles read count", alias="totalArticlesRead")
     total_articles_written: int = Field(
-        default=0, description="Articles written (for lawyers)"
+        default=0, description="Articles written (for lawyers)", alias="totalArticlesWritten"
     )
-    total_reviews_given: int = Field(default=0, description="Reviews given to lawyers")
-    reputation_score: float = Field(default=0.0, description="User reputation score")
+    total_reviews_given: int = Field(
+        default=0, description="Reviews given to lawyers", alias="totalReviewsGiven")
+    reputation_score: float = Field(
+        default=0.0, description="User reputation score", alias="reputationScore")
     last_activity: Optional[datetime] = Field(
-        default=None, description="Last activity timestamp"
+        default=None, description="Last activity timestamp", alias="lastActivity"
     )
 
     model_config = ConfigDict(
-        json_schema_extra={
-            "example": {
-                "uid": "firebase_user_uid_123",
-                "total_chats": 15,
-                "total_cases_reported": 2,
-                "total_bookings": 3,
-                "total_articles_read": 45,
-                "total_articles_written": 0,
-                "total_reviews_given": 2,
-                "reputation_score": 85.5,
-                "last_activity": "2024-01-15T14:30:00",
-            }
-        }
+        populate_by_name=True,
     )
 
 
 # Helper function to convert Firestore document to User model
 def firestore_user_to_model(doc_data: dict, uid: str) -> User:
-    """
-    Convert Firestore document data to User model
-
-    Args:
-        doc_data: Dictionary from Firestore document
-        uid: User's Firebase UID
-
-    Returns:
-        User model instance
-    """
-    return User(
-        uid=uid,
-        email=doc_data.get("email"),
-        display_name=doc_data.get("displayName", doc_data.get("display_name")),
-        role=doc_data.get("role", "user"),
-        email_verified=doc_data.get(
-            "emailVerified", doc_data.get("email_verified", False)
-        ),
-        phone_number=doc_data.get("phoneNumber", doc_data.get("phone_number")),
-        profile_picture=doc_data.get("photoURL", doc_data.get("photo_url")),
-        is_active=doc_data.get("isActive", doc_data.get("is_active", True)),
-        is_deleted=doc_data.get("isDeleted", doc_data.get("is_deleted", False)),
-        created_at=doc_data.get("createdAt", doc_data.get("created_at")),
-        updated_at=doc_data.get("updatedAt", doc_data.get("updated_at")),
-        last_login=doc_data.get("lastLogin", doc_data.get("last_login")),
-    )
+    return User.model_validate({**doc_data, "uid": uid})
 
 
 # Helper function to convert User model to Firestore document
 def user_model_to_firestore(user: User) -> dict:
-    """
-    Convert User model to Firestore document format
-
-    Args:
-        user: User model instance
-
-    Returns:
-        Dictionary for Firestore storage
-    """
-    return {
-        "email": user.email,
-        "displayName": user.display_name,
-        "role": user.role,
-        "emailVerified": user.email_verified,
-        "phoneNumber": user.phone_number,
-        "profilePicture": user.profile_picture,
-        "isActive": user.is_active,
-        "isDeleted": user.is_deleted,
-        "createdAt": user.created_at,
-        "updatedAt": user.updated_at,
-        "lastLogin": user.last_login,
-    }
+    # Use by_alias=True to get camelCase for Firestore
+    data = user.model_dump(by_alias=True)
+    # Exclude uid as it's typically the document ID
+    data.pop("uid", None)
+    return data

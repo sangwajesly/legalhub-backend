@@ -15,26 +15,31 @@ from app.models.booking import (
 class BookingCreateSchema(BaseModel):
     """Schema for creating a new booking"""
 
-    lawyerId: str = Field(..., description="Lawyer's UID")
-    consultationType: ConsultationType = Field(
-        default=ConsultationType.CALL, description="Type of consultation"
+    lawyer_id: str = Field(..., description="Lawyer's UID", alias="lawyerId")
+    consultation_type: ConsultationType = Field(
+        default=ConsultationType.CALL, description="Type of consultation", alias="consultationType"
     )
-    scheduledAt: datetime = Field(..., description="When to schedule the consultation")
-    duration: int = Field(default=30, ge=15, le=240, description="Duration in minutes")
+    scheduled_at: datetime = Field(
+        ..., description="When to schedule the consultation", alias="scheduledAt")
+    duration: int = Field(default=30, ge=15, le=240,
+                          description="Duration in minutes")
     location: Optional[str] = Field(
         None, max_length=500, description="Meeting location or contact"
     )
     description: Optional[str] = Field(
         None, max_length=2000, description="Consultation topic"
     )
-    caseId: Optional[str] = Field(None, description="Related case ID if any")
-    tags: list[str] = Field(default_factory=list, max_length=10, description="Tags")
+    case_id: Optional[str] = Field(
+        None, description="Related case ID if any", alias="caseId")
+    tags: list[str] = Field(default_factory=list,
+                            max_length=10, description="Tags")
     fee: float = Field(default=0.0, ge=0, description="Consultation fee")
-    paymentMethod: Optional[
+    payment_method: Optional[
         Literal["credit_card", "debit_card", "bank_transfer", "wallet"]
-    ] = Field(None, description="Payment method")
+    ] = Field(None, description="Payment method", alias="paymentMethod")
 
     model_config = ConfigDict(
+        populate_by_name=True,
         json_schema_extra={
             "example": {
                 "lawyerId": "lawyer_123",
@@ -53,16 +58,22 @@ class BookingCreateSchema(BaseModel):
 class BookingUpdateSchema(BaseModel):
     """Schema for updating a booking"""
 
-    scheduledAt: Optional[datetime] = Field(None, description="New scheduled time")
-    duration: Optional[int] = Field(None, ge=15, le=240, description="New duration")
-    location: Optional[str] = Field(None, max_length=500, description="New location")
+    scheduled_at: Optional[datetime] = Field(
+        None, description="New scheduled time", alias="scheduledAt")
+    duration: Optional[int] = Field(
+        None, ge=15, le=240, description="New duration")
+    location: Optional[str] = Field(
+        None, max_length=500, description="New location")
     description: Optional[str] = Field(
         None, max_length=2000, description="Updated description"
     )
-    notes: Optional[str] = Field(None, max_length=2000, description="Updated notes")
-    meetingLink: Optional[str] = Field(None, description="Updated meeting link")
+    notes: Optional[str] = Field(
+        None, max_length=2000, description="Updated notes")
+    meeting_link: Optional[str] = Field(
+        None, description="Updated meeting link", alias="meetingLink")
 
     model_config = ConfigDict(
+        populate_by_name=True,
         json_schema_extra={
             "example": {
                 "scheduledAt": "2024-02-16T15:00:00Z",
@@ -77,12 +88,13 @@ class BookingStatusSchema(BaseModel):
     """Schema for updating booking status"""
 
     status: BookingStatus = Field(..., description="New status")
-    cancellationReason: Optional[str] = Field(
-        None, max_length=500, description="Reason if cancelling"
+    cancellation_reason: Optional[str] = Field(
+        None, max_length=500, description="Reason if cancelling", alias="cancellationReason"
     )
     notes: Optional[str] = Field(None, max_length=2000, description="Notes")
 
     model_config = ConfigDict(
+        populate_by_name=True,
         json_schema_extra={
             "example": {"status": "confirmed", "notes": "Confirmed by lawyer"}
         }
@@ -97,34 +109,29 @@ class BookingFeedbackSchema(BaseModel):
         ..., min_length=10, max_length=1000, description="Feedback text"
     )
 
-    model_config = ConfigDict(
-        json_schema_extra={
-            "example": {
-                "rating": 5,
-                "feedback": "Excellent consultation, very helpful lawyer!",
-            }
-        }
-    )
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class BookingResponse(BaseModel):
     """Response schema for a booking"""
 
-    bookingId: str
-    lawyerId: str
-    userId: str
-    consultationType: str
-    scheduledAt: datetime
+    booking_id: str = Field(..., alias="bookingId")
+    lawyer_id: str = Field(..., alias="lawyerId")
+    user_id: str = Field(..., alias="userId")
+    consultation_type: str = Field(..., alias="consultationType")
+    scheduled_at: datetime = Field(..., alias="scheduledAt")
     duration: int
     status: str
     fee: float
-    paymentStatus: str
-    createdAt: datetime
-    updatedAt: datetime
-    clientRating: Optional[float] = None
-    clientFeedback: Optional[str] = None
+    payment_status: str = Field(..., alias="paymentStatus")
+    created_at: datetime = Field(..., alias="createdAt")
+    updated_at: datetime = Field(..., alias="updatedAt")
+    client_rating: Optional[float] = Field(None, alias="clientRating")
+    client_feedback: Optional[str] = Field(None, alias="clientFeedback")
 
     model_config = ConfigDict(
+        populate_by_name=True,
+        from_attributes=True,
         json_schema_extra={
             "example": {
                 "bookingId": "booking_123",
@@ -149,9 +156,10 @@ class BookingListSchema(BaseModel):
     bookings: list[BookingResponse]
     total: int
     page: int
-    pageSize: int
+    page_size: int = Field(..., alias="pageSize")
 
     model_config = ConfigDict(
+        populate_by_name=True,
         json_schema_extra={
             "example": {
                 "bookings": [
@@ -182,7 +190,13 @@ class BookingDetailSchema(BookingResponse):
 
     location: Optional[str] = None
     description: Optional[str] = None
-    meetingLink: Optional[str] = None
+    meeting_link: Optional[str] = Field(None, alias="meetingLink")
     notes: Optional[str] = None
-    cancellationReason: Optional[str] = None
-    lawyerRating: Optional[float] = None
+    cancellation_reason: Optional[str] = Field(
+        None, alias="cancellationReason")
+    lawyer_rating: Optional[float] = Field(None, alias="lawyerRating")
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        from_attributes=True,
+    )

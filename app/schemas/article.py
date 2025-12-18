@@ -14,6 +14,7 @@ class ArticleCreateSchema(BaseModel):
     published: bool = Field(default=False)
 
     model_config = ConfigDict(
+        populate_by_name=True,
         json_schema_extra={
             "example": {
                 "title": "How to file a small claims case",
@@ -31,33 +32,39 @@ class ArticleUpdateSchema(BaseModel):
     tags: Optional[list[str]] = None
     published: Optional[bool] = None
 
-    model_config = ConfigDict()
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class ArticleResponse(BaseModel):
-    articleId: str
+    article_id: str = Field(..., alias="articleId")
     title: str
     slug: Optional[str] = None
     content: str
-    authorId: str
+    author_id: str = Field(..., alias="authorId")
     tags: list[str]
     published: bool
-    createdAt: Optional[datetime]
-    updatedAt: Optional[datetime]
-    likesCount: int = 0
+    created_at: Optional[datetime] = Field(None, alias="createdAt")
+    updated_at: Optional[datetime] = Field(None, alias="updatedAt")
+    likes_count: int = Field(0, alias="likesCount")
     views: int = 0
-    sharesCount: int = 0
+    shares_count: int = Field(0, alias="sharesCount")
 
-    model_config = ConfigDict()
+    model_config = ConfigDict(
+        populate_by_name=True,
+        from_attributes=True,
+    )
 
 
 class ArticleListResponse(BaseModel):
     articles: list[ArticleResponse]
     total: int
     page: int
-    pageSize: int
+    page_size: int = Field(..., alias="pageSize")
 
-    model_config = ConfigDict()
+    model_config = ConfigDict(
+        populate_by_name=True,
+        from_attributes=True,
+    )
 
 
 class CommentCreateSchema(BaseModel):
@@ -65,16 +72,20 @@ class CommentCreateSchema(BaseModel):
 
 
 class CommentResponse(BaseModel):
-    commentId: str
-    articleId: str
-    authorId: str
+    comment_id: str = Field(..., alias="commentId")
+    article_id: str = Field(..., alias="articleId")
+    author_id: str = Field(..., alias="authorId")
     content: str
-    createdAt: Optional[datetime]
+    created_at: Optional[datetime] = Field(None, alias="createdAt")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class LikeResponse(BaseModel):
     liked: bool
-    totalLikes: int
+    total_likes: int = Field(..., alias="totalLikes")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class SaveResponse(BaseModel):

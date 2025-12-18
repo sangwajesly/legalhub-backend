@@ -1,0 +1,153 @@
+{
+  "users": [
+    {
+      "id": "1PbQ5Xjl13R4Di6pYXJLbIo6kzA2",
+      "data": {
+        "phoneNumber": null,
+        "displayName": "Lawyer Name 5",
+        "isActive": true,
+        "role": "lawyer",
+        "lastLogin": null,
+        "createdAt": "2025-12-18T03:57:15.629031+00:00",
+        "isDeleted": false,
+        "email": "lawyer5@example.com",
+        "emailVerified": true,
+        "updatedAt": "2025-12-18T03:57:15.629037+00:00",
+        "profilePicture": null
+      }
+    },
+    {
+      "id": "71CQWeFlMnhAs4VKOd9WiI1xVv43",
+      "data": {
+        "phoneNumber": null,
+        "displayName": "Test User Camel",
+        "isActive": true,
+        "role": "user",
+        "lastLogin": null,
+        "createdAt": "2025-12-18T14:42:45.219393+00:00",
+        "isDeleted": false,
+        "email": "testuser_camel_1766068954@example.com",
+        "emailVerified": false,
+        "updatedAt": "2025-12-18T14:42:45.219399+00:00",
+        "profilePicture": null
+      }
+    },
+    {
+      "id": "OOvdZi1dUeP8HE8lSJFm8jfphm62",
+      "data": {
+        "phoneNumber": null,
+        "displayName": "Lawyer Name 2",
+        "isActive": true,
+        "role": "lawyer",
+        "lastLogin": null,
+        "createdAt": "2025-12-18T03:57:10.358123+00:00",
+        "isDeleted": false,
+        "email": "lawyer2@example.com",
+        "emailVerified": true,
+        "updatedAt": "2025-12-18T03:57:10.358131+00:00",
+        "profilePicture": null
+      }
+    }
+  ],
+  "articles": [],
+  "bookings": [],
+  "cases": [],
+  "lawyers": [
+    {
+      "id": "1PbQ5Xjl13R4Di6pYXJLbIo6kzA2",
+      "data": {
+        "jurisdictions": [
+          "Cameroon",
+          "Douala"
+        ],
+        "displayName": "Lawyer Name 5",
+        "bio": "Experienced lawyer specializing in Criminal Law.",
+        "rating": 4.5,
+        "updatedAt": "2025-12-18T03:57:15.938302+00:00",
+        "hourlyRate": 142.71,
+        "verified": false,
+        "yearsExperience": 23,
+        "languages": [
+          "English",
+          "French"
+        ],
+        "numReviews": 105,
+        "createdAt": "2024-09-18T03:57:15.938280+00:00",
+        "email": "lawyer5@example.com",
+        "licenseNumber": "LIC-45105",
+        "location": "Yaounde",
+        "practiceAreas": [
+          "Intellectual Property",
+          "Criminal Law",
+          "Family Law"
+        ],
+        "profilePicture": "https://api.dicebear.com/7.x/initials/svg?seed=Lawyer Name 5"
+      }
+    },
+    {
+      "id": "OOvdZi1dUeP8HE8lSJFm8jfphm62",
+      "data": {
+        "jurisdictions": [
+          "Yaounde",
+          "Bafoussam",
+          "Douala",
+          "Cameroon"
+        ],
+        "displayName": "Lawyer Name 2",
+        "bio": "Experienced lawyer specializing in Intellectual Property.",
+        "rating": 4.4,
+        "updatedAt": "2025-12-18T03:57:10.700200+00:00",
+        "hourlyRate": 133.41,
+        "verified": false,
+        "yearsExperience": 13,
+        "languages": [
+          "French"
+        ],
+        "numReviews": 156,
+        "createdAt": "2023-09-01T03:57:10.700160+00:00",
+        "email": "lawyer2@example.com",
+        "licenseNumber": "LIC-68290",
+        "location": "Yaounde",
+        "practiceAreas": [
+          "Real Estate Law",
+          "Criminal Law"
+        ],
+        "profilePicture": "https://api.dicebear.com/7.x/initials/svg?seed=Lawyer Name 2"
+      }
+    },
+    {
+      "id": "otwpVTyLKKSaJ1j6FJqRDpehI9D2",
+      "data": {
+        "jurisdictions": [
+          "Yaounde",
+          "Bafoussam"
+        ],
+        "displayName": "Lawyer Name 3",
+        "bio": "Experienced lawyer specializing in Family Law.",
+        "rating": 3.0,
+        "updatedAt": "2025-12-18T03:57:12.567152+00:00",
+        "hourlyRate": 231.82,
+        "verified": false,
+        "yearsExperience": 10,
+        "languages": [
+          "English",
+          "French"
+        ],
+        "numReviews": 20,
+        "createdAt": "2025-07-26T03:57:12.567127+00:00",
+        "email": "lawyer3@example.com",
+        "licenseNumber": "LIC-63797",
+        "location": "Douala",
+        "practiceAreas": [
+          "Environmental Law",
+          "Family Law",
+          "Criminal Law",
+          "Corporate Law",
+          "Real Estate Law"
+        ],
+        "profilePicture": "https://api.dicebear.com/7.x/initials/svg?seed=Lawyer Name 3"
+      }
+    }
+  ],
+  "organizations": []
+}

@@ -13,7 +13,7 @@ from app.schemas.auth import (
     UserResponse,
     AuthResponse,
     PasswordReset,
-    AuthTokenRequest, # Added AuthTokenRequest
+    AuthTokenRequest,  # Added AuthTokenRequest
 )
 from app.services.auth_service import auth_service
 from app.dependencies import get_current_user
@@ -24,7 +24,8 @@ router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
 
 
 @router.post("/register", status_code=status.HTTP_200_OK)
-async def register(user_data: UserRegister): # Changed payload to user_data using UserRegister
+# Changed payload to user_data using UserRegister
+async def register(user_data: UserRegister):
     """
     Register a new user
 
@@ -40,17 +41,7 @@ async def register(user_data: UserRegister): # Changed payload to user_data usin
         result = await auth_service.register_user(user_data)
 
         # Convert user to response format
-        user_response = UserResponse(
-            uid=result["user"].uid,
-            email=result["user"].email,
-            display_name=result["user"].display_name,
-            role=result["user"].role,
-            phone_number=result["user"].phone_number,
-            profile_picture=result["user"].profile_picture,
-            email_verified=result["user"].email_verified,
-            created_at=result["user"].created_at,
-            updated_at=result["user"].updated_at,
-        )
+        user_response = UserResponse.model_validate(result["user"])
 
         # Convert tokens to response format
         token_response = Token(**result["tokens"])
@@ -59,7 +50,8 @@ async def register(user_data: UserRegister): # Changed payload to user_data usin
         return AuthResponse(user=user_response, tokens=token_response)
 
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:
@@ -68,25 +60,26 @@ async def register(user_data: UserRegister): # Changed payload to user_data usin
             detail=f"Registration failed: {str(e)}",
         )
 
+
 @router.post("/google", response_model=AuthResponse)
 async def google_login(payload: dict):
     """
     Authenticate with Google using Firebase ID Token
-    
+
     - **idToken**: valid Firebase ID token from client
-    
+
     Returns user data and authentication tokens
     """
     try:
         id_token = payload.get("idToken")
         if not id_token:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, 
+                status_code=status.HTTP_400_BAD_REQUEST,
                 detail="idToken is required"
             )
-            
+
         result = await auth_service.authenticate_with_social_provider(id_token)
-        
+
         # Convert user to response format
         user_response = UserResponse(
             uid=result["user"].uid,
@@ -99,14 +92,15 @@ async def google_login(payload: dict):
             created_at=result["user"].created_at,
             updated_at=result["user"].updated_at,
         )
-        
+
         # Convert tokens to response format
         token_response = Token(**result["tokens"])
-        
+
         return AuthResponse(user=user_response, tokens=token_response)
 
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -115,7 +109,8 @@ async def google_login(payload: dict):
 
 
 @router.post("/login", response_model=AuthResponse)
-async def login(request: AuthTokenRequest): # Changed payload to request using AuthTokenRequest
+# Changed payload to request using AuthTokenRequest
+async def login(request: AuthTokenRequest):
     """
     Authenticate user with Firebase ID Token and receive internal tokens
 
@@ -146,7 +141,8 @@ async def login(request: AuthTokenRequest): # Changed payload to request using A
         return AuthResponse(user=user_response, tokens=token_response)
 
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -44,12 +44,11 @@ async def list_organizations(
     )
 
     # Convert to schema
-    organizations = []
-    for doc_id, data in docs:
-        org_model = firestore_organization_to_model(data, doc_id)
-        # Convert model to schema
-        org_profile = OrganizationProfile(**org_model.model_dump())
-        organizations.append(org_profile)
+    organizations = [
+        OrganizationProfile.model_validate(
+            firestore_organization_to_model(data, doc_id))
+        for doc_id, data in docs
+    ]
 
     return {
         "organizations": organizations,
@@ -69,7 +68,7 @@ async def get_organization(uid: str):
         )
 
     org_model = firestore_organization_to_model(doc, uid)
-    return org_model
+    return OrganizationProfile.model_validate(org_model)
 
 
 @router.post("", response_model=OrganizationProfile)
@@ -79,7 +78,7 @@ async def create_organization(
 ):
     """Create organization profile for current user"""
     uid = current_user["uid"]
-    
+
     # Check if exists
     existing = await firebase_service.get_document(f"organizations/{uid}")
     if existing:
@@ -108,7 +107,7 @@ async def create_organization(
     data = organization_model_to_firestore(org_model)
     await firebase_service.set_document(f"organizations/{uid}", data)
 
-    return org_model
+    return OrganizationProfile.model_validate(org_model)
 
 
 @router.put("/{uid}", response_model=OrganizationProfile)
@@ -141,35 +140,42 @@ async def update_organization(
 
     # Add updated_at
     update_data["updatedAt"] = datetime.now(timezone.utc)
-    
+
     # Map pydantic fields to firestore fields
     # We need to map snake_case to camelCase manually here or use the helper
     # A cleaner way: Update the model, then converting back to firestore
-    
+
     current_model = firestore_organization_to_model(existing, uid)
     updated_model = current_model.model_copy(update=update_data)
     updated_model.updated_at = datetime.now(timezone.utc)
-    
+
     firestore_data = organization_model_to_firestore(updated_model)
-    
+
     # We only want to update the fields that were changed to avoid overwriting unrelated data
     # But since we have the full model, set_document with merge=True is safer if supported
     # Or just update_document with the specific fields.
     # Let's use update_document with mapped fields
-    
+
     firestore_update = {}
-    if "display_name" in update_data: firestore_update["displayName"] = update_data["display_name"]
-    if "bio" in update_data: firestore_update["bio"] = update_data["bio"]
-    if "location" in update_data: firestore_update["location"] = update_data["location"]
-    if "website" in update_data: firestore_update["website"] = update_data["website"]
-    if "registration_number" in update_data: firestore_update["registrationNumber"] = update_data["registration_number"]
-    if "organization_type" in update_data: firestore_update["organizationType"] = update_data["organization_type"]
-    if "contact_person" in update_data: firestore_update["contactPerson"] = update_data["contact_person"]
+    if "display_name" in update_data:
+        firestore_update["displayName"] = update_data["display_name"]
+    if "bio" in update_data:
+        firestore_update["bio"] = update_data["bio"]
+    if "location" in update_data:
+        firestore_update["location"] = update_data["location"]
+    if "website" in update_data:
+        firestore_update["website"] = update_data["website"]
+    if "registration_number" in update_data:
+        firestore_update["registrationNumber"] = update_data["registration_number"]
+    if "organization_type" in update_data:
+        firestore_update["organizationType"] = update_data["organization_type"]
+    if "contact_person" in update_data:
+        firestore_update["contactPerson"] = update_data["contact_person"]
     firestore_update["updatedAt"] = updated_model.updated_at
 
     await firebase_service.update_document(f"organizations/{uid}", firestore_update)
 
-    return updated_model
+    return OrganizationProfile.model_validate(updated_model)
 
 
 @router.delete("/{uid}")

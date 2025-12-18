@@ -13,52 +13,28 @@ def utc_now():
 
 class Organization(BaseModel):
     uid: str
-    display_name: Optional[str] = None
+    display_name: Optional[str] = Field(None, alias="displayName")
     email: Optional[EmailStr] = None
-    profile_picture: Optional[str] = None
+    profile_picture: Optional[str] = Field(None, alias="profilePicture")
     bio: Optional[str] = None
     location: Optional[str] = None
     website: Optional[str] = None
-    registration_number: Optional[str] = None
-    organization_type: Optional[str] = None
-    contact_person: Optional[str] = None
+    registration_number: Optional[str] = Field(
+        None, alias="registrationNumber")
+    organization_type: Optional[str] = Field(None, alias="organizationType")
+    contact_person: Optional[str] = Field(None, alias="contactPerson")
     verified: bool = False
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: Optional[datetime] = Field(None, alias="createdAt")
+    updated_at: Optional[datetime] = Field(None, alias="updatedAt")
 
-    model_config = ConfigDict()
+    model_config = ConfigDict(populate_by_name=True)
 
 
 def firestore_organization_to_model(doc: dict, uid: str) -> Organization:
-    return Organization(
-        uid=uid,
-        display_name=doc.get("displayName") or doc.get("display_name"),
-        email=doc.get("email"),
-        profile_picture=doc.get("profilePicture") or doc.get("profile_picture"),
-        bio=doc.get("bio"),
-        location=doc.get("location"),
-        website=doc.get("website"),
-        registration_number=doc.get("registrationNumber") or doc.get("registration_number"),
-        organization_type=doc.get("organizationType") or doc.get("organization_type"),
-        contact_person=doc.get("contactPerson") or doc.get("contact_person"),
-        verified=doc.get("verified", False),
-        created_at=doc.get("createdAt") or doc.get("created_at"),
-        updated_at=doc.get("updatedAt") or doc.get("updated_at"),
-    )
+    return Organization.model_validate({**doc, "uid": uid})
 
 
 def organization_model_to_firestore(org: Organization) -> dict:
-    return {
-        "displayName": org.display_name,
-        "email": org.email,
-        "profilePicture": org.profile_picture,
-        "bio": org.bio,
-        "location": org.location,
-        "website": org.website,
-        "registrationNumber": org.registration_number,
-        "organizationType": org.organization_type,
-        "contactPerson": org.contact_person,
-        "verified": org.verified,
-        "createdAt": org.created_at,
-        "updatedAt": org.updated_at,
-    }
+    data = org.model_dump(by_alias=True)
+    data.pop("uid", None)
+    return data

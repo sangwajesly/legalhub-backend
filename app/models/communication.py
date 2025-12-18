@@ -2,14 +2,15 @@ from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 from typing import Optional, List
 
+
 class DirectMessage(BaseModel):
     id: Optional[str] = None
-    senderId: str
-    receiverId: str
+    sender_id: str = Field(..., alias="senderId")
+    receiver_id: str = Field(..., alias="receiverId")
     content: str
     timestamp: datetime
     read: bool = False
-    bookingId: Optional[str] = None # Optional context: linked to a specific booking
+    booking_id: Optional[str] = Field(None, alias="bookingId")
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -26,16 +27,22 @@ class DirectMessage(BaseModel):
         }
     )
 
+
 class Conversation(BaseModel):
     """
     Represents a conversation summary between two users.
     Computed client-side or backend-side for listing 'Chats'.
     """
-    otherUserId: str
-    lastMessage: DirectMessage
-    unreadCount: int = 0
+    other_user_id: str = Field(..., alias="otherUserId")
+    last_message: DirectMessage = Field(..., alias="lastMessage")
+    unread_count: int = Field(0, alias="unreadCount")
+
+    model_config = ConfigDict(populate_by_name=True)
+
 
 class MessageCreate(BaseModel):
-    receiverId: str
+    receiver_id: str = Field(..., alias="receiverId")
     content: str
-    bookingId: Optional[str] = None
+    booking_id: Optional[str] = Field(None, alias="bookingId")
+
+    model_config = ConfigDict(populate_by_name=True)

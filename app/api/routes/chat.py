@@ -4,6 +4,7 @@ from typing import Optional, List
 import uuid
 
 from app.dependencies import get_current_user
+from app.models.user import User
 from app.services import firebase_service, langchain_service, file_service
 from app.config import settings
 from app.schemas.chat import (
@@ -23,18 +24,18 @@ router = APIRouter(prefix="/api/v1/chat", tags=["chat"])
 
 
 @router.post("/sessions", response_model=CreateSessionResponse)
-async def create_session(user: Optional[dict] = Depends(get_current_user)):
+async def create_session(user: User = Depends(get_current_user)):
     """Create a new chat session for the authenticated user."""
     session_id = str(uuid.uuid4())
-    await langchain_service.create_session(user.get("uid"), session_id)
+    await langchain_service.create_session(user.uid, session_id)
     return {"sessionId": session_id}
 
 
 @router.get("/sessions")
-async def get_sessions(user: Optional[dict] = Depends(get_current_user)):
+async def get_sessions(user: User = Depends(get_current_user)):
     """Get all chat sessions for the current user"""
     try:
-        sessions = await firebase_service.get_user_chat_sessions(user.get("uid"))
+        sessions = await firebase_service.get_user_chat_sessions(user.uid)
         return {"sessions": sessions}
     except Exception as e:
         print(f"Error fetching sessions: {e}")
@@ -58,15 +59,16 @@ async def delete_session(id: str, user: Optional[dict] = Depends(get_current_use
 async def send_message_to_session(
     session_id: str,
     payload: MessageRequest,
-    user: Optional[dict] = Depends(get_current_user)
+    user: User = Depends(get_current_user)
 ):
     """Send a message to a specific session"""
     # Call LangChain service
     reply_text = await langchain_service.generate_response(
         session_id=session_id,
-        user_id=user.get("uid"),
+        user_id=user.uid,
         user_message=payload.message,
-        attachments=payload.attachments if hasattr(payload, 'attachments') else None
+        attachments=payload.attachments if hasattr(
+            payload, 'attachments') else None
     )
 
     return {"reply": reply_text, "sessionId": session_id}
@@ -114,7 +116,8 @@ async def submit_message_feedback(
         )
         return {"ok": True}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Feedback submission failed: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Feedback submission failed: {str(e)}")
 
 
 # Legacy endpoints for backward compatibility

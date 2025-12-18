@@ -47,19 +47,19 @@ async def list_articles(
 ):
     """List articles with pagination"""
     filters = {}
-    
+
     # Text search support (Simple)
     # Note: If 'q' is provided, we might fail if dataset is large because Firestore doesn't do "contains".
     # For now, we ignore 'q' in database query and just list recent articles.
     # Real solution requires Algolia/Elasticsearch or generic partial scan (slow).
-    
+
     # Only show published articles by default
     filters["published"] = True
-    
+
     # If admin or author, logic to see unpublished is complex to do in one query with filters.
     # We will prioritize the main use case: Public Feed.
     # Users/Authors seeing their own unpublished articles should be a separate endpoint "/my".
-    
+
     docs, total_count = await firebase_service.query_collection(
         "articles",
         filters=filters,
@@ -70,40 +70,29 @@ async def list_articles(
     items = []
     for doc_id, doc_data in docs:
         try:
-             # Basic client-side filter for 'q' if provided (only filters the page, imperfect but safe)
-             if q:
-                 text = (doc_data.get("title", "") + " " + doc_data.get("content", "")).lower()
-                 if q.lower() not in text:
-                     continue
-            
-             items.append(firestore_article_to_model(doc_data, doc_id))
+            # Basic client-side filter for 'q' if provided (only filters the page, imperfect but safe)
+            if q:
+                text = (doc_data.get("title", "") + " " +
+                        doc_data.get("content", "")).lower()
+                if q.lower() not in text:
+                    continue
+
+            items.append(firestore_article_to_model(doc_data, doc_id))
         except Exception:
             continue
-            
+
     # Calculate pages
-    # Note: total_count from query_collection might be limited or estimated in some implementatons, 
+    # Note: total_count from query_collection might be limited or estimated in some implementatons,
     # but our service does a separate count query.
-    
+
     return ArticleListResponse(
         articles=[
-            ArticleResponse(
-                articleId=a.article_id,
-                title=a.title,
-                slug=a.slug,
-                content=a.content,
-                authorId=a.author_id,
-                tags=a.tags,
-                published=a.published,
-                createdAt=a.created_at,
-                updatedAt=a.updated_at,
-                likesCount=a.likes_count,
-                views=a.views,
-            )
+            ArticleResponse.model_validate(a)
             for a in items
         ],
         total=total_count,
         page=page,
-        pageSize=pageSize,
+        page_size=pageSize,
     )
 
 
@@ -128,62 +117,22 @@ async def get_article(article_id: str, current_user=Depends(get_optional_user)):
         a = firestore_article_to_model(doc.to_dict(), doc.id)
     # if not published, only author or admin can view
     if not a.published:
-        uid = (
-            getattr(current_user, "uid", None)
-            or (current_user.get("uid") if isinstance(current_user, dict) else None)
-            if current_user
-            else None
-        )
-        role = (
-            getattr(current_user, "role", None)
-            or (current_user.get("role") if isinstance(current_user, dict) else None)
-            if current_user
-            else None
-        )
-        if a.author_id != uid and role != "admin":
+        if a.author_id != current_user.uid and current_user.role != UserRole.ADMIN:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not allowed to view unpublished article",
             )
-    return ArticleResponse(
-        articleId=a.article_id,
-        title=a.title,
-        slug=a.slug,
-        content=a.content,
-        authorId=a.author_id,
-        tags=a.tags,
-        published=a.published,
-        createdAt=a.created_at,
-        updatedAt=a.updated_at,
-        likesCount=a.likes_count,
-        views=a.views,
-    )
+    return ArticleResponse.model_validate(a)
 
 
 @router.post("/", response_model=ArticleResponse, status_code=status.HTTP_201_CREATED)
 async def create_article(
     payload: ArticleCreateSchema, current_user=Depends(get_current_user)
 ):
-    # current_user may be a dict (firebase token) or User model; try to extract uid
-    uid = (
-        getattr(current_user, "uid", None)
-        or (current_user.get("uid") if isinstance(current_user, dict) else None)
-        or (current_user.get("user_id") if isinstance(current_user, dict) else None)
-    )
-    if not uid:
-        # fallback: some tokens use 'sub'
-        uid = current_user.get("sub") if isinstance(current_user, dict) else None
-    if not uid:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required"
-        )
+    uid = current_user.uid
 
     # allow lawyers, organizations (and admin) to create articles
-    role = getattr(current_user, "role", None) or (
-        current_user.get("role") if isinstance(current_user, dict) else None
-    )
-    allowed_roles = {UserRole.LAWYER, UserRole.ORGANIZATION, UserRole.ADMIN, "lawyer", "organization", "admin"}
-    if role not in allowed_roles:
+    if current_user.role not in {UserRole.LAWYER, UserRole.ORGANIZATION, UserRole.ADMIN}:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only professionals can publish articles.",
@@ -208,30 +157,13 @@ async def create_article(
     doc_ref.set(article_data)
     a = firestore_article_to_model(article_data, doc_ref.id)
 
-    return ArticleResponse(
-        articleId=a.article_id,
-        title=a.title,
-        slug=a.slug,
-        content=a.content,
-        authorId=a.author_id,
-        tags=a.tags,
-        published=a.published,
-        createdAt=a.created_at,
-        updatedAt=a.updated_at,
-        likesCount=a.likes_count,
-        views=a.views,
-        sharesCount=a.shares_count,
-    )
+    return ArticleResponse.model_validate(a)
 
 
 @router.post("/{article_id}/like", response_model=dict)
 async def toggle_like(article_id: str, current_user=Depends(get_current_user)):
     # store likes as subcollection articles/{id}/likes/{uid}
-    uid = (
-        getattr(current_user, "uid", None)
-        or (current_user.get("uid") if isinstance(current_user, dict) else None)
-        or (current_user.get("sub") if isinstance(current_user, dict) else None)
-    )
+    uid = current_user.uid
     if not uid:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required"
@@ -288,11 +220,7 @@ async def share_article(
     # use user uid if present otherwise auto id
     uid = None
     if current_user:
-        uid = (
-            getattr(current_user, "uid", None)
-            or (current_user.get("uid") if isinstance(current_user, dict) else None)
-            or (current_user.get("sub") if isinstance(current_user, dict) else None)
-        )
+        uid = current_user.uid
 
     if uid:
         ref = shares_coll.document(uid)
@@ -332,11 +260,7 @@ async def share_article(
 
 @router.post("/{article_id}/save", response_model=dict)
 async def toggle_save(article_id: str, current_user=Depends(get_current_user)):
-    uid = (
-        getattr(current_user, "uid", None)
-        or (current_user.get("uid") if isinstance(current_user, dict) else None)
-        or (current_user.get("sub") if isinstance(current_user, dict) else None)
-    )
+    uid = current_user.uid
     if not uid:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required"
@@ -367,11 +291,7 @@ async def add_comment(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Content required"
         )
-    uid = (
-        getattr(current_user, "uid", None)
-        or (current_user.get("uid") if isinstance(current_user, dict) else None)
-        or (current_user.get("sub") if isinstance(current_user, dict) else None)
-    )
+    uid = current_user.uid
     if not uid:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required"
@@ -411,7 +331,7 @@ async def list_comments(article_id: str, page: int = 1, pageSize: int = 50):
     # sort by createdAt
     docs.sort(key=lambda d: d.to_dict().get("createdAt") or datetime.min)
     start = (page - 1) * pageSize
-    page_docs = docs[start : start + pageSize]
+    page_docs = docs[start: start + pageSize]
     out = []
     for doc in page_docs:
         d = doc.to_dict()
@@ -443,15 +363,8 @@ async def delete_comment(
             status_code=status.HTTP_404_NOT_FOUND, detail="Comment not found"
         )
     d = doc.to_dict()
-    uid = (
-        getattr(current_user, "uid", None)
-        or (current_user.get("uid") if isinstance(current_user, dict) else None)
-        or (current_user.get("sub") if isinstance(current_user, dict) else None)
-    )
-    role = getattr(current_user, "role", None) or (
-        current_user.get("role") if isinstance(current_user, dict) else None
-    )
-    if d.get("authorId") != uid and role != "admin":
+    uid = current_user.uid
+    if d.get("authorId") != uid and current_user.role != UserRole.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not allowed to delete comment",
@@ -475,17 +388,9 @@ async def update_article(
 
     existing = doc.to_dict()
     # Authorization: only author or admin can update
-    uid = (
-        getattr(current_user, "uid", None)
-        or (current_user.get("uid") if isinstance(current_user, dict) else None)
-        or (current_user.get("sub") if isinstance(current_user, dict) else None)
-    )
+    uid = current_user.uid
     if existing.get("authorId") and uid and existing.get("authorId") != uid:
-        # try role check
-        role = getattr(current_user, "role", None) or (
-            current_user.get("role") if isinstance(current_user, dict) else None
-        )
-        if role != "admin":
+        if current_user.role != UserRole.ADMIN:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not allowed to modify this article",
@@ -506,19 +411,7 @@ async def update_article(
     # merge existing for response
     new_doc = doc_ref.get()
     a = firestore_article_to_model(new_doc.to_dict(), new_doc.id)
-    return ArticleResponse(
-        articleId=a.article_id,
-        title=a.title,
-        slug=a.slug,
-        content=a.content,
-        authorId=a.author_id,
-        tags=a.tags,
-        published=a.published,
-        createdAt=a.created_at,
-        updatedAt=a.updated_at,
-        likesCount=a.likes_count,
-        views=a.views,
-    )
+    return ArticleResponse.model_validate(a)
 
 
 @router.delete("/{article_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -531,16 +424,9 @@ async def delete_article(article_id: str, current_user=Depends(get_current_user)
         )
 
     existing = doc.to_dict()
-    uid = (
-        getattr(current_user, "uid", None)
-        or (current_user.get("uid") if isinstance(current_user, dict) else None)
-        or (current_user.get("sub") if isinstance(current_user, dict) else None)
-    )
+    uid = current_user.uid
     if existing.get("authorId") and uid and existing.get("authorId") != uid:
-        role = getattr(current_user, "role", None) or (
-            current_user.get("role") if isinstance(current_user, dict) else None
-        )
-        if role != "admin":
+        if current_user.role != UserRole.ADMIN:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not allowed to delete this article",

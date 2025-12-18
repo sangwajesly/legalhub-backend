@@ -1,16 +1,20 @@
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 
 
 class CreateSessionResponse(BaseModel):
-    sessionId: str
+    session_id: str = Field(..., alias="sessionId")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class MessageRequest(BaseModel):
-    sessionId: Optional[str] = None
+    session_id: Optional[str] = Field(None, alias="sessionId")
     message: str
     attachments: List[str] = []
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class RetrievedDocument(BaseModel):
@@ -23,16 +27,20 @@ class RetrievedDocument(BaseModel):
 
 class MessageResponse(BaseModel):
     reply: str
-    sessionId: str
+    session_id: str = Field(..., alias="sessionId")
     retrieved_documents: Optional[List[RetrievedDocument]] = None
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class ChatMessage(BaseModel):
-    id: Optional[str]
+    id: Optional[str] = None
     role: str
     text: str
-    userId: Optional[str]
-    createdAt: Optional[datetime]
+    user_id: Optional[str] = Field(None, alias="userId")
+    created_at: Optional[datetime] = Field(None, alias="createdAt")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class HistoryResponse(BaseModel):
@@ -40,6 +48,8 @@ class HistoryResponse(BaseModel):
 
 
 class FeedbackRequest(BaseModel):
-    sessionId: str
-    messageId: str
+    session_id: str = Field(..., alias="sessionId")
+    message_id: str = Field(..., alias="messageId")
     rating: int = 0
+
+    model_config = ConfigDict(populate_by_name=True)

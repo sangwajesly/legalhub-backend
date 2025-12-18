@@ -13,24 +13,25 @@ def utc_now():
 
 class Lawyer(BaseModel):
     uid: str
-    display_name: Optional[str] = None
+    display_name: Optional[str] = Field(None, alias="displayName")
     email: Optional[str] = None
-    profile_picture: Optional[str] = None
+    profile_picture: Optional[str] = Field(None, alias="profilePicture")
     bio: Optional[str] = None
     location: Optional[str] = None
-    license_number: Optional[str] = None
+    license_number: Optional[str] = Field(None, alias="licenseNumber")
     jurisdictions: list[str] = Field(default_factory=list)
-    practice_areas: list[str] = Field(default_factory=list)
-    hourly_rate: Optional[float] = None
-    years_experience: Optional[int] = None
+    practice_areas: list[str] = Field(
+        default_factory=list, alias="practiceAreas")
+    hourly_rate: Optional[float] = Field(None, alias="hourlyRate")
+    years_experience: Optional[int] = Field(None, alias="yearsExperience")
     languages: list[str] = Field(default_factory=list)
     verified: bool = False
     rating: Optional[float] = None
-    num_reviews: Optional[int] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    num_reviews: Optional[int] = Field(None, alias="numReviews")
+    created_at: Optional[datetime] = Field(None, alias="createdAt")
+    updated_at: Optional[datetime] = Field(None, alias="updatedAt")
 
-    model_config = ConfigDict()
+    model_config = ConfigDict(populate_by_name=True)
 
 
 def firestore_lawyer_to_model(doc: dict, uid: str) -> Lawyer:
@@ -38,7 +39,8 @@ def firestore_lawyer_to_model(doc: dict, uid: str) -> Lawyer:
         uid=uid,
         display_name=doc.get("displayName") or doc.get("display_name"),
         email=doc.get("email"),
-        profile_picture=doc.get("profilePicture") or doc.get("profile_picture"),
+        profile_picture=doc.get(
+            "profilePicture") or doc.get("profile_picture"),
         bio=doc.get("bio"),
         location=doc.get("location"),
         license_number=doc.get("licenseNumber") or doc.get("license_number"),

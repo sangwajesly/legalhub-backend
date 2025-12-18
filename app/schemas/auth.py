@@ -15,9 +15,10 @@ class UserRegister(BaseModel):
     password: str = Field(
         ..., min_length=8, description="Password must be at least 8 characters"
     )
-    display_name: str = Field(..., min_length=2, max_length=100)
+    display_name: str = Field(..., min_length=2,
+                              max_length=100, alias="displayName")
     role: str = UserRole.USER
-    phone_number: Optional[str] = None
+    phone_number: Optional[str] = Field(None, alias="phoneNumber")
 
     @field_validator("password")
     def validate_password(cls, v):
@@ -25,12 +26,15 @@ class UserRegister(BaseModel):
         if not any(char.isdigit() for char in v):
             raise ValueError("Password must contain at least one digit")
         if not any(char.isupper() for char in v):
-            raise ValueError("Password must contain at least one uppercase letter")
+            raise ValueError(
+                "Password must contain at least one uppercase letter")
         if not any(char.islower() for char in v):
-            raise ValueError("Password must contain at least one lowercase letter")
+            raise ValueError(
+                "Password must contain at least one lowercase letter")
         return v
 
     model_config = ConfigDict(
+        populate_by_name=True,
         json_schema_extra={
             "example": {
                 "email": "user@example.com",
@@ -45,7 +49,8 @@ class UserRegister(BaseModel):
 
 class AuthTokenRequest(BaseModel):
     """Schema for requests containing a Firebase ID token."""
-    id_token: str = Field(..., description="Firebase ID token from client-side authentication.")
+    id_token: str = Field(...,
+                          description="Firebase ID token from client-side authentication.")
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -54,6 +59,7 @@ class AuthTokenRequest(BaseModel):
             }
         }
     )
+
 
 class UserLogin(BaseModel):
     """Schema for user login"""
@@ -86,13 +92,15 @@ class TokenRefresh(BaseModel):
 class PublicUserResponse(BaseModel):
     """Schema for public user profile (safe for viewing by others)"""
     uid: str
-    display_name: Optional[str] = None
+    display_name: Optional[str] = Field(None, alias="displayName")
     role: str
-    profile_picture: Optional[str] = None
-    created_at: datetime
+    profile_picture: Optional[str] = Field(None, alias="profilePicture")
+    created_at: datetime = Field(..., alias="createdAt")
     # Exclude email, phone_number, updated_at, email_verified
 
     model_config = ConfigDict(
+        populate_by_name=True,
+        from_attributes=True,
         json_schema_extra={
             "example": {
                 "uid": "abc123xyz",
@@ -110,15 +118,17 @@ class UserResponse(BaseModel):
 
     uid: str
     email: str
-    display_name: Optional[str]
+    display_name: Optional[str] = Field(None, alias="displayName")
     role: str
-    phone_number: Optional[str]
-    profile_picture: Optional[str]
-    email_verified: bool
-    created_at: datetime
-    updated_at: datetime
+    phone_number: Optional[str] = Field(None, alias="phoneNumber")
+    profile_picture: Optional[str] = Field(None, alias="profilePicture")
+    email_verified: bool = Field(..., alias="emailVerified")
+    created_at: datetime = Field(..., alias="createdAt")
+    updated_at: datetime = Field(..., alias="updatedAt")
 
     model_config = ConfigDict(
+        populate_by_name=True,
+        from_attributes=True,
         json_schema_extra={
             "example": {
                 "uid": "abc123xyz",
@@ -179,9 +189,11 @@ class PasswordChange(BaseModel):
         if not any(char.isdigit() for char in v):
             raise ValueError("Password must contain at least one digit")
         if not any(char.isupper() for char in v):
-            raise ValueError("Password must contain at least one uppercase letter")
+            raise ValueError(
+                "Password must contain at least one uppercase letter")
         if not any(char.islower() for char in v):
-            raise ValueError("Password must contain at least one lowercase letter")
+            raise ValueError(
+                "Password must contain at least one lowercase letter")
         return v
 
 

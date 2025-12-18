@@ -13,7 +13,8 @@ from app.config import settings
 from app.models.user import (
     User,
     UserProfile,
-)  # Assuming these models are Pydantic or have a .model_dump() / .dict() method
+    # Assuming these models are Pydantic or have a .model_dump() / .dict() method
+)
 from app.models.user import user_model_to_firestore
 from app.models.chat import ChatMessage
 
@@ -80,7 +81,8 @@ class FirebaseService:
                 )
             else:
                 # Use production credentials
-                cred = credentials.Certificate(settings.FIREBASE_CREDENTIALS_PATH)
+                cred = credentials.Certificate(
+                    settings.FIREBASE_CREDENTIALS_PATH)
                 firebase_admin.initialize_app(
                     cred, {"storageBucket": settings.FIREBASE_STORAGE_BUCKET}
                 )
@@ -93,13 +95,13 @@ class FirebaseService:
     async def create_user(
         self,
         email: str,
-        password: Optional[str] = None, # Make password optional
+        password: Optional[str] = None,  # Make password optional
         display_name: str = None,
         role: str = "user",
         phone_number: Optional[str] = None,
-        email_verified: bool = False, # Add email_verified
-        photo_url: Optional[str] = None, # Add photo_url
-        is_new_user: bool = True, # Flag to indicate if user is truly new to Firebase Auth
+        email_verified: bool = False,  # Add email_verified
+        photo_url: Optional[str] = None,  # Add photo_url
+        is_new_user: bool = True,  # Flag to indicate if user is truly new to Firebase Auth
     ) -> User:
         """
         Create a new user in Firebase Authentication (if new) and Firestore
@@ -139,7 +141,7 @@ class FirebaseService:
                 except firebase_auth.UserNotFoundError:
                     # If user is marked as not new, but not found in Firebase Auth,
                     # this is an inconsistency, raise an error or attempt to create without password
-                    if password: # If password is provided, try creating
+                    if password:  # If password is provided, try creating
                         firebase_user = firebase_auth.create_user(
                             email=email,
                             password=password,
@@ -150,11 +152,11 @@ class FirebaseService:
                         )
                         uid = firebase_user.uid
                     else:
-                         raise ValueError(f"User with email {email} not found in Firebase Auth "
-                                          "and no password provided for creation.")
-            else: # is_new_user is True but no password - invalid state for create_user
-                raise ValueError("Password must be provided for new user registration.")
-
+                        raise ValueError(f"User with email {email} not found in Firebase Auth "
+                                         "and no password provided for creation.")
+            else:  # is_new_user is True but no password - invalid state for create_user
+                raise ValueError(
+                    "Password must be provided for new user registration.")
 
             # Create user document in Firestore using the Pydantic model for structure
             user = User(
@@ -172,13 +174,15 @@ class FirebaseService:
             # Save to Firestore using the canonical camelCase mapping.
             firestore_data = user_model_to_firestore(user)
 
-            import asyncio # Ensure asyncio is imported
+            import asyncio  # Ensure asyncio is imported
 
             try:
                 await asyncio.to_thread(self.db.collection("users").document(uid).set, firestore_data)
             except Exception as firestore_e:
-                print(f"DEBUG: Failed to save user {uid} to Firestore: {firestore_e}")
-                raise Exception(f"Error saving user to Firestore: {firestore_e}")
+                print(
+                    f"DEBUG: Failed to save user {uid} to Firestore: {firestore_e}")
+                raise Exception(
+                    f"Error saving user to Firestore: {firestore_e}")
 
             return user
 
@@ -186,7 +190,8 @@ class FirebaseService:
             raise ValueError("Email already exists")
         except Exception as e:
             # Log the specific error for better debugging
-            print(f"DEBUG: Failed to create user or save to Firestore: {str(e)}")
+            print(
+                f"DEBUG: Failed to create user or save to Firestore: {str(e)}")
             raise Exception(f"Error creating user: {str(e)}")
 
     async def get_user_by_uid(self, uid: str) -> Optional[User]:
@@ -200,7 +205,7 @@ class FirebaseService:
             User object or None if not found
         """
         try:
-            import asyncio # Ensure asyncio is imported
+            import asyncio  # Ensure asyncio is imported
             doc = await asyncio.to_thread(self.db.collection("users").document(uid).get)
             if doc.exists:
                 doc_data = doc.to_dict()
@@ -221,11 +226,11 @@ class FirebaseService:
             User object or None if not found
         """
         try:
-            import asyncio # Ensure asyncio is imported
+            import asyncio  # Ensure asyncio is imported
             users_ref = self.db.collection("users")
             # NOTE: This query requires an index on the 'email' field in Firestore!
             query = users_ref.where("email", "==", email).limit(1)
-            
+
             for doc in await asyncio.to_thread(query.stream):
                 doc_data = doc.to_dict()
                 doc_data["uid"] = doc.id  # Ensure uid is set from document ID
@@ -327,7 +332,7 @@ class FirebaseService:
             Decoded token claims
         """
         try:
-            import asyncio # Ensure asyncio is imported
+            import asyncio  # Ensure asyncio is imported
             decoded_token = await asyncio.to_thread(firebase_auth.verify_id_token, id_token)
             return decoded_token
         except Exception as e:
@@ -348,7 +353,7 @@ class FirebaseService:
             UserProfile object or None if not found
         """
         try:
-            import asyncio # Ensure asyncio is imported
+            import asyncio  # Ensure asyncio is imported
             doc = await asyncio.to_thread(self.db.collection("user_profiles").document(uid).get)
             if doc.exists:
                 doc_data = doc.to_dict()
@@ -372,7 +377,7 @@ class FirebaseService:
             Updated UserProfile object
         """
         try:
-            import asyncio # Ensure asyncio is imported
+            import asyncio  # Ensure asyncio is imported
             profile_ref = self.db.collection("user_profiles").document(uid)
 
             # Check if profile exists
@@ -407,23 +412,23 @@ class FirebaseService:
         """
         Creates a new chat session in Firestore.
         """
-        import asyncio # Ensure asyncio is imported
+        import asyncio  # Ensure asyncio is imported
         session_ref = self.db.collection("chat_sessions").document(session_id)
         await asyncio.to_thread(session_ref.set,
-            {
-                "sessionId": session_id,
-                "userId": user_id,
-                "createdAt": datetime.now(UTC),
-                "lastMessageAt": datetime.now(UTC),
-            }
-        )
+                                {
+                                    "sessionId": session_id,
+                                    "userId": user_id,
+                                    "createdAt": datetime.now(UTC),
+                                    "lastMessageAt": datetime.now(UTC),
+                                }
+                                )
 
     async def get_user_chat_sessions(self, user_id: str) -> List[Dict[str, Any]]:
         """
         Retrieves all chat sessions for a specific user, ordered by lastMessageAt desc.
         """
         try:
-            import asyncio # Ensure asyncio is imported
+            import asyncio  # Ensure asyncio is imported
             sessions_ref = self.db.collection("chat_sessions")
             # Note: This query requires a composite index on [userId, lastMessageAt DESC]
             # If failing, check Firebase console indexes.
@@ -453,7 +458,7 @@ class FirebaseService:
                     if "sessionId" not in data:
                         data["sessionId"] = doc.id
                     sessions.append(data)
-                
+
                 # Sort in memory
                 sessions.sort(
                     key=lambda x: x.get("lastMessageAt", datetime.min), reverse=True
@@ -467,7 +472,7 @@ class FirebaseService:
         """
         Adds a chat message to a session's subcollection in Firestore.
         """
-        import asyncio # Ensure asyncio is imported
+        import asyncio  # Ensure asyncio is imported
         message_dict = message.model_dump(by_alias=True)
         # Ensure createdAt is a datetime object for Firestore
         if isinstance(message_dict.get("createdAt"), str):
@@ -478,15 +483,19 @@ class FirebaseService:
             message_dict["createdAt"] = datetime.now(UTC)
 
         # Add a unique ID for the message document
-        message_id = (
-            message.id
-            if message.id
-            else await asyncio.to_thread(self.db.collection("chat_sessions")
-            .document(session_id)
-            .collection("messages")
-            .document().id)
-        )
-        message_dict["id"] = message_id  # Ensure the ID is part of the stored document
+        if not message.id:
+            # document().id is a synchronous operation on the Client/CollectionReference
+            message_id = (
+                self.db.collection("chat_sessions")
+                .document(session_id)
+                .collection("messages")
+                .document()
+                .id
+            )
+        else:
+            message_id = message.id
+        # Ensure the ID is part of the stored document
+        message_dict["id"] = message_id
 
         await asyncio.to_thread(self.db.collection("chat_sessions").document(session_id).collection(
             "messages"
@@ -494,14 +503,14 @@ class FirebaseService:
 
         # Update lastMessageAt for the session
         await asyncio.to_thread(self.db.collection("chat_sessions").document(session_id).update,
-            {"lastMessageAt": datetime.now(UTC)}
-        )
+                                {"lastMessageAt": datetime.now(UTC)}
+                                )
 
     async def get_chat_history(self, session_id: str) -> List[ChatMessage]:
         """
         Retrieves chat history for a given session from Firestore.
         """
-        import asyncio # Ensure asyncio is imported
+        import asyncio  # Ensure asyncio is imported
         messages_ref = (
             self.db.collection("chat_sessions")
             .document(session_id)
@@ -522,7 +531,7 @@ class FirebaseService:
         """
         Deletes a chat session and all its messages from Firestore.
         """
-        import asyncio # Ensure asyncio is imported
+        import asyncio  # Ensure asyncio is imported
         session_ref = self.db.collection("chat_sessions").document(session_id)
 
         # Delete all messages in the subcollection
@@ -543,18 +552,19 @@ class FirebaseService:
         Adds a direct message to the 'direct_messages' collection.
         Messages are stored in a top-level collection for simplicity in MVP.
         """
-        import asyncio # Ensure asyncio is imported
+        import asyncio  # Ensure asyncio is imported
         msg_dict = message.model_dump(by_alias=True)
         if isinstance(msg_dict.get("timestamp"), str):
-             msg_dict["timestamp"] = datetime.fromisoformat(msg_dict["timestamp"])
-        
+            msg_dict["timestamp"] = datetime.fromisoformat(
+                msg_dict["timestamp"])
+
         # Use provided ID or generate one
         if not message.id:
             ref = await asyncio.to_thread(self.db.collection("direct_messages").document)
             message.id = ref.id
             msg_dict["id"] = ref.id
         else:
-             ref = self.db.collection("direct_messages").document(message.id)
+            ref = self.db.collection("direct_messages").document(message.id)
 
         await asyncio.to_thread(ref.set, msg_dict)
         return message
@@ -566,28 +576,28 @@ class FirebaseService:
         OR we query twice and merge (simpler for MVP without custom indexes).
         """
         from app.models.communication import DirectMessage
-        import asyncio # Ensure asyncio is imported
-        
+        import asyncio  # Ensure asyncio is imported
+
         # Query 1: user1 -> user2
         q1 = (
             self.db.collection("direct_messages")
             .where("senderId", "==", user1_id)
             .where("receiverId", "==", user2_id)
         )
-        
+
         # Query 2: user2 -> user1
         q2 = (
             self.db.collection("direct_messages")
             .where("senderId", "==", user2_id)
             .where("receiverId", "==", user1_id)
         )
-        
+
         msgs = []
         for d in await asyncio.to_thread(q1.stream):
             msgs.append(DirectMessage(**d.to_dict()))
         for d in await asyncio.to_thread(q2.stream):
             msgs.append(DirectMessage(**d.to_dict()))
-            
+
         # Sort by timestamp
         msgs.sort(key=lambda x: x.timestamp)
         return msgs
@@ -606,7 +616,7 @@ class FirebaseService:
         try:
             # import here to avoid module-level dependency at import time
             from firebase_admin import storage as fb_storage
-            import asyncio # Required for asyncio.to_thread
+            import asyncio  # Required for asyncio.to_thread
 
             def _upload():
                 bucket = fb_storage.bucket()
@@ -619,7 +629,8 @@ class FirebaseService:
                 except Exception:
                     try:
                         # Try signed url (may require google-cloud-storage credentials)
-                        url = blob.generate_signed_url(expiration=timedelta(hours=1))
+                        url = blob.generate_signed_url(
+                            expiration=timedelta(hours=1))
                         return url
                     except Exception:
                         return f"gs://{bucket.name}/{path}"
@@ -638,7 +649,7 @@ class FirebaseService:
         Fetches all articles from the 'articles' Firestore collection.
         """
         from app.models.article import firestore_article_to_model
-        import asyncio # Ensure asyncio is imported
+        import asyncio  # Ensure asyncio is imported
 
         articles_ref = self.db.collection("articles")
         docs = await asyncio.to_thread(articles_ref.stream)
@@ -653,8 +664,9 @@ class FirebaseService:
         Adds an article to a user's bookmarks.
         """
         try:
-            import asyncio # Ensure asyncio is imported
-            bm_ref = self.db.collection("users").document(uid).collection("bookmarks").document(article_id)
+            import asyncio  # Ensure asyncio is imported
+            bm_ref = self.db.collection("users").document(
+                uid).collection("bookmarks").document(article_id)
             await asyncio.to_thread(bm_ref.set, {"articleId": article_id, "createdAt": datetime.now(UTC)})
             return True
         except Exception as e:
@@ -666,8 +678,9 @@ class FirebaseService:
         Removes an article from a user's bookmarks.
         """
         try:
-            import asyncio # Ensure asyncio is imported
-            bm_ref = self.db.collection("users").document(uid).collection("bookmarks").document(article_id)
+            import asyncio  # Ensure asyncio is imported
+            bm_ref = self.db.collection("users").document(
+                uid).collection("bookmarks").document(article_id)
             await asyncio.to_thread(bm_ref.delete)
             return True
         except Exception as e:
@@ -679,8 +692,9 @@ class FirebaseService:
         Checks if an article is bookmarked by a user.
         """
         try:
-            import asyncio # Ensure asyncio is imported
-            bm_ref = self.db.collection("users").document(uid).collection("bookmarks").document(article_id)
+            import asyncio  # Ensure asyncio is imported
+            bm_ref = self.db.collection("users").document(
+                uid).collection("bookmarks").document(article_id)
             return (await asyncio.to_thread(bm_ref.get)).exists
         except Exception as e:
             print(f"Error checking bookmark: {e}")
@@ -719,7 +733,7 @@ class FirebaseService:
             - A list of tuples, where each tuple is (document_id, document_data).
             - The total count of documents matching the filters (or 0 if get_total_count is False).
         """
-        import asyncio # Ensure asyncio is imported
+        import asyncio  # Ensure asyncio is imported
 
         collection_ref = self.db.collection(collection_name)
         query = collection_ref
@@ -730,7 +744,8 @@ class FirebaseService:
                 if len(f) == 3:
                     query = query.where(f[0], f[1], f[2])
                 else:
-                    raise ValueError(f"Invalid filter format: {f}. Expected (field, op, value)")
+                    raise ValueError(
+                        f"Invalid filter format: {f}. Expected (field, op, value)")
 
         # Function to execute synchronous Firestore stream in a thread
         def _get_stream_data(q):

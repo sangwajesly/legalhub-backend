@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/v1/users", tags=["Users"])
 
 
 @router.get("/profile", response_model=UserResponse)
-async def get_user_profile(current_user: dict = Depends(get_current_user)):
+async def get_user_profile(current_user: User = Depends(get_current_user)):
     """
     Get current user's profile
 
@@ -23,15 +23,16 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
     Returns complete user profile information.
     """
     return UserResponse(
-        uid=current_user.get("uid"),
-        email=current_user.get("email"),
-        display_name=current_user.get("display_name"),
-        role=current_user.get("role", "user"),
-        phone_number=current_user.get("phone_number"),
-        profile_picture=current_user.get("profile_picture"),
-        email_verified=current_user.get("email_verified", False),
-        created_at=current_user.get("created_at"),
-        updated_at=current_user.get("updated_at"),
+        uid=current_user.uid,
+        email=current_user.email,
+        display_name=current_user.display_name,
+        role=current_user.role.value if hasattr(
+            current_user.role, 'value') else current_user.role,
+        phone_number=current_user.phone_number,
+        profile_picture=current_user.profile_picture,
+        email_verified=current_user.email_verified,
+        created_at=current_user.created_at,
+        updated_at=current_user.updated_at,
     )
 
 
@@ -39,7 +40,7 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
 async def get_user_by_id(user_id: str, current_user=Depends(get_optional_user)):
     """
     Get user profile by ID
-    
+
     Returns Public profile for others, Full profile for owner/admin.
     """
     try:
@@ -53,17 +54,7 @@ async def get_user_by_id(user_id: str, current_user=Depends(get_optional_user)):
         # Check if owner or admin
         is_owner = False
         if current_user:
-            # current_user might be a dict (from JWT) or User model object
-            uid = None
-            role = None
-            if isinstance(current_user, dict):
-                uid = current_user.get("uid")
-                role = current_user.get("role")
-            else:
-                 uid = getattr(current_user, "uid", None)
-                 role = getattr(current_user, "role", None)
-            
-            if uid == user.uid or role == "admin":
+            if current_user.uid == user.uid or current_user.role == UserRole.ADMIN:
                 is_owner = True
 
         if is_owner:
@@ -71,7 +62,8 @@ async def get_user_by_id(user_id: str, current_user=Depends(get_optional_user)):
                 uid=user.uid,
                 email=user.email,
                 display_name=user.display_name,
-                role=user.role.value if hasattr(user.role, 'value') else user.role,
+                role=user.role.value if hasattr(
+                    user.role, 'value') else user.role,
                 phone_number=user.phone_number,
                 profile_picture=user.profile_picture,
                 email_verified=user.email_verified,
@@ -83,7 +75,8 @@ async def get_user_by_id(user_id: str, current_user=Depends(get_optional_user)):
             return PublicUserResponse(
                 uid=user.uid,
                 display_name=user.display_name,
-                role=user.role.value if hasattr(user.role, 'value') else user.role,
+                role=user.role.value if hasattr(
+                    user.role, 'value') else user.role,
                 profile_picture=user.profile_picture,
                 created_at=user.created_at,
             )
@@ -99,7 +92,7 @@ async def get_user_by_id(user_id: str, current_user=Depends(get_optional_user)):
 
 @router.put("/profile", response_model=UserResponse)
 async def update_user_profile(
-    profile_data: UserUpdate, current_user: dict = Depends(get_current_user)
+    profile_data: UserUpdate, current_user: User = Depends(get_current_user)
 ):
     """
     Update current user's profile
@@ -128,7 +121,7 @@ async def update_user_profile(
         # Update main user data
         if update_data:
             updated_user = await firebase_service.update_user(
-                current_user.get("uid"), update_data
+                current_user.uid, update_data
             )
         else:
             updated_user = None
@@ -145,36 +138,12 @@ async def update_user_profile(
             profile_update["language_preference"] = profile_data.language_preference
 
         if profile_update:
-            await firebase_service.update_user_profile(current_user.get("uid"), profile_update)
+            await firebase_service.update_user_profile(current_user.uid, profile_update)
 
         # Use updated_user if available, otherwise use current_user
         user_to_return = updated_user if updated_user else current_user
-        
-        if isinstance(user_to_return, dict):
-            return UserResponse(
-                uid=user_to_return.get("uid"),
-                email=user_to_return.get("email"),
-                display_name=user_to_return.get("display_name"),
-                role=user_to_return.get("role", "user"),
-                phone_number=user_to_return.get("phone_number"),
-                profile_picture=user_to_return.get("profile_picture"),
-                email_verified=user_to_return.get("email_verified", False),
-                created_at=user_to_return.get("created_at"),
-                updated_at=user_to_return.get("updated_at"),
-            )
-        else:
-            # If it's a User object
-            return UserResponse(
-                uid=user_to_return.uid,
-                email=user_to_return.email,
-                display_name=user_to_return.display_name,
-                role=user_to_return.role.value if hasattr(user_to_return.role, 'value') else user_to_return.role,
-                phone_number=user_to_return.phone_number,
-                profile_picture=user_to_return.profile_picture,
-                email_verified=user_to_return.email_verified,
-                created_at=user_to_return.created_at,
-                updated_at=user_to_return.updated_at,
-            )
+
+        return UserResponse.model_validate(user_to_return)
 
     except Exception as e:
         raise HTTPException(
@@ -184,7 +153,7 @@ async def update_user_profile(
 
 
 @router.delete("/profile")
-async def delete_user_account(current_user: dict = Depends(get_current_user)):
+async def delete_user_account(current_user: User = Depends(get_current_user)):
     """
     Delete current user's account
 
@@ -192,7 +161,7 @@ async def delete_user_account(current_user: dict = Depends(get_current_user)):
     This action is irreversible and will delete all user data.
     """
     try:
-        success = await firebase_service.delete_user(current_user.get("uid"))
+        success = await firebase_service.delete_user(current_user.uid)
 
         if success:
             return {"message": "Account deleted successfully"}

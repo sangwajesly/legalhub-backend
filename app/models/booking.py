@@ -73,14 +73,17 @@ class ConsultationType(str, Enum):
 class BookingBase(BaseModel):
     """Base booking model with common fields"""
 
-    lawyerId: str = Field(..., description="Firebase UID of the lawyer")
-    userId: str = Field(..., description="Firebase UID of the client")
-    consultationType: ConsultationType = Field(
-        default=ConsultationType.CALL, description="Type of consultation"
+    lawyer_id: str = Field(...,
+                           description="Firebase UID of the lawyer", alias="lawyerId")
+    user_id: str = Field(...,
+                         description="Firebase UID of the client", alias="userId")
+    consultation_type: ConsultationType = Field(
+        default=ConsultationType.CALL, description="Type of consultation", alias="consultationType"
     )
 
     # Scheduling
-    scheduledAt: datetime = Field(..., description="Scheduled consultation timestamp")
+    scheduled_at: datetime = Field(
+        ..., description="Scheduled consultation timestamp", alias="scheduledAt")
     duration: int = Field(
         default=30, ge=15, le=240, description="Consultation duration in minutes"
     )
@@ -99,8 +102,8 @@ class BookingBase(BaseModel):
         description="Brief description of the consultation topic",
     )
 
-    caseId: Optional[str] = Field(
-        default=None, description="Reference to a case if this booking is related"
+    case_id: Optional[str] = Field(
+        default=None, description="Reference to a case if this booking is related", alias="caseId"
     )
 
     # Tags/categories
@@ -109,6 +112,8 @@ class BookingBase(BaseModel):
         max_length=10,
         description="Tags for consultation categorization",
     )
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class Booking(BookingBase):
@@ -119,7 +124,8 @@ class Booking(BookingBase):
     Document ID: bookingId (auto-generated)
     """
 
-    bookingId: str = Field(..., description="Unique booking identifier")
+    booking_id: str = Field(...,
+                            description="Unique booking identifier", alias="bookingId")
 
     # Status tracking
     status: BookingStatus = Field(
@@ -127,96 +133,103 @@ class Booking(BookingBase):
     )
 
     # Payment
-    fee: float = Field(default=0.0, ge=0, description="Consultation fee in USD")
-    paymentStatus: PaymentStatus = Field(
-        default=PaymentStatus.PENDING, description="Payment status"
+    fee: float = Field(default=0.0, ge=0,
+                       description="Consultation fee in USD")
+    payment_status: PaymentStatus = Field(
+        default=PaymentStatus.PENDING, description="Payment status", alias="paymentStatus"
     )
 
     # Payment method and transaction details
-    paymentMethod: Optional[
-        Literal["credit_card", "debit_card", "bank_transfer", "wallet", "mobile_money"]
-    ] = Field(default=None, description="Payment method used")
+    payment_method: Optional[
+        Literal["credit_card", "debit_card",
+                "bank_transfer", "wallet", "mobile_money"]
+    ] = Field(default=None, description="Payment method used", alias="paymentMethod")
 
-    transactionId: Optional[str] = Field(
-        default=None, description="Payment gateway transaction ID"
+    transaction_id: Optional[str] = Field(
+        default=None, description="Payment gateway transaction ID", alias="transactionId"
     )
 
     # Meeting details
-    meetingLink: Optional[str] = Field(
-        default=None, description="Video call link (for video/call consultations)"
+    meeting_link: Optional[str] = Field(
+        default=None, description="Video call link (for video/call consultations)", alias="meetingLink"
     )
 
     notes: Optional[str] = Field(
         default=None, max_length=2000, description="Additional notes about the booking"
     )
 
-    lawyerNotes: Optional[str] = Field(
+    lawyer_notes: Optional[str] = Field(
         default=None,
         max_length=2000,
         description="Lawyer's private notes about the consultation",
+        alias="lawyerNotes"
     )
 
     # Feedback and ratings
-    clientRating: Optional[float] = Field(
+    client_rating: Optional[float] = Field(
         default=None,
         ge=1,
         le=5,
         description="Client's rating of the consultation (1-5 stars)",
+        alias="clientRating"
     )
 
-    clientFeedback: Optional[str] = Field(
+    client_feedback: Optional[str] = Field(
         default=None,
         max_length=1000,
         description="Client's feedback on the consultation",
+        alias="clientFeedback"
     )
 
-    lawyerRating: Optional[float] = Field(
+    lawyer_rating: Optional[float] = Field(
         default=None,
         ge=1,
         le=5,
         description="Lawyer's rating of the client (1-5 stars)",
+        alias="lawyerRating"
     )
 
     # Timestamps
-    createdAt: datetime = Field(
-        default_factory=utc_now, description="Booking creation timestamp"
+    created_at: datetime = Field(
+        default_factory=utc_now, description="Booking creation timestamp", alias="createdAt"
     )
-    updatedAt: datetime = Field(
-        default_factory=utc_now, description="Last update timestamp"
+    updated_at: datetime = Field(
+        default_factory=utc_now, description="Last update timestamp", alias="updatedAt"
     )
-    confirmedAt: Optional[datetime] = Field(
-        default=None, description="When booking was confirmed"
+    confirmed_at: Optional[datetime] = Field(
+        default=None, description="When booking was confirmed", alias="confirmedAt"
     )
-    completedAt: Optional[datetime] = Field(
-        default=None, description="When consultation was completed"
+    completed_at: Optional[datetime] = Field(
+        default=None, description="When consultation was completed", alias="completedAt"
     )
-    cancelledAt: Optional[datetime] = Field(
-        default=None, description="When booking was cancelled"
+    cancelled_at: Optional[datetime] = Field(
+        default=None, description="When booking was cancelled", alias="cancelledAt"
     )
 
     # Cancellation details
-    cancellationReason: Optional[str] = Field(
-        default=None, max_length=500, description="Reason for cancellation"
+    cancellation_reason: Optional[str] = Field(
+        default=None, max_length=500, description="Reason for cancellation", alias="cancellationReason"
     )
 
-    cancellationBy: Optional[Literal["client", "lawyer", "system"]] = Field(
-        default=None, description="Who cancelled the booking"
+    cancellation_by: Optional[Literal["client", "lawyer", "system"]] = Field(
+        default=None, description="Who cancelled the booking", alias="cancellationBy"
     )
 
     # Notifications
-    clientNotified: bool = Field(
-        default=False, description="Whether client has been notified"
+    client_notified: bool = Field(
+        default=False, description="Whether client has been notified", alias="clientNotified"
     )
 
-    lawyerNotified: bool = Field(
-        default=False, description="Whether lawyer has been notified"
+    lawyer_notified: bool = Field(
+        default=False, description="Whether lawyer has been notified", alias="lawyerNotified"
     )
 
-    reminderSent: bool = Field(
-        default=False, description="Whether reminder has been sent"
+    reminder_sent: bool = Field(
+        default=False, description="Whether reminder has been sent", alias="reminderSent"
     )
 
     model_config = ConfigDict(
+        populate_by_name=True,
         json_schema_extra={
             "example": {
                 "bookingId": "booking_123456",
@@ -249,9 +262,10 @@ class BookingCreateRequest(BookingBase):
 
     fee: float = Field(default=0.0, ge=0, description="Consultation fee")
 
-    paymentMethod: Optional[
-        Literal["credit_card", "debit_card", "bank_transfer", "wallet", "mobile_money"]
-    ] = Field(default=None, description="Payment method")
+    payment_method: Optional[
+        Literal["credit_card", "debit_card",
+                "bank_transfer", "wallet", "mobile_money"]
+    ] = Field(default=None, description="Payment method", alias="paymentMethod")
 
 
 class BookingUpdateRequest(BaseModel):
@@ -262,16 +276,22 @@ class BookingUpdateRequest(BaseModel):
     All fields are optional (for rescheduling or status changes).
     """
 
-    scheduledAt: Optional[datetime] = Field(None, description="New scheduled time")
+    scheduled_at: Optional[datetime] = Field(
+        None, description="New scheduled time", alias="scheduledAt")
     duration: Optional[int] = Field(
         None, ge=15, le=240, description="New duration in minutes"
     )
-    location: Optional[str] = Field(None, max_length=500, description="New location")
+    location: Optional[str] = Field(
+        None, max_length=500, description="New location")
     description: Optional[str] = Field(
         None, max_length=2000, description="Updated description"
     )
-    notes: Optional[str] = Field(None, max_length=2000, description="Updated notes")
-    meetingLink: Optional[str] = Field(None, description="Updated meeting link")
+    notes: Optional[str] = Field(
+        None, max_length=2000, description="Updated notes")
+    meeting_link: Optional[str] = Field(
+        None, description="Updated meeting link", alias="meetingLink")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class BookingStatusUpdateRequest(BaseModel):
@@ -282,12 +302,14 @@ class BookingStatusUpdateRequest(BaseModel):
     """
 
     status: BookingStatus = Field(..., description="New booking status")
-    cancellationReason: Optional[str] = Field(
-        None, max_length=500, description="Reason if cancelling"
+    cancellation_reason: Optional[str] = Field(
+        None, max_length=500, description="Reason if cancelling", alias="cancellationReason"
     )
     notes: Optional[str] = Field(
         None, max_length=2000, description="Notes about status change"
     )
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class BookingFeedbackRequest(BaseModel):
@@ -311,9 +333,11 @@ class BookingResponse(Booking):
     """
 
     # Hide sensitive lawyer notes in response
-    lawyerNotes: Optional[str] = Field(default=None, exclude=True)
+    lawyer_notes: Optional[str] = Field(
+        default=None, exclude=True, alias="lawyerNotes")
 
     model_config = ConfigDict(
+        populate_by_name=True,
         json_schema_extra={
             "example": {
                 "bookingId": "booking_123456",
@@ -334,10 +358,13 @@ class BookingResponse(Booking):
 class BookingListResponse(BaseModel):
     """Response model for listing bookings"""
 
-    bookings: list[BookingResponse] = Field(..., description="List of bookings")
+    bookings: list[BookingResponse] = Field(...,
+                                            description="List of bookings")
     total: int = Field(..., description="Total count of bookings")
     page: int = Field(..., description="Current page number")
-    pageSize: int = Field(..., description="Page size")
+    pageSize: int = Field(..., description="Page size", alias="pageSize")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class BookingDetailResponse(BookingResponse):
@@ -357,139 +384,56 @@ class BookingStats(BaseModel):
     Can be stored as a separate document or calculated on-demand.
     """
 
-    totalBookings: int = Field(default=0, description="Total number of bookings")
-    completedBookings: int = Field(default=0, description="Completed bookings")
-    pendingBookings: int = Field(default=0, description="Pending bookings")
-    cancelledBookings: int = Field(default=0, description="Cancelled bookings")
+    total_bookings: int = Field(
+        default=0, description="Total number of bookings", alias="totalBookings")
+    completed_bookings: int = Field(
+        default=0, description="Completed bookings", alias="completedBookings")
+    pending_bookings: int = Field(
+        default=0, description="Pending bookings", alias="pendingBookings")
+    cancelled_bookings: int = Field(
+        default=0, description="Cancelled bookings", alias="cancelledBookings")
 
     # Financial metrics
-    totalRevenue: float = Field(default=0.0, description="Total revenue from bookings")
-    paidAmount: float = Field(default=0.0, description="Amount actually paid")
-    pendingAmount: float = Field(default=0.0, description="Amount pending")
+    total_revenue: float = Field(
+        default=0.0, description="Total revenue from bookings", alias="totalRevenue")
+    paid_amount: float = Field(
+        default=0.0, description="Amount actually paid", alias="paidAmount")
+    pending_amount: float = Field(
+        default=0.0, description="Amount pending", alias="pendingAmount")
 
     # Metrics by consultation type
-    bookingsByType: dict = Field(
-        default_factory=dict, description="Bookings grouped by type"
+    bookings_by_type: dict = Field(
+        default_factory=dict, description="Bookings grouped by type", alias="bookingsByType"
     )
 
     # Rating metrics
-    averageClientRating: Optional[float] = Field(
-        default=None, description="Average rating from clients"
+    average_client_rating: Optional[float] = Field(
+        default=None, description="Average rating from clients", alias="averageClientRating"
     )
 
-    averageLawyerRating: Optional[float] = Field(
-        default=None, description="Average rating from lawyers"
+    average_lawyer_rating: Optional[float] = Field(
+        default=None, description="Average rating from lawyers", alias="averageLawyerRating"
     )
 
     # Time metrics
-    averageCompletionTime: Optional[float] = Field(
-        default=None, description="Average time to complete a booking"
+    average_completion_time: Optional[float] = Field(
+        default=None, description="Average time to complete a booking", alias="averageCompletionTime"
     )
 
-    lastUpdatedAt: datetime = Field(
-        default_factory=utc_now, description="Last stats update"
+    last_updated_at: datetime = Field(
+        default_factory=utc_now, description="Last stats update", alias="lastUpdatedAt"
     )
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 # Helper function to convert Firestore document to Booking model
-def firestore_booking_to_model(doc_data: dict, bookingId: str) -> Booking:
-    """
-    Convert Firestore document data to Booking model
-
-    Args:
-        doc_data: Dictionary from Firestore document
-        bookingId: Booking ID
-
-    Returns:
-        Booking model instance
-    """
-    return Booking(
-        bookingId=bookingId,
-        lawyerId=doc_data.get("lawyerId"),
-        userId=doc_data.get("userId"),
-        consultationType=doc_data.get("consultationType", "call"),
-        scheduledAt=_parse_datetime(doc_data.get("scheduledAt")),
-        duration=doc_data.get("duration", 30),
-        location=doc_data.get("location"),
-        description=doc_data.get("description"),
-        caseId=doc_data.get("caseId"),
-        tags=doc_data.get("tags", []),
-        status=doc_data.get("status", "pending"),
-        fee=doc_data.get("fee", 0.0),
-        paymentStatus=doc_data.get("paymentStatus", "pending"),
-        paymentMethod=doc_data.get("paymentMethod"),
-        transactionId=doc_data.get("transactionId"),
-        meetingLink=doc_data.get("meetingLink"),
-        notes=doc_data.get("notes"),
-        lawyerNotes=doc_data.get("lawyerNotes"),
-        clientRating=doc_data.get("clientRating"),
-        clientFeedback=doc_data.get("clientFeedback"),
-        lawyerRating=doc_data.get("lawyerRating"),
-        createdAt=_parse_datetime(doc_data.get("createdAt")),
-        updatedAt=_parse_datetime(doc_data.get("updatedAt")),
-        confirmedAt=(
-            _parse_datetime(doc_data.get("confirmedAt"))
-            if doc_data.get("confirmedAt")
-            else None
-        ),
-        completedAt=(
-            _parse_datetime(doc_data.get("completedAt"))
-            if doc_data.get("completedAt")
-            else None
-        ),
-        cancelledAt=(
-            _parse_datetime(doc_data.get("cancelledAt"))
-            if doc_data.get("cancelledAt")
-            else None
-        ),
-        cancellationReason=doc_data.get("cancellationReason"),
-        cancellationBy=doc_data.get("cancellationBy"),
-        clientNotified=doc_data.get("clientNotified", False),
-        lawyerNotified=doc_data.get("lawyerNotified", False),
-        reminderSent=doc_data.get("reminderSent", False),
-    )
+def firestore_booking_to_model(doc_data: dict, booking_id: str) -> Booking:
+    return Booking.model_validate({**doc_data, "bookingId": booking_id})
 
 
 # Helper function to convert Booking model to Firestore document
 def booking_model_to_firestore(booking: Booking) -> dict:
-    """
-    Convert Booking model to Firestore document format
-
-    Args:
-        booking: Booking model instance
-
-    Returns:
-        Dictionary for Firestore storage
-    """
-    return {
-        "lawyerId": booking.lawyerId,
-        "userId": booking.userId,
-        "consultationType": booking.consultationType.value,
-        "scheduledAt": booking.scheduledAt,
-        "duration": booking.duration,
-        "location": booking.location,
-        "description": booking.description,
-        "caseId": booking.caseId,
-        "tags": booking.tags,
-        "status": booking.status.value,
-        "fee": booking.fee,
-        "paymentStatus": booking.paymentStatus.value,
-        "paymentMethod": booking.paymentMethod,
-        "transactionId": booking.transactionId,
-        "meetingLink": booking.meetingLink,
-        "notes": booking.notes,
-        "lawyerNotes": booking.lawyerNotes,
-        "clientRating": booking.clientRating,
-        "clientFeedback": booking.clientFeedback,
-        "lawyerRating": booking.lawyerRating,
-        "createdAt": booking.createdAt,
-        "updatedAt": booking.updatedAt,
-        "confirmedAt": booking.confirmedAt,
-        "completedAt": booking.completedAt,
-        "cancelledAt": booking.cancelledAt,
-        "cancellationReason": booking.cancellationReason,
-        "cancellationBy": booking.cancellationBy,
-        "clientNotified": booking.clientNotified,
-        "lawyerNotified": booking.lawyerNotified,
-        "reminderSent": booking.reminderSent,
-    }
+    data = booking.model_dump(by_alias=True)
+    data.pop("bookingId", None)
+    return data

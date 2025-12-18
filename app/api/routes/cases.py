@@ -59,12 +59,12 @@ async def create_case(
     try:
         logger.info(
             f"Creating case: category={case_data.category}, "
-            f"anonymous={case_data.isAnonymous}"
+            f"anonymous={case_data.is_anonymous}"
         )
 
         # Validate anonymous submission
-        if case_data.isAnonymous:
-            if not case_data.email or not case_data.contactName:
+        if case_data.is_anonymous:
+            if not case_data.email or not case_data.contact_name:
                 raise HTTPException(
                     status_code=400,
                     detail="Email and contact name are required for anonymous submissions",
@@ -73,30 +73,30 @@ async def create_case(
         # Create case model
         case_id = f"case_{uuid4().hex[:12]}"
         new_case = Case(
-            caseId=case_id,
-            userId=(
+            case_id=case_id,
+            user_id=(
                 current_user.get("uid")
-                if current_user and not case_data.isAnonymous
+                if current_user and not case_data.is_anonymous
                 else None
             ),
-            isAnonymous=case_data.isAnonymous,
+            is_anonymous=case_data.is_anonymous,
             category=case_data.category,
             title=case_data.title,
             description=case_data.description,
             location=case_data.location,
             email=(
                 case_data.email
-                if case_data.isAnonymous
+                if case_data.is_anonymous
                 else current_user.get("email") if current_user else None
             ),
             phone=case_data.phone,
-            contactName=case_data.contactName,
+            contact_name=case_data.contact_name,
             tags=case_data.tags,
             priority=case_data.priority,
-            legalBasis=case_data.legalBasis,
+            legal_basis=case_data.legal_basis,
             status=CaseStatus.SUBMITTED,
-            createdAt=datetime.now(UTC),
-            updatedAt=datetime.now(UTC),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
 
         # Convert to Firestore format and save
@@ -130,15 +130,18 @@ async def get_case(
         # RBAC Check
         # 1. Allow if Public/Anonymous? -> Policy decision: Cases are private by default unless owner consents.
         #    However, specialized users (Lawyers/Orgs) need to see them to take them.
-        
-        is_owner = current_user and current_user.get("uid") == doc_data.get("userId")
+
+        is_owner = current_user and current_user.get(
+            "uid") == doc_data.get("userId")
         user_role = current_user.get("role") if current_user else None
-        is_professional = user_role in [UserRole.LAWYER, UserRole.ORGANIZATION, UserRole.ADMIN]
-        
+        is_professional = user_role in [
+            UserRole.LAWYER, UserRole.ORGANIZATION, UserRole.ADMIN]
+
         if not (is_owner or is_professional):
-             # If user is anonymous owner (no userId on case), we might allow if they have a "secret key" (future feature)
-             # For now, strict: only logged in professionals or the logged-in owner can view details.
-             raise HTTPException(status_code=403, detail="Not authorized to view this case")
+            # If user is anonymous owner (no userId on case), we might allow if they have a "secret key" (future feature)
+            # For now, strict: only logged in professionals or the logged-in owner can view details.
+            raise HTTPException(
+                status_code=403, detail="Not authorized to view this case")
 
         # Convert to model
         case = firestore_case_to_model(doc_data, case_id)
@@ -169,14 +172,15 @@ async def list_cases(
 ):
     """
     List cases with optional filtering by category, status, or priority
-    
+
     Accessible to all authenticated users. Cases are public to allow community awareness.
     Use /api/v1/cases/user/{uid} to view your own cases specifically.
     """
     try:
         # Require authentication (but allow all roles)
         if not current_user:
-             raise HTTPException(status_code=401, detail="Authentication required")
+            raise HTTPException(
+                status_code=401, detail="Authentication required")
 
         logger.info(
             f"Listing cases: page={page}, page_size={page_size}, category={category}, status={status}"
@@ -280,7 +284,8 @@ async def get_user_cases(
         raise
     except Exception as e:
         logger.error(f"Error fetching user cases for {user_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve user cases")
+        raise HTTPException(
+            status_code=500, detail="Failed to retrieve user cases")
 
 
 # PUT /api/cases/{case_id} - Update case information
@@ -320,8 +325,8 @@ async def update_case(
             update_data["tags"] = case_data.tags
         if case_data.priority:
             update_data["priority"] = case_data.priority
-        if case_data.legalBasis:
-            update_data["legalBasis"] = case_data.legalBasis
+        if case_data.legal_basis:
+            update_data["legalBasis"] = case_data.legal_basis
 
         update_data["updatedAt"] = datetime.now(UTC)
 
@@ -410,15 +415,17 @@ async def update_case_status(
         # Handle resolution/closure
         if status_data.status in [CaseStatus.RESOLVED, CaseStatus.CLOSED]:
             update_data["resolvedAt"] = (
-                datetime.now(UTC) if status_data.status == CaseStatus.RESOLVED else None
+                datetime.now(
+                    UTC) if status_data.status == CaseStatus.RESOLVED else None
             )
             update_data["closedAt"] = (
-                datetime.now(UTC) if status_data.status == CaseStatus.CLOSED else None
+                datetime.now(
+                    UTC) if status_data.status == CaseStatus.CLOSED else None
             )
 
         # Assign if specified
-        if status_data.assignedTo:
-            update_data["assignedTo"] = status_data.assignedTo
+        if status_data.assigned_to:
+            update_data["assignedTo"] = status_data.assigned_to
             update_data["assignedAt"] = datetime.now(UTC)
 
         doc_data.update(update_data)
@@ -431,7 +438,8 @@ async def update_case_status(
         raise
     except Exception as e:
         logger.error(f"Error updating case status {case_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to update case status")
+        raise HTTPException(
+            status_code=500, detail="Failed to update case status")
 
 
 # POST /api/cases/{case_id}/attachments - Upload case attachment
@@ -492,7 +500,8 @@ async def upload_attachment(
                         "file_name": file.filename,
                         "file_type": file.content_type,
                         "uploaded_by": (
-                            current_user.get("uid") if current_user else "anonymous"
+                            current_user.get(
+                                "uid") if current_user else "anonymous"
                         ),
                         "description": description,
                     },
@@ -508,20 +517,21 @@ async def upload_attachment(
 
         # Create attachment object
         attachment = CaseAttachment(
-            attachmentId=attachment_id,
-            fileName=file.filename,
-            fileUrl=file_url,
-            fileType=file.content_type or "application/octet-stream",
-            fileSize=len(file_content),
-            uploadedAt=datetime.now(UTC),
-            uploadedBy=current_user.get("uid") if current_user else None,
+            attachment_id=attachment_id,
+            file_name=file.filename,
+            file_url=file_url,
+            file_type=file.content_type or "application/octet-stream",
+            file_size=len(file_content),
+            uploaded_at=datetime.now(UTC),
+            uploaded_by=current_user.get("uid") if current_user else None,
         )
 
         # Add to case attachments
         attachments = doc_data.get("attachments", [])
         attachments.append(attachment.model_dump())
 
-        update_data = {"attachments": attachments, "updatedAt": datetime.now(UTC)}
+        update_data = {"attachments": attachments,
+                       "updatedAt": datetime.now(UTC)}
 
         await firebase_service.update_document(f"cases/{case_id}", update_data)
 
@@ -538,7 +548,8 @@ async def upload_attachment(
         raise
     except Exception as e:
         logger.error(f"Error uploading attachment to case {case_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to upload attachment")
+        raise HTTPException(
+            status_code=500, detail="Failed to upload attachment")
 
 
 # GET /api/cases/stats - Get case statistics
@@ -553,7 +564,8 @@ async def get_case_stats(
     """
     try:
         if not current_user or current_user.get("role") != UserRole.ADMIN:
-            raise HTTPException(status_code=403, detail="Admin access required")
+            raise HTTPException(
+                status_code=403, detail="Admin access required")
 
         logger.info("Fetching case statistics")
 
@@ -594,7 +606,8 @@ async def get_case_stats(
 
             # Count by status
             status = doc_data.get("status", "submitted")
-            stats["casesByStatus"][status] = stats["casesByStatus"].get(status, 0) + 1
+            stats["casesByStatus"][status] = stats["casesByStatus"].get(
+                status, 0) + 1
 
             # Count by priority
             priority = doc_data.get("priority", "medium")
@@ -634,4 +647,5 @@ async def get_case_stats(
         raise
     except Exception as e:
         logger.error(f"Error fetching case statistics: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve statistics")
+        raise HTTPException(
+            status_code=500, detail="Failed to retrieve statistics")

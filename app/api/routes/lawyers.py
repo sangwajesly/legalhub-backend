@@ -22,6 +22,7 @@ from app.schemas.lawyer import (
 
 router = APIRouter(prefix="/api/v1/lawyers", tags=["lawyers"])
 
+
 @router.get("", response_model=LawyerListResponse)
 async def list_lawyers(
     page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100)
@@ -33,11 +34,11 @@ async def list_lawyers(
     for doc_id, doc in docs:
         try:
             m = firestore_lawyer_to_model(doc, doc_id)
-            lawyers.append(LawyerProfile.model_validate(m.model_dump()))
+            lawyers.append(LawyerProfile.model_validate(m))
         except Exception:
             continue
     return LawyerListResponse(
-        lawyers=lawyers, total=total, page=page, pageSize=page_size
+        lawyers=lawyers, total=total, page=page, page_size=page_size
     )
 
 
@@ -47,7 +48,7 @@ async def get_lawyer(lawyer_id: str):
     if not doc:
         raise HTTPException(status_code=404, detail="Lawyer not found")
     model = firestore_lawyer_to_model(doc, lawyer_id)
-    return LawyerProfile.model_validate(model.model_dump())
+    return LawyerProfile.model_validate(model)
 
 
 @router.post("", response_model=LawyerProfile)
@@ -61,7 +62,8 @@ async def create_or_update_lawyer(
     # Build a lawyer model from provided data and defaults
     lawyer = Lawyer(
         uid=uid,
-        display_name=data.display_name if hasattr(data, "display_name") else None,
+        display_name=data.display_name if hasattr(
+            data, "display_name") else None,
         email=data.email if hasattr(data, "email") else None,
         bio=data.bio if hasattr(data, "bio") else None,
         location=data.location if hasattr(data, "location") else None,
@@ -76,7 +78,7 @@ async def create_or_update_lawyer(
     await firebase_service.set_document(f"lawyers/{uid}", firestore_doc)
     doc = await firebase_service.get_document(f"lawyers/{uid}")
     return LawyerProfile.model_validate(
-        firestore_lawyer_to_model(doc, uid).model_dump()
+        firestore_lawyer_to_model(doc, uid)
     )
 
 
@@ -117,7 +119,7 @@ async def update_lawyer(
     await firebase_service.update_document(f"lawyers/{lawyer_id}", update_fields)
     updated = await firebase_service.get_document(f"lawyers/{lawyer_id}")
     return LawyerProfile.model_validate(
-        firestore_lawyer_to_model(updated, lawyer_id).model_dump()
+        firestore_lawyer_to_model(updated, lawyer_id)
     )
 
 
