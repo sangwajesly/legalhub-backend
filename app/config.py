@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # CORS Configuration - Allow all localhost ports in development
-    ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:3001,http://localhost:5173,http://localhost:8000,http://localhost:8001"
+    ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:3001,http://localhost:5173"
 
     @property
     def allowed_origins_list(self) -> List[str]:
@@ -49,7 +49,7 @@ class Settings(BaseSettings):
         # In development, explicitly add common localhost ports
         if self.DEBUG:
             # Add more localhost ports for development
-            localhost_ports = [3000, 3001, 5173, 8000, 8001, 5000, 4200]
+            localhost_ports = [3000, 3001, 5173, 5000, 4200]
             for port in localhost_ports:
                 origin = f"http://localhost:{port}"
                 if origin not in origins:
