@@ -17,34 +17,34 @@
       }
     },
     {
-      "id": "71CQWeFlMnhAs4VKOd9WiI1xVv43",
+      "id": "23ixP6hWZtfqUX570LB9ylcuz3G2",
       "data": {
-        "phoneNumber": null,
-        "displayName": "Test User Camel",
+        "phoneNumber": "+237-650-112-334",
+        "displayName": "Brenda Morgan",
         "isActive": true,
         "role": "user",
         "lastLogin": null,
-        "createdAt": "2025-12-18T14:42:45.219393+00:00",
+        "createdAt": "2025-12-18T16:18:56.521906+00:00",
         "isDeleted": false,
-        "email": "testuser_camel_1766068954@example.com",
+        "email": "brenda.morgan@example.com",
         "emailVerified": false,
-        "updatedAt": "2025-12-18T14:42:45.219399+00:00",
+        "updatedAt": "2025-12-18T16:18:56.521909+00:00",
         "profilePicture": null
       }
     },
     {
-      "id": "OOvdZi1dUeP8HE8lSJFm8jfphm62",
+      "id": "2ncrpeyLzMNo6BcciRXsKYQAZU53",
       "data": {
-        "phoneNumber": null,
-        "displayName": "Lawyer Name 2",
+        "phoneNumber": "+237123456789",
+        "displayName": "John Doe",
         "isActive": true,
-        "role": "lawyer",
+        "role": "user",
         "lastLogin": null,
-        "createdAt": "2025-12-18T03:57:10.358123+00:00",
+        "createdAt": "2025-12-18T15:57:53.096948+00:00",
         "isDeleted": false,
-        "email": "lawyer2@example.com",
-        "emailVerified": true,
-        "updatedAt": "2025-12-18T03:57:10.358131+00:00",
+        "email": "user@example.com",
+        "emailVerified": false,
+        "updatedAt": "2025-12-18T15:57:53.096959+00:00",
         "profilePicture": null
       }
     }
@@ -149,5 +149,6 @@
       }
     }
   ],
-  "organizations": []
+  "organizations": [],
+  "settings": []
 }

@@ -27,8 +27,13 @@ router = APIRouter(prefix="/api/v1/chat", tags=["chat"])
 async def create_session(user: User = Depends(get_current_user)):
     """Create a new chat session for the authenticated user."""
     session_id = str(uuid.uuid4())
-    await langchain_service.create_session(user.uid, session_id)
-    return {"sessionId": session_id}
+    try:
+        await langchain_service.create_session(user.uid, session_id)
+        return {"sessionId": session_id}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to create chat session: {e}"
+        )
 
 
 @router.get("/sessions")

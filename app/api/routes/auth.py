@@ -109,18 +109,34 @@ async def google_login(payload: dict):
 
 
 @router.post("/login", response_model=AuthResponse)
-# Changed payload to request using AuthTokenRequest
-async def login(request: AuthTokenRequest):
+async def login(
+    payload: UserLogin | AuthTokenRequest,
+):
     """
-    Authenticate user with Firebase ID Token and receive internal tokens
+    Authenticate user. Supports two methods:
+    1. **Email/Password**: using `UserLogin` schema (backend validates against Firebase REST API).
+    2. **Firebase ID Token**: using `AuthTokenRequest` schema (frontend/client validates against Firebase SDK).
 
-    - **id_token**: Firebase ID token obtained from client-side authentication
-
-    Returns user data and authentication tokens
+    Returns user data and authentication tokens.
     """
     try:
-        # Call the updated login_user from auth_service
-        result = await auth_service.login_user(request.id_token)
+        if isinstance(payload, UserLogin):
+            # Method 1: Email/Password
+            result = await auth_service.login_with_email_password(
+                payload.email,
+                payload.password
+            )
+        else:
+            # Method 2: Firebase ID Token (AuthTokenRequest)
+            # Backward compatibility for frontend clients sending only id_token
+            # Access underlying data manually since it's a Union
+            if hasattr(payload, "id_token"):
+                token_val = payload.id_token
+            else:
+                # Should not happen given Union type
+                raise ValueError("Invalid payload")
+
+            result = await auth_service.login_user(token_val)
 
         # Convert user to response format
         user_response = UserResponse(

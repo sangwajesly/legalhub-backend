@@ -87,9 +87,10 @@ class FirebaseService:
                     cred, {"storageBucket": settings.FIREBASE_STORAGE_BUCKET}
                 )
                 print("Firebase initialized with production credentials")
-
-    # ============================================
-    # USER OPERATIONS
+            print("Firebase Admin SDK initialization successful.") # Added for explicit success logging
+        except Exception as e:
+            print(f"ERROR: Firebase Admin SDK initialization failed: {e}") # Explicit error logging
+            raise # Re-raise to prevent the app from running with a broken Firebase setup
     # ============================================
 
     async def create_user(
@@ -196,44 +197,76 @@ class FirebaseService:
 
     async def get_user_by_uid(self, uid: str) -> Optional[User]:
         """
-        Get user by UID from Firestore
-
-        Args:
-            uid: User's unique identifier
-
-        Returns:
-            User object or None if not found
+        Get user by UID from Firestore.
+        If not found in Firestore but exists in Firebase Auth, creates the Firestore document.
         """
         try:
-            import asyncio  # Ensure asyncio is imported
+            import asyncio
             doc = await asyncio.to_thread(self.db.collection("users").document(uid).get)
+
             if doc.exists:
                 doc_data = doc.to_dict()
-                doc_data["uid"] = uid  # Ensure uid is set
+                doc_data["uid"] = uid
                 return User.model_validate(doc_data)
-            return None
+
+            # Fallback: Check if user exists in Firebase Auth but missing in Firestore
+            # This happens if user was created via Firebase Console or social login didn't sync yet
+            try:
+                firebase_user = await asyncio.to_thread(firebase_auth.get_user, uid)
+                print(
+                    f"DEBUG: User {uid} found in Auth but missing in Firestore. Creating document...")
+
+                # Create the missing user document
+                new_user = User(
+                    uid=uid,
+                    email=firebase_user.email,
+                    display_name=firebase_user.display_name or firebase_user.email.split(
+                        "@")[0],
+                    role="user",
+                    photo_url=firebase_user.photo_url,
+                    email_verified=firebase_user.email_verified,
+                    created_at=datetime.now(UTC),
+                    updated_at=datetime.now(UTC)
+                )
+
+                firestore_data = user_model_to_firestore(new_user)
+                await asyncio.to_thread(self.db.collection("users").document(uid).set, firestore_data)
+                print(f"DEBUG: Created missing Firestore document for {uid}")
+
+                return new_user
+
+            except Exception as auth_e:
+                print(f"DEBUG: User {uid} not found in Auth either: {auth_e}")
+                return None
+
         except Exception as e:
-            raise Exception(f"Error getting user: {str(e)}")
+            print(f"Error getting user: {str(e)}")
+            # Don't raise, return None so auth dependency handles 401
+            return None
 
     async def get_user_by_email(self, email: str) -> Optional[User]:
         """
-        Get user by email from Firestore
-
-        Args:
-            email: User's email
-
-        Returns:
-            User object or None if not found
+        Get user by email from Firestore.
+        Uses stream() but wraps it to prevent blocking the event loop.
         """
         try:
-            import asyncio  # Ensure asyncio is imported
+            import asyncio
             users_ref = self.db.collection("users")
-            # NOTE: This query requires an index on the 'email' field in Firestore!
             query = users_ref.where("email", "==", email).limit(1)
 
-            for doc in await asyncio.to_thread(query.stream):
+            # Properly await the blocking stream call
+            # stream() returns a generator, so we iterate it in the thread
+            def get_single_doc():
+                docs = list(query.stream())
+                if docs:
+                    return docs[0]
+                return None
+
+            doc = await asyncio.to_thread(get_single_doc)
+
+            if doc:
                 doc_data = doc.to_dict()
-                doc_data["uid"] = doc.id  # Ensure uid is set from document ID
+                doc_data["uid"] = doc.id
                 return User.model_validate(doc_data)
 
             return None
@@ -407,6 +440,17 @@ class FirebaseService:
     # ============================================
     # CHAT OPERATIONS
     # ============================================
+
+    async def get_chat_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Retrieves a single chat session by its ID from Firestore.
+        """
+        import asyncio
+        session_ref = self.db.collection("chat_sessions").document(session_id)
+        doc = await asyncio.to_thread(session_ref.get)
+        if doc.exists:
+            return {**doc.to_dict(), "sessionId": doc.id}
+        return None
 
     async def create_chat_session(self, user_id: str, session_id: str):
         """
@@ -740,6 +784,14 @@ class FirebaseService:
 
         # Apply filters
         if filters:
+            # For backward compatibility and developer convenience,
+            # allow dictionary of {field: value} which defaults to '==' comparison.
+            if isinstance(filters, dict):
+                normalized_filters = []
+                for k, v in filters.items():
+                    normalized_filters.append((k, "==", v))
+                filters = normalized_filters
+
             for f in filters:
                 if len(f) == 3:
                     query = query.where(f[0], f[1], f[2])

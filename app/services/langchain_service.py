@@ -66,13 +66,28 @@ def _compose_prompt(context: List[str], user_message: str) -> str:
 async def create_session(user_id: str, session_id: str):
     """Create a new chat session in Firestore."""
     try:
-        # Use the new create_chat_session function
         await firebase_service.create_chat_session(user_id, session_id)
+        logger.info("Chat session %s created for user %s.", session_id, user_id)
     except Exception as e:
-        logger.warning(
+        logger.error(
             "Failed to create chat session %s for user %s: %s", session_id, user_id, e
         )
+        raise # Re-raise the exception to propagate to the calling endpoint
 
+async def _validate_chat_session(session_id: str, user_id: str):
+    """
+    Validates if a chat session exists and belongs to the authenticated user.
+    Raises HTTPException if not valid.
+    """
+    session = await firebase_service.get_chat_session(session_id) # Need to add this to firebase_service
+    if not session:
+        raise HTTPException(
+            status_code=404, detail="Chat session not found."
+        )
+    if session.get("userId") != user_id: # Assuming userId is stored in the chat session document
+        raise HTTPException(
+            status_code=403, detail="Unauthorized to access this chat session."
+        )
 
 async def generate_response(
     session_id: Optional[str], 
@@ -85,13 +100,22 @@ async def generate_response(
     This function builds a simple contextual prompt (last N messages + system prompt),
     calls `gemini_service.send_message`, and persists the assistant reply to Firestore.
     """
+    if not session_id:
+        # If no session_id is provided, we can either create a temporary one
+        # or return an error. For now, we'll return an error if session_id is mandatory.
+        raise HTTPException(status_code=400, detail="Chat session ID is required.")
+    
+    if not user_id:
+        raise HTTPException(status_code=401, detail="User not authenticated.")
+        
+    await _validate_chat_session(session_id, user_id) # Validate the session and user access
+
     # Persist user message first
-    if session_id:
-        user_chat_message = ChatMessage(
-            role="user", text=user_message, userId=user_id, createdAt=datetime.now(UTC)
-        )
-        # Note: We might want to store attachment refs in Firestore too, but sticking to text for MVP
-        await firebase_service.add_chat_message(session_id, user_chat_message)
+    user_chat_message = ChatMessage(
+        role="user", text=user_message, userId=user_id, createdAt=datetime.now(UTC)
+    )
+    # Note: We might want to store attachment refs in Firestore too, but sticking to text for MVP
+    await firebase_service.add_chat_message(session_id, user_chat_message)
 
     context = await _build_context(session_id)  # Await _build_context
     
@@ -175,6 +199,14 @@ async def generate_response_stream(
     This yields raw text chunks as they become available and persists the final
     assistant reply to Firestore at the end.
     """
+    if not session_id:
+        raise HTTPException(status_code=400, detail="Chat session ID is required for streaming.")
+    
+    if not user_id:
+        raise HTTPException(status_code=401, detail="User not authenticated.")
+        
+    await _validate_chat_session(session_id, user_id) # Validate the session and user access
+
     # Persist user message first
     if session_id:
         user_chat_message = ChatMessage(

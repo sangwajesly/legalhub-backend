@@ -20,13 +20,13 @@ from app.services.firebase_service import firebase_service, user_to_firestore_di
 from app.schemas.auth import UserRegister, UserLogin
 
 
-def verify_id_token(id_token: str) -> dict | None:
+def verify_id_token(id_token: str) -> dict:
     """Convenience wrapper to verify Firebase ID tokens for simple use in routes/tests."""
     try:
         return firebase_auth.verify_id_token(id_token)
     except Exception as e:
-        print(f"DEBUG: Token verification failed: {e}")
-        return None
+        # Re-raise the exception to be caught by the dependency that calls this
+        raise ValueError(f"Firebase ID token verification failed: {e}") from e
 
 
 class AuthService:
@@ -61,8 +61,8 @@ class AuthService:
                 display_name=user_data.display_name,
                 role=user_data.role,
                 phone_number=user_data.phone_number,
-                email_verified=False, # Explicitly set for new registrations
-                is_new_user=True, # Explicitly set for new registrations
+                email_verified=False,  # Explicitly set for new registrations
+                is_new_user=True,  # Explicitly set for new registrations
             )
 
             # Create tokens
@@ -111,15 +111,16 @@ class AuthService:
                 user = await self.firebase.create_user(
                     email=email,
                     # Password is not needed here as Firebase Auth has already verified it
-                    password=None, # Explicitly mark as not used for this path
-                    display_name=decoded_token.get("name", email.split("@")[0]),
-                    role="user", # Default role
+                    password=None,  # Explicitly mark as not used for this path
+                    display_name=decoded_token.get(
+                        "name", email.split("@")[0]),
+                    role="user",  # Default role
                     phone_number=decoded_token.get("phone_number"),
                     email_verified=decoded_token.get("email_verified", False),
                     photo_url=decoded_token.get("picture"),
-                    is_new_user=False # Not a new user from this path in create_user context
+                    is_new_user=False  # Not a new user from this path in create_user context
                 )
-            
+
             # 3. Create internal tokens (access and refresh)
             tokens = create_token_pair(
                 user_id=user.uid, email=user.email, role=user.role
@@ -131,6 +132,52 @@ class AuthService:
             raise e
         except Exception as e:
             raise Exception(f"Login failed: {str(e)}")
+
+    async def login_with_email_password(self, email: str, password: str) -> Dict[str, Any]:
+        """
+        Authenticate with email and password via Firebase REST API.
+
+        Args:
+            email: User's email
+            password: User's password
+
+        Returns:
+            Dictionary containing user and internal tokens (same as login_user)
+        """
+        try:
+            import httpx
+            from app.config import settings
+
+            api_key = settings.GOOGLE_API_KEY
+            if not api_key:
+                raise ValueError("Google API Key not configured")
+
+            url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={api_key}"
+            payload = {
+                "email": email,
+                "password": password,
+                "returnSecureToken": True
+            }
+
+            async with httpx.AsyncClient() as client:
+                response = await client.post(url, json=payload)
+
+            if response.status_code != 200:
+                error_data = response.json()
+                error_msg = error_data.get("error", {}).get(
+                    "message", "Unknown error")
+                raise ValueError(f"Authentication failed: {error_msg}")
+
+            data = response.json()
+            id_token = data.get("idToken")
+
+            # Delegate to existing login_user logic which handles DB sync and internal tokens
+            return await self.login_user(id_token)
+
+        except ValueError as e:
+            raise e
+        except Exception as e:
+            raise Exception(f"Email/Password login failed: {str(e)}")
 
     async def refresh_access_token(self, refresh_token: str) -> Dict[str, str]:
         """
@@ -250,14 +297,13 @@ class AuthService:
         """
         return await self.firebase.get_user_by_uid(user_id)
 
-
     async def authenticate_with_social_provider(self, id_token: str) -> Dict[str, Any]:
         """
         Authenticate a user with a social provider (Google, etc.) using a Firebase ID token.
-        
+
         Args:
             id_token: Firebase ID token from the client
-            
+
         Returns:
             Dictionary containing user and tokens
         """
@@ -266,26 +312,26 @@ class AuthService:
             decoded_token = verify_id_token(id_token)
             if not decoded_token:
                 raise ValueError("Invalid ID token")
-            
+
             uid = decoded_token.get("uid")
             email = decoded_token.get("email")
-            
+
             if not email:
                 raise ValueError("Token must contain an email address")
 
             # 2. Check if user exists in our Firestore
             user = await self.firebase.get_user_by_uid(uid)
-            
+
             if not user:
                 # 3. Create new user if not exists
                 # Extract profile info from token
                 display_name = decoded_token.get("name", "")
                 picture = decoded_token.get("picture", None)
-                
+
                 # We need to create the user in Firestore.
                 # Since auth record already exists in Firebase Auth (social login),
                 # we just need to create the Firestore document.
-                
+
                 user = await self.firebase.create_user(
                     email=email,
                     display_name=display_name,
@@ -295,33 +341,34 @@ class AuthService:
                     phone_number=decoded_token.get("phone_number"),
                     is_new_user=False,  # User already exists in Firebase Auth
                 )
-                
+
                 # Also create a default profile if needed
                 await self.firebase.update_user_profile(uid, {"bio": f"Joined via Google Login"})
-            
+
             else:
                 # 3b. Use existing user - CHECK FOR UPDATES
                 # Check if display name or profile picture has changed in the Google profile
                 should_update = False
                 update_data = {}
-                
+
                 token_name = decoded_token.get("name")
                 token_picture = decoded_token.get("picture")
-                
+
                 # Check display name (if token has one and it differs)
                 if token_name and token_name != user.display_name:
                     update_data["display_name"] = token_name
                     should_update = True
-                    
+
                 # Check profile picture (if token has one and it differs)
                 if token_picture and token_picture != user.profile_picture:
                     update_data["profile_picture"] = token_picture
                     should_update = True
-                
+
                 if should_update:
                     try:
                         # Update user in Firestore
-                        user_ref = self.firebase.db.collection("users").document(uid)
+                        user_ref = self.firebase.db.collection(
+                            "users").document(uid)
                         # We use field updates directly to avoid full object replacement
                         # Map internal field names to Firestore field names if needed
                         # Based on user_model_to_firestore in user.py model:
@@ -330,27 +377,28 @@ class AuthService:
                             firestore_update["displayName"] = update_data["display_name"]
                         if "profile_picture" in update_data:
                             firestore_update["profilePicture"] = update_data["profile_picture"]
-                        
+
                         if firestore_update:
                             user_ref.update(firestore_update)
-                            
+
                             # Update local user object to return updated info
                             if "display_name" in update_data:
                                 user.display_name = update_data["display_name"]
                             if "profile_picture" in update_data:
                                 user.profile_picture = update_data["profile_picture"]
-                                
+
                     except Exception as e:
-                        print(f"DEBUG: Failed to auto-update user profile: {e}")
+                        print(
+                            f"DEBUG: Failed to auto-update user profile: {e}")
                         # Non-critical, continue with login
-            
+
             # 4. Generate backend tokens
             tokens = create_token_pair(
                 user_id=user.uid, email=user.email, role=user.role
             )
-            
+
             return {"user": user, "tokens": tokens}
-            
+
         except ValueError as e:
             raise e
         except Exception as e:

@@ -38,42 +38,74 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    try:
-        token = credentials.credentials
-        payload = None
-        user_id: str | None = None
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    # Extract the token from the "Bearer <token>" scheme
+    token = credentials.credentials
+    if not token:
+        raise credentials_exception
 
-        try:
-            payload = verify_access_token(token)
-            user_id = payload.get("sub")
-        except Exception:
-            pass # Internal token verification failed, try Firebase
+    try:
+        # 1. Try Firebase ID token verification first
+        decoded_token = auth_module.verify_id_token(token)
+        if decoded_token:
+            firebase_uid = decoded_token.get("uid")
+            if firebase_uid:
+                user = await auth_module.auth_service.get_current_user(firebase_uid)
+                if user is None:
+                    print(f"DEBUG: Firebase authenticated user {firebase_uid} not found in Firestore.")
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Firebase authenticated user not found.",
+                        headers={"WWW-Authenticate": "Bearer"},
+                    )
+                return user
+            else:
+                print("DEBUG: Firebase ID token decoded but missing UID.")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid Firebase ID token (missing UID).",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+    except ValueError as e:
+        print(f"DEBUG: Firebase ID token verification failed: {e}. Trying internal token next.")
+        # Continue to try internal token if Firebase verification fails specifically with ValueError
+        # from auth_module.verify_id_token (which re-raises specific Firebase Admin SDK errors)
+    except Exception as e:
+        # Catch any other unexpected errors during Firebase verification
+        print(f"DEBUG: Unexpected error during Firebase ID token verification: {e}. Trying internal token next.")
+
+    # 2. If Firebase ID token verification failed, try internal token
+    try:
+        payload = verify_access_token(token)
+        user_id = payload.get("sub")
 
         if user_id:
             user = await auth_module.auth_service.get_current_user(user_id)
             if user is None:
-                raise credentials_exception
+                print(f"DEBUG: Internal token valid but user {user_id} not found in Firestore.")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Authenticated user not found.",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
             return user
+        else:
+            print("DEBUG: Internal token valid but missing sub (user ID).")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid internal token (missing user ID).",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+    except JWTError as e:
+        print(f"DEBUG: Internal token verification failed: {e}.")
+        # Fall through to final exception if both fail
 
-        # If internal token didn't work, try Firebase ID token
-        try:
-            decoded = auth_module.verify_id_token(token)
-        except Exception:
-            decoded = None
-
-        if decoded:
-            firebase_uid = decoded.get("uid")
-            if firebase_uid:
-                user = await auth_module.auth_service.get_current_user(firebase_uid)
-                if user is None:
-                    # User authenticated via Firebase but not found in our DB
-                    raise credentials_exception
-                return user
-
-    except JWTError:
-        raise credentials_exception
-
-    # Nothing worked
+    # If neither verification method succeeded
     raise credentials_exception
 
 
@@ -98,7 +130,8 @@ async def get_current_active_user(
 
 
 async def get_optional_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_optional),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(
+        security_optional),
 ) -> Optional[User]:
     """
     Dependency to optionally get current user (doesn't raise error if not authenticated)
