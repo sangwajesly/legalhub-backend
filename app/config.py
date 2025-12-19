@@ -18,6 +18,8 @@ class Settings(BaseSettings):
 
     # Firebase Configuration
     FIREBASE_CREDENTIALS_PATH: str = "./firebase-credentials.json"
+    # Support for raw JSON credentials (env var)
+    FIREBASE_CREDENTIALS_JSON: str = ""
     FIREBASE_STORAGE_BUCKET: str = ""
     FIREBASE_EMULATOR_HOST: str = ""
     DEV_MODE: bool = False
@@ -42,7 +44,8 @@ class Settings(BaseSettings):
     @property
     def allowed_origins_list(self) -> List[str]:
         """Convert comma-separated origins to list"""
-        origins = [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",")]
+        origins = [origin.strip()
+                   for origin in self.ALLOWED_ORIGINS.split(",")]
         # In development, explicitly add common localhost ports
         if self.DEBUG:
             # Add more localhost ports for development
@@ -69,7 +72,6 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     EMAIL_FROM: str = "noreply@legalhub.com"
 
-
     # Payment Settings
     STRIPE_SECRET_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
@@ -80,9 +82,11 @@ class Settings(BaseSettings):
     RAG_SCRAPE_ON_STARTUP: bool = False  # Run scraper immediately on startup
 
     # FAISS/Vector Store Configuration
-    CHROMADB_PATH: str = "./chroma_db"  # Path for FAISS index storage (legacy name kept for compatibility)
+    # Path for FAISS index storage (legacy name kept for compatibility)
+    CHROMADB_PATH: str = "./chroma_db"
 
-    model_config = {"env_file": ".env", "case_sensitive": True, "extra": "allow"}
+    model_config = {"env_file": ".env",
+                    "case_sensitive": True, "extra": "allow"}
 
 
 # Global settings instance

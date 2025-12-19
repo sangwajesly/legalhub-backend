@@ -3,11 +3,14 @@ Firebase service for Firestore and Authentication operations
 """
 
 from __future__ import annotations
+import json  # Import json for parsing credentials
 import firebase_admin
 from firebase_admin import credentials, firestore, auth as firebase_auth
 from typing import Optional, Dict, Any, List
 from datetime import datetime, UTC, timedelta
 import os
+import json
+
 
 from app.config import settings
 from app.models.user import (
@@ -81,16 +84,31 @@ class FirebaseService:
                 )
             else:
                 # Use production credentials
-                cred = credentials.Certificate(
-                    settings.FIREBASE_CREDENTIALS_PATH)
+                if settings.FIREBASE_CREDENTIALS_JSON:
+                    try:
+                        cred_dict = json.loads(
+                            settings.FIREBASE_CREDENTIALS_JSON)
+                        cred = credentials.Certificate(cred_dict)
+                        print(
+                            "Firebase initialized with credentials from FIREBASE_CREDENTIALS_JSON")
+                    except json.JSONDecodeError as e:
+                        print(f"Error parsing FIREBASE_CREDENTIALS_JSON: {e}")
+                        raise
+                else:
+                    # Fallback to file path
+                    cred = credentials.Certificate(
+                        settings.FIREBASE_CREDENTIALS_PATH)
+                    print(
+                        f"Firebase initialized with credentials from {settings.FIREBASE_CREDENTIALS_PATH}")
+
                 firebase_admin.initialize_app(
                     cred, {"storageBucket": settings.FIREBASE_STORAGE_BUCKET}
                 )
-                print("Firebase initialized with production credentials")
-            print("Firebase Admin SDK initialization successful.") # Added for explicit success logging
+            print("Firebase Admin SDK initialization successful.")
         except Exception as e:
-            print(f"ERROR: Firebase Admin SDK initialization failed: {e}") # Explicit error logging
-            raise # Re-raise to prevent the app from running with a broken Firebase setup
+            # Explicit error logging
+            print(f"ERROR: Firebase Admin SDK initialization failed: {e}")
+            raise  # Re-raise to prevent the app from running with a broken Firebase setup
     # ============================================
 
     async def create_user(
