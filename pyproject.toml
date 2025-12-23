@@ -14,4 +14,4 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.uv]
-python-version = "3.13"
+managed = true
