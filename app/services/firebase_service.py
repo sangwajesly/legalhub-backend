@@ -215,31 +215,80 @@ class FirebaseService:
 
     async def get_user_by_uid(self, uid: str) -> Optional[User]:
         """
-        Get user by UID from Firestore.
-        If not found in Firestore but exists in Firebase Auth, creates the Firestore document.
+        Get user by UID from Firestore with robust fallback.
+        Priority: 'users' -> 'user_profiles' -> Firebase Auth (create if missing)
         """
         try:
             import asyncio
-            doc = await asyncio.to_thread(self.db.collection("users").document(uid).get)
+
+            # Phase 1: Check 'users' collection (Standard Email/Password Users)
+            # ----------------------------------------------------------------
+            users_ref = self.db.collection("users").document(uid)
+            doc = await asyncio.to_thread(users_ref.get)
 
             if doc.exists:
-                doc_data = doc.to_dict()
-                doc_data["uid"] = uid
-                return User.model_validate(doc_data)
+                try:
+                    doc_data = doc.to_dict()
+                    doc_data["uid"] = uid
+                    # Validating existing users should generally pass, but let's be safe
+                    return User.model_validate(doc_data)
+                except Exception as e:
+                    print(
+                        f"WARNING: Validation failed for user in 'users' {uid}: {e}. Returning manual object.")
+                    return self._construct_safe_user(uid, doc.to_dict())
 
-            # Fallback: Check if user exists in Firebase Auth but missing in Firestore
-            # This happens if user was created via Firebase Console or social login didn't sync yet
+            # Phase 2: Check 'user_profiles' collection (Social/Google Users)
+            # ---------------------------------------------------------------
+            profiles_ref = self.db.collection("user_profiles").document(uid)
+            profile_doc = await asyncio.to_thread(profiles_ref.get)
+
+            if profile_doc.exists:
+                data = profile_doc.to_dict()
+                data["uid"] = uid
+
+                # If critical fields are missing, fetch from Auth to backfill
+                if not data.get("email") or not data.get("role") or not data.get("displayName"):
+                    try:
+                        firebase_user = await asyncio.to_thread(firebase_auth.get_user, uid)
+                        if not data.get("email"):
+                            data["email"] = firebase_user.email
+                        if not data.get("displayName"):
+                            data["displayName"] = firebase_user.display_name
+                        if not data.get("profilePicture"):
+                            data["profilePicture"] = firebase_user.photo_url
+                        if "emailVerified" not in data:
+                            data["emailVerified"] = firebase_user.email_verified
+                    except Exception as auth_fetch_err:
+                        print(
+                            f"DEBUG: Could not backfill from Auth for {uid}: {auth_fetch_err}")
+
+                # Apply hard defaults for anything still missing
+                if not data.get("email"):
+                    data["email"] = f"{uid}@unknown.com"
+                if not data.get("role"):
+                    data["role"] = "user"
+                if not data.get("displayName"):
+                    data["displayName"] = "User"
+
+                try:
+                    return User.model_validate(data)
+                except Exception as val_error:
+                    print(
+                        f"DEBUG: Validation failed for profile {uid}: {val_error}. Returning manual object.")
+                    return self._construct_safe_user(uid, data)
+
+            # Phase 3: Fallback - Create from Firebase Auth
+            # ---------------------------------------------
+            # This handles new social users who have a token but no Firestore doc yet
             try:
                 firebase_user = await asyncio.to_thread(firebase_auth.get_user, uid)
                 print(
-                    f"DEBUG: User {uid} found in Auth but missing in Firestore. Creating document...")
+                    f"DEBUG: User {uid} found in Auth but missing in Firestore. Creating new record...")
 
-                # Create the missing user document
                 new_user = User(
                     uid=uid,
                     email=firebase_user.email,
-                    display_name=firebase_user.display_name or firebase_user.email.split(
-                        "@")[0],
+                    display_name=firebase_user.display_name or "User",
                     role="user",
                     photo_url=firebase_user.photo_url,
                     email_verified=firebase_user.email_verified,
@@ -247,10 +296,10 @@ class FirebaseService:
                     updated_at=datetime.now(UTC)
                 )
 
-                firestore_data = user_model_to_firestore(new_user)
-                await asyncio.to_thread(self.db.collection("users").document(uid).set, firestore_data)
-                print(f"DEBUG: Created missing Firestore document for {uid}")
-
+                # Check if we should save to users or user_profiles?
+                # For safety/legacy compatibility, we save simple records to 'users'
+                # unless we know it's a social login, but here we just want them to work.
+                await asyncio.to_thread(users_ref.set, user_model_to_firestore(new_user))
                 return new_user
 
             except Exception as auth_e:
@@ -258,9 +307,26 @@ class FirebaseService:
                 return None
 
         except Exception as e:
-            print(f"Error getting user: {str(e)}")
-            # Don't raise, return None so auth dependency handles 401
+            print(f"ERROR: Critical failure in get_user_by_uid({uid}): {e}")
+            import traceback
+            traceback.print_exc()
             return None
+
+    def _construct_safe_user(self, uid: str, data: Dict[str, Any]) -> User:
+        """Helper to manually construct a User object ignoring validation strictness"""
+        return User(
+            uid=uid,
+            email=data.get("email") or f"{uid}@unknown.com",
+            display_name=data.get("displayName") or data.get(
+                "display_name") or "User",
+            role=data.get("role") or "user",
+            email_verified=data.get("emailVerified") or False,
+            is_active=data.get("isActive", True),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+            profile_picture=data.get(
+                "profilePicture") or data.get("profile_picture")
+        )
 
     async def get_user_by_email(self, email: str) -> Optional[User]:
         """

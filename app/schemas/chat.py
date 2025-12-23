@@ -13,6 +13,10 @@ class MessageRequest(BaseModel):
     session_id: Optional[str] = Field(None, alias="sessionId")
     message: str
     attachments: List[str] = []
+    history: Optional[List[Dict[str, str]]] = Field(
+        default=[],
+        description="Optional chat history for stateless context. Format: [{'role': 'user', 'text': '...'}]"
+    )
 
     model_config = ConfigDict(populate_by_name=True)
 

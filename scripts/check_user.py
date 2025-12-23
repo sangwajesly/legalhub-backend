@@ -29,7 +29,36 @@ async def check_user(email: str):
 
     if not found:
         print("❌ User NOT found in Firestore 'users' collection.")
-        print("This explains the 401 error if the backend requires the user to exist in Firestore.")
+
+        # Check user_profiles
+        print("\nChecking 'user_profiles' collection...")
+        profiles_ref = db.collection("user_profiles")
+        # Try to find by email if possible, or assuming we don't have UID, scan?
+        # Ideally we search by email.
+        query_prof = profiles_ref.where("email", "==", email).stream()
+
+        found_prof = False
+        for doc in query_prof:
+            found_prof = True
+            print(f"✅ User found in 'user_profiles'!")
+            print(f"ID: {doc.id}")
+            data = doc.to_dict()
+            print(f"Data: {data}")
+
+            # Helper to check validation
+            from app.models.user import User
+            try:
+                # Mock missing fields if needed to simulate firebase_service logic
+                # data["uid"] = doc.id
+                # user = User.model_validate(data)
+                print("Validation check would presumably run here.")
+            except Exception as e:
+                print(f"Validation Error would be: {e}")
+
+        if not found_prof:
+            print("❌ User NOT found in 'user_profiles' collection either.")
+    else:
+        print("User found in 'users', so auth should work if token is valid.")
 
 if __name__ == "__main__":
     import sys

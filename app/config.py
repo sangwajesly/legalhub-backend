@@ -46,19 +46,6 @@ class Settings(BaseSettings):
         """Convert comma-separated origins to list"""
         origins = [origin.strip()
                    for origin in self.ALLOWED_ORIGINS.split(",")]
-        # In development, explicitly add common localhost ports
-        if self.DEBUG:
-            # Add more localhost ports for development
-            localhost_ports = [3000, 3001, 5173, 5000, 4200]
-            for port in localhost_ports:
-                origin = f"http://localhost:{port}"
-                if origin not in origins:
-                    origins.append(origin)
-            # Also add 127.0.0.1 variants
-            for port in localhost_ports:
-                origin = f"http://127.0.0.1:{port}"
-                if origin not in origins:
-                    origins.append(origin)
         return origins
 
     # LangChain Configuration

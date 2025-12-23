@@ -18,7 +18,8 @@ class ChatMessage(BaseModel):
 
 class ChatSession(BaseModel):
     session_id: str = Field(..., alias="sessionId")
-    user_id: Optional[str] = Field(None, alias="userId")
+    user1_id: str = Field(..., alias="user1Id")
+    user2_id: str = Field(..., alias="user2Id")
     created_at: Optional[datetime] = Field(None, alias="createdAt")
     last_message_at: Optional[datetime] = Field(None, alias="lastMessageAt")
 

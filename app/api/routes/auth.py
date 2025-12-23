@@ -5,6 +5,8 @@ Authentication API endpoints
 from fastapi import APIRouter, HTTPException, status, Depends
 from typing import Dict, Any
 
+# authentication schemas
+
 from app.schemas.auth import (
     UserRegister,
     UserLogin,

@@ -73,7 +73,8 @@ async def send_message_to_session(
         user_id=user.uid,
         user_message=payload.message,
         attachments=payload.attachments if hasattr(
-            payload, 'attachments') else None
+            payload, 'attachments') else None,
+        history=payload.history if hasattr(payload, 'history') else None
     )
 
     return {"reply": reply_text, "sessionId": session_id}

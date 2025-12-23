@@ -79,7 +79,7 @@ service cloud.firestore {
     match /chat_sessions/{sessionId} {
       // Allow read/write only to participants of the chat session
       allow read, update: if isOwner(resource.data.user1Id) || isOwner(resource.data.user2Id);
-      allow create: if isAuthenticated(); // Authenticated user can create a session
+      allow create: if isAuthenticated() && (request.auth.uid == request.resource.data.user1Id || request.auth.uid == request.resource.data.user2Id);
       allow delete: if isOwner(resource.data.user1Id) || isOwner(resource.data.user2Id); // Participants can delete
 
       // Sub-collection: messages within chat_sessions

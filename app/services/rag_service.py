@@ -313,27 +313,52 @@ class RAGService:
         self,
         session_id: Optional[str],
         user_message: str,
-        max_messages: int = 5
+        max_messages: int = 5,
+        max_prompt_length: int = 4000 # Added parameter
     ) -> str:
         """
         Build a prompt using chat history context (fallback when no RAG docs).
+        Truncates chat history to fit within max_prompt_length.
         """
-        context = []
+        context_messages = []
         
         if session_id:
             try:
+                # Retrieve more messages than max_messages initially to allow for truncation
                 msgs = await firebase_service.get_chat_history(session_id)
-                msgs = msgs[-max_messages:] if msgs else []
-                context = [f"{m.role}: {m.text}" for m in msgs if m]
+                if msgs:
+                    # Filter out any potentially None messages
+                    msgs = [m for m in msgs if m]
+                    # Start with the most recent messages
+                    context_messages = [f"{m.role}: {m.text}" for m in msgs]
             except Exception as e:
                 logger.warning(f"Failed to load chat history: {e}")
 
         system = LEGALHUB_CORE_SYSTEM_PROMPT
         
+        # Build prompt parts, prioritizing system prompt and user's current message
         prompt_parts = [f"System: {system}"]
-        if context:
-            prompt_parts.append("Conversation so far:")
-            prompt_parts.extend(context)
+        base_prompt_length = len("\n".join(prompt_parts)) + len(f"\nUser: {user_message}\nAssistant:")
+        
+        # Add conversation history, truncating if necessary
+        # Iterate from oldest to newest messages, adding until max_prompt_length is reached
+        if context_messages:
+            current_history_length = 0
+            temp_history_parts = []
+            
+            # Reverse to iterate from oldest to newest for easier length management
+            for msg_text in reversed(context_messages):
+                if base_prompt_length + current_history_length + len(msg_text) + len("\nConversation so far:") > max_prompt_length:
+                    logger.warning(f"Truncating chat history for session {session_id} to fit max_prompt_length ({max_prompt_length}).")
+                    break # Stop adding if next message exceeds limit
+
+                temp_history_parts.insert(0, msg_text) # Add to beginning to maintain chronological order
+                current_history_length += len(msg_text) + 1 # +1 for newline
+
+            if temp_history_parts:
+                prompt_parts.append("Conversation so far:")
+                prompt_parts.extend(temp_history_parts)
+
         prompt_parts.append(f"User: {user_message}")
         prompt_parts.append("Assistant:")
         

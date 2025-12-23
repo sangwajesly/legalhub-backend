@@ -323,27 +323,38 @@ class AuthService:
             user = await self.firebase.get_user_by_uid(uid)
 
             if not user:
-                # 3. Create new user if not exists
-                # Extract profile info from token
+                # 3. Create new user in user_profiles (for social login)
+                # We store Google/Social users in user_profiles collection as per requirement
                 display_name = decoded_token.get("name", "")
                 picture = decoded_token.get("picture", None)
 
-                # We need to create the user in Firestore.
-                # Since auth record already exists in Firebase Auth (social login),
-                # we just need to create the Firestore document.
+                # Construct profile data including auth fields
+                profile_data = {
+                    "uid": uid,
+                    "email": email,
+                    "role": "user",
+                    "displayName": display_name,
+                    "profilePicture": picture,
+                    "emailVerified": decoded_token.get("email_verified", False),
+                    "bio": f"Joined via Google Login",
+                    "createdAt": datetime.now(UTC),
+                    "updatedAt": datetime.now(UTC)
+                }
 
-                user = await self.firebase.create_user(
+                # Use update_user_profile to create/set the document
+                await self.firebase.update_user_profile(uid, profile_data)
+
+                # Return a User object representing this new user
+                user = User(
+                    uid=uid,
                     email=email,
                     display_name=display_name,
-                    role="user",  # Default role
+                    role="user",
+                    profile_picture=picture,
                     email_verified=decoded_token.get("email_verified", False),
-                    photo_url=picture,
-                    phone_number=decoded_token.get("phone_number"),
-                    is_new_user=False,  # User already exists in Firebase Auth
+                    created_at=datetime.now(UTC),
+                    updated_at=datetime.now(UTC)
                 )
-
-                # Also create a default profile if needed
-                await self.firebase.update_user_profile(uid, {"bio": f"Joined via Google Login"})
 
             else:
                 # 3b. Use existing user - CHECK FOR UPDATES
@@ -366,20 +377,16 @@ class AuthService:
 
                 if should_update:
                     try:
-                        # Update user in Firestore
-                        user_ref = self.firebase.db.collection(
-                            "users").document(uid)
-                        # We use field updates directly to avoid full object replacement
-                        # Map internal field names to Firestore field names if needed
-                        # Based on user_model_to_firestore in user.py model:
-                        firestore_update = {}
+                        # Update user profile in Firestore (user_profiles for social users)
+                        # We use update_user_profile which targets 'user_profiles'
+                        profile_update = {}
                         if "display_name" in update_data:
-                            firestore_update["displayName"] = update_data["display_name"]
+                            profile_update["displayName"] = update_data["display_name"]
                         if "profile_picture" in update_data:
-                            firestore_update["profilePicture"] = update_data["profile_picture"]
+                            profile_update["profilePicture"] = update_data["profile_picture"]
 
-                        if firestore_update:
-                            user_ref.update(firestore_update)
+                        if profile_update:
+                            await self.firebase.update_user_profile(uid, profile_update)
 
                             # Update local user object to return updated info
                             if "display_name" in update_data:
