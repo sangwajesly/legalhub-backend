@@ -38,7 +38,8 @@ async def test_pdf_processing():
         print(f"📏 File size: {len(pdf_content)} bytes")
 
         # Extract text using PDF processor
-        text_content, metadata = PDFProcessor.extract_text_from_pdf(pdf_content)
+        text_content, metadata = PDFProcessor.extract_text_from_pdf(
+            pdf_content)
 
         print("✅ PDF processed successfully!")
         print(f"   📊 Text length: {len(text_content)} characters")
@@ -50,7 +51,7 @@ async def test_pdf_processing():
         lines = text_content.split('\n')[:10]
         print("\n📖 First 10 lines of content:")
         for i, line in enumerate(lines, 1):
-            print("2d")
+            print(f"{i:2d}. {line}")
 
         return text_content, metadata
 
@@ -121,12 +122,14 @@ async def test_vector_embeddings():
                     added_count += 1
                     print(f"✅ Added chunk {i+1}/{len(chunks)}")
                 else:
-                    print(f"⚠️  Failed to add chunk {i+1}: {result.get('error', 'Unknown error')}")
+                    print(
+                        f"⚠️  Failed to add chunk {i+1}: {result.get('error', 'Unknown error')}")
 
             except Exception as e:
                 print(f"❌ Error adding chunk {i+1}: {e}")
 
-        print(f"🎉 Successfully added {added_count}/{len(chunks)} chunks to vector store")
+        print(
+            f"🎉 Successfully added {added_count}/{len(chunks)} chunks to vector store")
 
         return added_count > 0
 
@@ -172,13 +175,16 @@ async def test_similarity_search():
                     for i, doc in enumerate(result["documents"], 1):
                         score = doc['score']
                         source = doc['metadata'].get('source', 'unknown')
-                        content_preview = doc['content'][:150].replace('\n', ' ')
-                        print(f"      {i}. Score: {score:.3f}, Source: {source}")
+                        content_preview = doc['content'][:150].replace(
+                            '\n', ' ')
+                        print(
+                            f"      {i}. Score: {score:.3f}, Source: {source}")
                         print(f"         Content: {content_preview}...")
                 else:
                     print("   📭 No relevant sections found")
             else:
-                print(f"   ❌ Search failed: {result.get('error', 'Unknown error')}")
+                print(
+                    f"   ❌ Search failed: {result.get('error', 'Unknown error')}")
 
         except Exception as e:
             print(f"   💥 Error during search: {e}")
@@ -220,7 +226,10 @@ async def test_rag_augmented_response():
             if retrieved_docs:
                 print("   📖 Sources:")
                 for doc in retrieved_docs[:2]:  # Show first 2
-                    print(f"      - Score: {doc['score']:.3f}, Source: {doc['metadata'].get('source', 'unknown')}")
+                    source = doc.get("metadata", {}).get(
+                        "source", doc.get("source", "unknown"))
+                    print(
+                        f"      - Score: {doc.get('score', 0):.3f}, Source: {source}")
         except Exception as e:
             print(f"❌ Error generating RAG response: {e}")
 

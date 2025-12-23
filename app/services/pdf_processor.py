@@ -15,6 +15,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class PDFProcessor:
     """
     Handles text and metadata extraction from PDF documents.
@@ -39,7 +40,7 @@ class PDFProcessor:
 
         try:
             reader = PdfReader(io.BytesIO(pdf_content))
-            
+
             # Extract text
             text_content = ""
             for page in reader.pages:

@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 class RAGService:
     """
     Retrieval-Augmented Generation service for LegalHub.
-    
+
     Provides methods for:
     - Ingesting documents into FAISS vector store
     - Retrieving relevant documents based on queries
@@ -37,7 +37,7 @@ class RAGService:
     def __init__(self, collection_name: str = "legalhub_documents"):
         """
         Initialize RAG service.
-        
+
         Args:
             collection_name: Name of the FAISS collection to use
         """
@@ -48,8 +48,10 @@ class RAGService:
         """Initialize or get the FAISS vector store."""
         try:
             self.vector_store = get_vector_store(self.collection_name)
-            logger.info(f"RAG collection '{self.collection_name}' initialized with FAISS")
-            print(f"[OK] FAISS vector store initialized: {self.vector_store.count()} documents")
+            logger.info(
+                f"RAG collection '{self.collection_name}' initialized with FAISS")
+            print(
+                f"[OK] FAISS vector store initialized: {self.vector_store.count()} documents")
         except Exception as e:
             logger.error(f"Failed to initialize RAG collection: {e}")
             raise
@@ -61,21 +63,29 @@ class RAGService:
     ) -> Dict[str, int]:
         """
         Add documents to the RAG vector store.
-        
+
         Args:
             documents: List of document dicts with 'id', 'content', 'source'
             metadata: Optional metadata to attach to all documents
-            
+
         Returns:
             Dict with counts of added documents
         """
         try:
+            # Merge global metadata into each document if provided
+            if metadata:
+                for doc in documents:
+                    if "metadata" not in doc:
+                        doc["metadata"] = {}
+                    doc["metadata"].update(metadata)
+
             # FAISS add_documents is synchronous, run in thread pool
             result = await asyncio.to_thread(
                 self.vector_store.add_documents,
                 documents
             )
-            logger.info(f"Added {result.get('added', 0)} documents to FAISS vector store")
+            logger.info(
+                f"Added {result.get('added', 0)} documents to FAISS vector store")
             return result
 
         except Exception as e:
@@ -90,12 +100,12 @@ class RAGService:
     ) -> List[Dict]:
         """
         Retrieve relevant documents from the vector store.
-        
+
         Args:
             query: The search query
             top_k: Number of top results to return
             score_threshold: Minimum similarity score for results
-            
+
         Returns:
             List of retrieved documents with metadata and scores
         """
@@ -108,9 +118,11 @@ class RAGService:
             )
 
             # Filter by score threshold
-            documents = [doc for doc in results if doc.get('score', 0) >= score_threshold]
+            documents = [doc for doc in results if doc.get(
+                'score', 0) >= score_threshold]
 
-            logger.info(f"Retrieved {len(documents)} documents for query: {query[:50]}...")
+            logger.info(
+                f"Retrieved {len(documents)} documents for query: {query[:50]}...")
             return documents
 
         except Exception as e:
@@ -125,12 +137,12 @@ class RAGService:
     ) -> str:
         """
         Augment the user query with retrieved document context.
-        
+
         Args:
             user_query: Original user query
             retrieved_docs: List of retrieved documents
             max_context_length: Maximum length of context to include
-            
+
         Returns:
             Augmented prompt with RAG context
         """
@@ -145,8 +157,9 @@ class RAGService:
             content = doc.get("content", "")
             score = doc.get("score", 0)
             # Source can be in doc directly or in metadata
-            source = doc.get("source") or doc.get("metadata", {}).get("source", "unknown")
-            
+            source = doc.get("source") or doc.get(
+                "metadata", {}).get("source", "unknown")
+
             # Format context chunk
             chunk = f"[Source: {source} (relevance: {score:.2f})]\n{content}\n"
             chunk_length = len(chunk)
@@ -174,14 +187,14 @@ class RAGService:
     ) -> Tuple[str, List[Dict]]:
         """
         Generate a RAG-augmented response.
-        
+
         Args:
             session_id: Chat session ID
             user_id: User ID
             user_message: User's message/query
             use_rag: Whether to use RAG enhancement
             top_k: Number of top documents to retrieve
-            
+
         Returns:
             Tuple of (response_text, retrieved_documents)
         """
@@ -222,7 +235,8 @@ class RAGService:
                 return "I'm sorry, I couldn't process that right now. Please try again later.", retrieved_docs
 
             # 5. Normalize reply
-            reply = ai_result.get("response", str(ai_result)) if isinstance(ai_result, dict) else str(ai_result)
+            reply = ai_result.get("response", str(ai_result)) if isinstance(
+                ai_result, dict) else str(ai_result)
             if not reply:
                 reply = ""
 
@@ -252,7 +266,7 @@ class RAGService:
     ):
         """
         Generate a streaming RAG-augmented response.
-        
+
         Yields response chunks as they become available.
         """
         retrieved_docs = []
@@ -287,7 +301,8 @@ class RAGService:
             final_parts = []
             try:
                 async for chunk in gemini_service.stream_send_message(final_prompt):
-                    text = chunk.get("response", "") if isinstance(chunk, dict) else str(chunk)
+                    text = chunk.get("response", "") if isinstance(
+                        chunk, dict) else str(chunk)
                     final_parts.append(text)
                     yield text
             except Exception as e:
@@ -314,14 +329,14 @@ class RAGService:
         session_id: Optional[str],
         user_message: str,
         max_messages: int = 5,
-        max_prompt_length: int = 4000 # Added parameter
+        max_prompt_length: int = 4000  # Added parameter
     ) -> str:
         """
         Build a prompt using chat history context (fallback when no RAG docs).
         Truncates chat history to fit within max_prompt_length.
         """
         context_messages = []
-        
+
         if session_id:
             try:
                 # Retrieve more messages than max_messages initially to allow for truncation
@@ -335,25 +350,28 @@ class RAGService:
                 logger.warning(f"Failed to load chat history: {e}")
 
         system = LEGALHUB_CORE_SYSTEM_PROMPT
-        
+
         # Build prompt parts, prioritizing system prompt and user's current message
         prompt_parts = [f"System: {system}"]
-        base_prompt_length = len("\n".join(prompt_parts)) + len(f"\nUser: {user_message}\nAssistant:")
-        
+        base_prompt_length = len("\n".join(prompt_parts)) + \
+            len(f"\nUser: {user_message}\nAssistant:")
+
         # Add conversation history, truncating if necessary
         # Iterate from oldest to newest messages, adding until max_prompt_length is reached
         if context_messages:
             current_history_length = 0
             temp_history_parts = []
-            
+
             # Reverse to iterate from oldest to newest for easier length management
             for msg_text in reversed(context_messages):
                 if base_prompt_length + current_history_length + len(msg_text) + len("\nConversation so far:") > max_prompt_length:
-                    logger.warning(f"Truncating chat history for session {session_id} to fit max_prompt_length ({max_prompt_length}).")
-                    break # Stop adding if next message exceeds limit
+                    logger.warning(
+                        f"Truncating chat history for session {session_id} to fit max_prompt_length ({max_prompt_length}).")
+                    break  # Stop adding if next message exceeds limit
 
-                temp_history_parts.insert(0, msg_text) # Add to beginning to maintain chronological order
-                current_history_length += len(msg_text) + 1 # +1 for newline
+                # Add to beginning to maintain chronological order
+                temp_history_parts.insert(0, msg_text)
+                current_history_length += len(msg_text) + 1  # +1 for newline
 
             if temp_history_parts:
                 prompt_parts.append("Conversation so far:")
@@ -361,7 +379,7 @@ class RAGService:
 
         prompt_parts.append(f"User: {user_message}")
         prompt_parts.append("Assistant:")
-        
+
         return "\n".join(prompt_parts)
 
 

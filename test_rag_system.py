@@ -34,7 +34,8 @@ async def test_pdf_processing():
             pdf_content = f.read()
 
         # Extract text
-        text_content, metadata = PDFProcessor.extract_text_from_pdf(pdf_content)
+        text_content, metadata = PDFProcessor.extract_text_from_pdf(
+            pdf_content)
 
         print(f"✅ PDF processed successfully")
         print(f"   Title: {metadata.get('title', 'Unknown')}")
@@ -155,11 +156,15 @@ async def test_rag_search():
                 print(f"✅ Found {result['results_count']} relevant documents")
 
                 for i, doc in enumerate(result["documents"], 1):
-                    print(f"   {i}. Score: {doc['score']:.3f}")
-                    print(f"      Source: {doc['metadata'].get('source', 'unknown')}")
-                    print(f"      Content: {doc['content'][:200]}...")
+                    score = doc.get('score', 0)
+                    source = doc.get("metadata", {}).get(
+                        "source", doc.get("source", "unknown"))
+                    print(f"   {i}. Score: {score:.3f}")
+                    print(f"      Source: {source}")
+                    print(f"      Content: {doc.get('content', '')[:200]}...")
             else:
-                print(f"❌ Search failed: {result.get('error', 'Unknown error')}")
+                print(
+                    f"❌ Search failed: {result.get('error', 'Unknown error')}")
 
         except Exception as e:
             print(f"❌ Error during search: {e}")
@@ -198,7 +203,10 @@ async def test_rag_chat():
             if retrieved_docs:
                 print("   Relevant sources:")
                 for doc in retrieved_docs[:2]:  # Show first 2
-                    print(f"   - Score: {doc['score']:.3f}, Source: {doc['metadata'].get('source', 'unknown')}")
+                    source = doc.get("metadata", {}).get(
+                        "source", doc.get("source", "unknown"))
+                    score = doc.get('score', 0)
+                    print(f"   - Score: {score:.3f}, Source: {source}")
 
         except Exception as e:
             print(f"❌ Error generating RAG response: {e}")
@@ -210,9 +218,9 @@ async def main():
     print("=" * 50)
 
     # Test 1: PDF Processing
-    pdf_result = await test_pdf_processing()
-    if not pdf_result:
-        print("⚠️  PDF processing failed, but continuing with other tests...")
+    # pdf_result = await test_pdf_processing()
+    # if not pdf_result:
+    #     print("⚠️  PDF processing failed, but continuing with other tests...")
 
     # Test 2: RAG Ingestion
     ingestion_success = await test_rag_ingestion()
