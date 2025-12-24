@@ -39,7 +39,10 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # CORS Configuration - Allow all localhost ports in development
-    ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:3001,http://localhost:5173"
+    ALLOWED_ORIGINS: str = (
+        "http://localhost:3000,http://localhost:3001,http://localhost:5173,"
+        "https://legalhub-frontend-lime.vercel.app"
+    )
 
     @property
     def allowed_origins_list(self) -> List[str]:
