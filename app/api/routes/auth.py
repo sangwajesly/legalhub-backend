@@ -68,20 +68,13 @@ async def verify_token(payload: dict):
         result = await auth_service.authenticate_with_social_provider(id_token)
 
         # Convert user to response format
-        user_response = UserResponse(
-            uid=result["user"].uid,
-            email=result["user"].email,
-            display_name=result["user"].display_name,
-            role=result["user"].role,
-            phone_number=result["user"].phone_number,
-            profile_picture=result["user"].profile_picture,
-            email_verified=result["user"].email_verified,
-            created_at=result["user"].created_at,
-            updated_at=result["user"].updated_at,
-        )
+        user_dict = result["user"].model_dump(by_alias=True)
+        print(f"DEBUG: user_dict for UserResponse: {user_dict}")
+        user_response = UserResponse(**user_dict)
 
         # Convert tokens to response format
         token_response = Token(**result["tokens"])
+        print(f"DEBUG: token_response for AuthResponse: {token_response}")
 
         return AuthResponse(user=user_response, tokens=token_response)
 

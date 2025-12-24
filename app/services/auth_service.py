@@ -2,20 +2,16 @@
 Authentication service handling login, registration, and token management
 """
 
+from __future__ import annotations
+
+
 from typing import Dict, Any, Optional
 from firebase_admin import auth as firebase_auth
 from jose import JWTError
 
-from app.services.firebase_service import firebase_service
-from app.utils.security import (
-    verify_password,
-    create_token_pair,
-    verify_refresh_token,
-    hash_password,
-)
-from app.models.user import User
-from datetime import datetime, UTC
 from app.services.firebase_service import firebase_service, user_to_firestore_dict
+from app.utils.security import verify_refresh_token
+from app.utils.security import create_token_pair
 
 from app.schemas.auth import UserRegister, UserLogin
 
