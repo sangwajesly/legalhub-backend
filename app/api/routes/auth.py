@@ -25,48 +25,33 @@ from app.models.user import User
 router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
 
 
-@router.post("/register", status_code=status.HTTP_200_OK)
-# Changed payload to user_data using UserRegister
+@router.post("/register", deprecated=True, status_code=status.HTTP_410_GONE)
 async def register(user_data: UserRegister):
     """
-    Register a new user
+    **DEPRECATED**: Registration is now handled by frontend via Firebase SDK.
 
-    - **email**: Valid email address
-    - **password**: Strong password (min 8 chars, must include uppercase, lowercase, and digit)
-    - **display_name**: User's display name
-    - **role**: User role (user, lawyer, organization)
-    - **phone_number**: Optional phone number
+    Frontend should:
+    1. Use Firebase Authentication SDK for email/password registration
+    2. Get Firebase ID token after registration
+    3. Send token to `/api/v1/auth/verify-token` to sync user with backend
 
-    Returns user data and authentication tokens
+    This endpoint will be removed in a future version.
     """
-    try:
-        result = await auth_service.register_user(user_data)
-
-        # Convert user to response format
-        user_response = UserResponse.model_validate(result["user"])
-
-        # Convert tokens to response format
-        token_response = Token(**result["tokens"])
-
-        # Return structured response for server-side registration
-        return AuthResponse(user=user_response, tokens=token_response)
-
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Registration failed: {str(e)}",
-        )
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail="Registration is now handled by frontend. Use Firebase SDK for registration."
+    )
 
 
-@router.post("/google", response_model=AuthResponse)
-async def google_login(payload: dict):
+@router.post("/verify-token", response_model=AuthResponse)
+async def verify_token(payload: dict):
     """
-    Authenticate with Google using Firebase ID Token
+    Verify Firebase ID Token and sync/create user in backend
+
+    This endpoint handles all Firebase authentication methods:
+    - Email/password (authenticated via Firebase SDK on frontend)
+    - Google OAuth (authenticated via Firebase SDK on frontend)
+    - Other social providers (authenticated via Firebase SDK on frontend)
 
     - **idToken**: valid Firebase ID token from client
 
@@ -106,66 +91,37 @@ async def google_login(payload: dict):
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Google login failed: {str(e)}",
+            detail=f"Firebase authentication failed: {str(e)}",
         )
 
 
-@router.post("/login", response_model=AuthResponse)
-async def login(
-    payload: UserLogin | AuthTokenRequest,
-):
+# Keep /google as an alias for backward compatibility (deprecated)
+@router.post("/google", deprecated=True, response_model=AuthResponse)
+async def google_login(payload: dict):
     """
-    Authenticate user. Supports two methods:
-    1. **Email/Password**: using `UserLogin` schema (backend validates against Firebase REST API).
-    2. **Firebase ID Token**: using `AuthTokenRequest` schema (frontend/client validates against Firebase SDK).
+    **DEPRECATED**: Use `/api/v1/auth/verify-token` instead.
 
-    Returns user data and authentication tokens.
+    This endpoint is kept for backward compatibility only.
     """
-    try:
-        if isinstance(payload, UserLogin):
-            # Method 1: Email/Password
-            result = await auth_service.login_with_email_password(
-                payload.email,
-                payload.password
-            )
-        else:
-            # Method 2: Firebase ID Token (AuthTokenRequest)
-            # Backward compatibility for frontend clients sending only id_token
-            # Access underlying data manually since it's a Union
-            if hasattr(payload, "id_token"):
-                token_val = payload.id_token
-            else:
-                # Should not happen given Union type
-                raise ValueError("Invalid payload")
+    return await verify_token(payload)
 
-            result = await auth_service.login_user(token_val)
 
-        # Convert user to response format
-        user_response = UserResponse(
-            uid=result["user"].uid,
-            email=result["user"].email,
-            display_name=result["user"].display_name,
-            role=result["user"].role,
-            phone_number=result["user"].phone_number,
-            profile_picture=result["user"].profile_picture,
-            email_verified=result["user"].email_verified,
-            created_at=result["user"].created_at,
-            updated_at=result["user"].updated_at,
-        )
+@router.post("/login", deprecated=True, status_code=status.HTTP_410_GONE)
+async def login(payload: UserLogin | AuthTokenRequest):
+    """
+    **DEPRECATED**: Email/password login is now handled by frontend via Firebase SDK.
 
-        # Convert tokens to response format
-        token_response = Token(**result["tokens"])
+    Frontend should:
+    1. Use Firebase Authentication SDK for email/password login
+    2. Get Firebase ID token after authentication
+    3. Send token to `/api/v1/auth/verify-token` to sync user with backend
 
-        return AuthResponse(user=user_response, tokens=token_response)
-
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Login failed: {str(e)}",
-        )
+    This endpoint will be removed in a future version.
+    """
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail="Email/password login is now handled by frontend. Use Firebase SDK for login."
+    )
 
 
 @router.post("/refresh", response_model=Token)
