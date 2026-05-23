@@ -466,6 +466,49 @@ Instructions:
 2. **Case Submission Module (`app/services/firebase_service.py`)**: Handles async writes of reported infractions to Firestore, with encrypted metadata, and saves attachments to Firebase Storage.
 3. **Lawyer Directory (`app/api/routes/lawyers.py`)**: Queries verify lawyer records in Firestore, providing geolocation tags and consultation calendars.
 
+### 4.3.4 Frontend Authentication and Security Pipeline
+The client application manages authentication through a highly secure, multi-layered frontend pipeline integrating the Firebase Client SDK, a Zustand store for persistent state, and an Axios interceptor for request injection and session validation:
+
+1. **Credential Ingestion & Firebase Exchange**:
+   - Email & Password Login: Calls `signInWithEmailAndPassword(auth, email, password)`.
+   - Google Social Sign-in: Calls `signInWithPopup(auth, googleProvider)`.
+   - Registration: Calls `createUserWithEmailAndPassword(auth, email, password)`.
+   - ID Token Extraction: Upon successful Firebase authentication, the client retrieves a short-lived Firebase `idToken` (an encrypted JWT) directly from the user object:
+     ```typescript
+     const idToken = await userCredential.user.getIdToken();
+     ```
+
+2. **Backend Verification & Dual-Token Retrieval**:
+   - The frontend dispatches a request to the FastAPI backend:
+     ```typescript
+     const response = await apiClient.verifyToken(idToken, extraData?);
+     // Hits POST /api/v1/auth/verify-token
+     ```
+   - The backend validates the `idToken`, creates/syncs the user record in Firestore, and generates a custom internal Access and Refresh JWT pair.
+   - The frontend receives the backend's internal Access token and stores it.
+
+3. **Zustand State Persistence (`auth-store.ts`)**:
+   - Persists the active `token`, `user` profile metadata, and an `isAuthenticated` boolean state in `localStorage` under `'auth-storage'` using Zustand's `persist` middleware.
+   - Saves the raw token as a legacy backup in `localStorage.setItem('auth_token', token)`.
+
+4. **Three-Tier Axios Interceptor Token Resolution (`api-client.ts`)**:
+   Every outgoing request to your backend endpoints is intercepted in `api-client.ts` to inject the authorization header. The interceptor resolves the token dynamically using a three-tier fallback logic:
+   - **Tier 1**: Pulls the latest, fresh token directly from the active Firebase session (`auth.currentUser.getIdToken()`).
+   - **Tier 2**: Falls back to the Zustand store token in `localStorage` if Firebase is not yet ready.
+   - **Tier 3**: Last resort fallback to legacy `auth_token` string.
+   - **Header Injection**: If resolved, automatically injects the token into `config.headers.Authorization = 'Bearer ' + token` to authorize endpoints.
+
+5. **Session Expiration Guard & Auto-Logout**:
+   - An Axios response interceptor monitors all incoming status codes. If any protected API call fails with a `401 Unauthorized` status (both internal JWT and Firebase tokens have expired):
+     - The client intercepts the error response.
+     - It immediately clears all local authentication files: `localStorage.removeItem('auth_token')` and `localStorage.removeItem('auth-storage')`.
+     - It automatically redirects the browser to `/login` to force a clean re-authentication:
+       ```typescript
+       if (!window.location.pathname.includes('/login')) {
+         window.location.href = '/login';
+       }
+       ```
+
 ## 4.4 System Testing and Evaluation
 
 ### 4.4.1 Unit and Integration Testing
