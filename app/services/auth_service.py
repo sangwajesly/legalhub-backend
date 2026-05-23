@@ -9,6 +9,7 @@ from typing import Dict, Any, Optional
 from datetime import datetime, UTC
 from firebase_admin import auth as firebase_auth
 from jose import JWTError
+from app.models.user import UserRole, User
 
 from app.services.firebase_service import firebase_service, user_to_firestore_dict
 from app.utils.security import verify_refresh_token
