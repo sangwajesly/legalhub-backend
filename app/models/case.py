@@ -191,6 +191,11 @@ class Case(CaseBase):
         description="Legal basis or statute relevant to the case",
         alias="legalBasis"
     )
+    jurisdiction: Optional[str] = Field(
+        default=None,
+        max_length=200,
+        description="Legal jurisdiction applicable to the case"
+    )
 
     # Status update notes
     status_notes: Optional[str] = Field(

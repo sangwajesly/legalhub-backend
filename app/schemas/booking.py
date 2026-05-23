@@ -37,6 +37,7 @@ class BookingCreateSchema(BaseModel):
     payment_method: Optional[
         Literal["credit_card", "debit_card", "bank_transfer", "wallet"]
     ] = Field(None, description="Payment method", alias="paymentMethod")
+    notes: Optional[str] = Field(None, max_length=2000, description="Additional notes for the booking")
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -50,6 +51,7 @@ class BookingCreateSchema(BaseModel):
                 "description": "Discuss employment contract review",
                 "fee": 50.0,
                 "paymentMethod": "credit_card",
+                "notes": "Client prefers evening slot."
             }
         }
     )

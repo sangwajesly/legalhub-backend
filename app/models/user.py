@@ -20,9 +20,10 @@ def utc_now():
 class UserRole(str, Enum):
     """User role enumeration"""
 
-    USER = "user"
+    CITIZEN = "citizen"
     LAWYER = "lawyer"
-    ORGANIZATION = "organization"
+    NGO = "ngo"
+    GOVERNMENT = "government"
     ADMIN = "admin"
 
 
@@ -33,8 +34,8 @@ class UserBase(BaseModel):
     display_name: str = Field(
         ..., min_length=2, max_length=100, description="User's display name", alias="displayName"
     )
-    role: Literal["user", "lawyer", "organization"] = Field(
-        default="user", description="User role in the system"
+    role: Literal["citizen", "lawyer", "ngo", "government", "admin"] = Field(
+        default="citizen", description="User role in the system"
     )
     profile_picture: Optional[str] = Field(
         default=None, description="URL to profile picture", alias="profilePicture"
@@ -77,6 +78,9 @@ class User(UserBase):
     )
     last_login: Optional[datetime] = Field(
         default=None, description="Last login timestamp", alias="lastLogin"
+    )
+    refresh_token: Optional[str] = Field(
+        default=None, description="Current refresh token", alias="refreshToken"
     )
 
     model_config = ConfigDict(

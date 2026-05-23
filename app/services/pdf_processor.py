@@ -80,7 +80,65 @@ class PDFProcessor:
             logger.error(f"Error extracting PDF pages: {e}")
             return []
 
-    # Future improvements:
-    # - OCR for scanned PDFs
-    # - More sophisticated layout analysis for tables, columns, etc.
-    # - LLM-driven metadata extraction (e.g., identifying document type, parties, dates)
+    @staticmethod
+    async def classify_legal_document(text_sample: str) -> Dict[str, str]:
+        """
+        Uses the Gemini model to classify a legal document text sample.
+
+        Args:
+            text_sample: A sample text from the start of the document.
+
+        Returns:
+            A dictionary containing document_type, legal_domain, jurisdiction, and summary.
+        """
+        from app.services.gemini_service import send_message
+        import json
+
+        # Take first 3000 characters
+        sample = text_sample[:3000]
+
+        prompt = f"""
+Analyze the following legal document excerpt and classify it.
+You MUST respond with a raw JSON object containing EXACTLY these four keys and no other text:
+- "document_type": Choose one from ["Statute", "Decree", "Court Decision", "Treaty", "Constitution", "Other"]
+- "legal_domain": Choose one from ["Criminal Law", "Civil Law", "Labour Law", "Family Law", "Human Rights", "Corporate Law", "Constitutional Law", "Administrative Law", "Other"]
+- "jurisdiction": Choose one from ["Cameroon", "Central Africa", "International", "Other"]
+- "summary": A concise 1 to 2 sentence summary of what this document covers.
+
+Legal Excerpt:
+---------------------
+{sample}
+---------------------
+
+Your JSON response:
+"""
+        try:
+            result = await send_message(prompt)
+            response_text = result.get("response", "").strip()
+
+            # Clean response text in case it has markdown code block backticks
+            if response_text.startswith("```json"):
+                response_text = response_text[7:]
+            elif response_text.startswith("```"):
+                response_text = response_text[3:]
+            if response_text.endswith("```"):
+                response_text = response_text[:-3]
+            response_text = response_text.strip()
+
+            classification = json.loads(response_text)
+
+            return {
+                "document_type": classification.get("document_type", "Other"),
+                "legal_domain": classification.get("legal_domain", "Other"),
+                "jurisdiction": classification.get("jurisdiction", "Other"),
+                "summary": classification.get("summary", "No summary available.")
+            }
+        except Exception as e:
+            logger.error(f"Failed to classify legal document via LLM: {e}")
+            return {
+                "document_type": "Other",
+                "legal_domain": "Other",
+                "jurisdiction": "Other",
+                "summary": "Legal document."
+            }
+

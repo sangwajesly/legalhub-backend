@@ -36,6 +36,7 @@ class FAISSVectorStore:
         self.index = None
         self.documents = []
         self.embedding_model = None
+        self._initialized = False
 
         if not FAISS_AVAILABLE or not SENTENCE_TRANSFORMERS_AVAILABLE:
             logger.error(
@@ -44,11 +45,14 @@ class FAISSVectorStore:
 
         self.index = None
         self.embedding_model = None
-        self._initialized = False
 
     def _ensure_initialized(self):
         """Lazy load model and index"""
         if self._initialized:
+            return
+
+        if not FAISS_AVAILABLE or not SENTENCE_TRANSFORMERS_AVAILABLE:
+            logger.warning("FAISS or SentenceTransformer dependencies are missing. Cannot initialize store.")
             return
 
         logger.info("Initializing FAISS Vector Store (Lazy Load)...")

@@ -34,6 +34,7 @@ class CaseCreateSchema(BaseModel):
     tags: List[str] = Field(default_factory=list, max_length=10)
     priority: str = Field(default="medium")
     legal_basis: Optional[str] = Field(None, alias="legalBasis")
+    jurisdiction: Optional[str] = Field(None, max_length=200, description="Legal jurisdiction applicable to the case")
 
     model_config = ConfigDict(populate_by_name=True)
 

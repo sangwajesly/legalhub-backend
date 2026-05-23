@@ -18,8 +18,8 @@ from datetime import datetime, UTC, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.models.user import UserRole
-from app.dependencies import get_current_user
+from app.models.user import UserRole, User # Import User, and ensure UserRole is there
+from app.dependencies import get_current_user, require_roles # Import require_roles
 from app.services import firebase_service
 from app.services.notification_service import notification_service
 from app.models.booking import (
@@ -61,7 +61,7 @@ def _parse_datetime(value):
 @router.post("/", response_model=BookingDetailSchema, status_code=201)
 async def create_booking(
     booking_data: BookingCreateSchema,
-    current_user: Optional[dict] = Depends(get_current_user),
+    current_user: User = Depends(require_roles(UserRole.CITIZEN, UserRole.NGO)), # Apply role validation
 ):
     """
     Create a new lawyer consultation booking
@@ -71,12 +71,10 @@ async def create_booking(
     - Initializes payment process if fee specified
     """
     try:
-        if not current_user:
-            raise HTTPException(
-                status_code=401, detail="Authentication required")
+        
 
         logger.info(
-            f"Creating booking: lawyer={booking_data.lawyer_id}, user={current_user.get('uid')}"
+            f"Creating booking: lawyer={booking_data.lawyer_id}, user={current_user.uid}"
         )
 
         # Verify lawyer exists
@@ -87,9 +85,7 @@ async def create_booking(
             raise HTTPException(status_code=404, detail="Lawyer not found")
 
         # Check if client is booking for themselves (or admin)
-        if current_user.get("uid") != booking_data.lawyer_id and not current_user.get(
-            "is_admin"
-        ):
+        if current_user.uid != booking_data.lawyer_id and not current_user.is_admin:
             # This is a booking by a client for a lawyer
             pass
 
@@ -103,7 +99,7 @@ async def create_booking(
         # 2. Check Availability (Conflict Detection)
         # Calculate end time
         requested_start = booking_data.scheduled_at
-        requested_end = requested_start + \
+        requested_end = requested_start + 
             timedelta(minutes=booking_data.duration)
 
         # Query existing bookings for this lawyer around this time
@@ -129,7 +125,7 @@ async def create_booking(
 
             existing_start = _parse_datetime(doc.get("scheduledAt"))
             existing_duration = doc.get("duration", 30)
-            existing_end = existing_start + \
+            existing_end = existing_start + 
                 timedelta(minutes=existing_duration)
 
             # Check overlap
@@ -144,7 +140,7 @@ async def create_booking(
         new_booking = Booking(
             booking_id=booking_id,
             lawyer_id=booking_data.lawyer_id,
-            user_id=current_user.get("uid"),
+            user_id=current_user.uid,
             consultation_type=booking_data.consultation_type,
             scheduled_at=booking_data.scheduled_at,
             duration=booking_data.duration,
@@ -154,6 +150,7 @@ async def create_booking(
             tags=booking_data.tags,
             fee=booking_data.fee,
             payment_method=booking_data.payment_method,
+            notes=booking_data.notes, # Added notes
             status=BookingStatus.PENDING,
             payment_status=PaymentStatus.PENDING,
             created_at=datetime.now(UTC),
@@ -171,7 +168,7 @@ async def create_booking(
             await notification_service.send_to_user(
                 booking_data.lawyer_id,
                 title="New booking received",
-                body=f"You have a new booking from {current_user.get('email') or current_user.get('uid')}",
+                body=f"You have a new booking from {current_user.email or current_user.uid}",
                 data={"bookingId": booking_id},
             )
         except Exception:
@@ -191,13 +188,12 @@ async def my_bookings(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     status: Optional[str] = Query(None),
-    current_user: Optional[dict] = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    if not current_user:
-        raise HTTPException(status_code=401, detail="Authentication required")
+    
 
     # Delegate to list_bookings logic by filtering to current user
-    filters = {"userId": current_user.get("uid")}
+    filters = {"userId": current_user.uid}
     if status:
         filters["status"] = status
 
@@ -231,7 +227,7 @@ async def my_bookings(
 @router.get("/{booking_id}", response_model=BookingDetailSchema)
 async def get_booking(
     booking_id: str,
-    current_user: Optional[dict] = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Retrieve detailed information about a specific booking"""
     try:
@@ -244,18 +240,16 @@ async def get_booking(
         booking = firestore_booking_to_model(doc_data, booking_id)
 
         # Check authorization (user, lawyer, or admin)
-        if current_user:
-            is_client = current_user.get("uid") == booking.user_id
-            is_lawyer = current_user.get("uid") == booking.lawyer_id
-            is_admin = current_user.get("is_admin")
+        # This check is redundant with Depends(get_current_user)
+        is_client = current_user.uid == booking.user_id
+        is_lawyer = current_user.uid == booking.lawyer_id
+        is_admin = current_user.role == UserRole.ADMIN # Assuming admin status is in role
 
-            if not (is_client or is_lawyer or is_admin):
-                raise HTTPException(
-                    status_code=403, detail="Not authorized to view this booking"
-                )
-        else:
+        if not (is_client or is_lawyer or is_admin):
             raise HTTPException(
-                status_code=401, detail="Authentication required")
+                status_code=403, detail="Not authorized to view this booking"
+            )
+        
 
         return BookingDetailSchema(**booking.model_dump())
 
@@ -275,7 +269,7 @@ async def list_bookings(
     status: Optional[str] = Query(None),
     lawyerId: Optional[str] = Query(None),
     userId: Optional[str] = Query(None),
-    current_user: Optional[dict] = Depends(get_current_user),
+    current_user: User = Depends(get_current_user), # Changed type hint
 ):
     """
     List bookings with optional filtering
@@ -285,10 +279,6 @@ async def list_bookings(
     - Admins see all bookings
     """
     try:
-        if not current_user:
-            raise HTTPException(
-                status_code=401, detail="Authentication required")
-
         logger.info(f"Listing bookings: page={page}, status={status}")
 
         # Build query filters based on user role
@@ -298,10 +288,10 @@ async def list_bookings(
             filters["status"] = status
 
         # Apply role-based filtering
-        user_role = current_user.get("role")
-        user_uid = current_user.get("uid")
+        user_role = current_user.role # Direct access
+        user_uid = current_user.uid # Direct access
 
-        if current_user.get("is_admin") or user_role == UserRole.ADMIN:
+        if user_role == UserRole.ADMIN: # Direct access
             # Admin can filter by specific user/lawyer if requested
             if userId:
                 filters["userId"] = userId
@@ -346,48 +336,6 @@ async def list_bookings(
             status_code=500, detail="Failed to retrieve bookings")
 
 
-# Convenience route for current user's bookings (used by tests)
-@router.get("/my", response_model=BookingListSchema)
-async def my_bookings(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    status: Optional[str] = Query(None),
-    current_user: Optional[dict] = Depends(get_current_user),
-):
-    if not current_user:
-        raise HTTPException(status_code=401, detail="Authentication required")
-
-    # Delegate to list_bookings logic by filtering to current user
-    filters = {"userId": current_user.get("uid")}
-    if status:
-        filters["status"] = status
-
-    try:
-        docs, total_count = await firebase_service.query_collection(
-            "bookings",
-            filters=filters,
-            limit=page_size,
-            offset=(page - 1) * page_size,
-        )
-
-        bookings = []
-        for doc_id, doc_data in docs:
-            try:
-                booking = firestore_booking_to_model(doc_data, doc_id)
-                bookings.append(BookingDetailSchema(**booking.model_dump()))
-            except Exception as e:
-                logger.warning(f"Error converting booking {doc_id}: {str(e)}")
-                continue
-
-        return BookingListSchema(
-            bookings=bookings, total=total_count, page=page, pageSize=page_size
-        )
-    except Exception as e:
-        logger.error(f"Error in my_bookings: {str(e)}")
-        raise HTTPException(
-            status_code=500, detail="Failed to retrieve bookings")
-
-
 # GET /api/bookings/user/{user_id} - Get user's bookings
 @router.get("/user/{user_id}", response_model=BookingListSchema)
 async def get_user_bookings(
@@ -395,7 +343,7 @@ async def get_user_bookings(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     status: Optional[str] = Query(None),
-    current_user: Optional[dict] = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Get all bookings for a specific user
@@ -403,12 +351,10 @@ async def get_user_bookings(
     Only the user, their lawyers, or admins can view
     """
     try:
-        if not current_user:
-            raise HTTPException(
-                status_code=401, detail="Authentication required")
+        
 
         # Check authorization
-        if current_user.get("uid") != user_id and not current_user.get("is_admin"):
+        if current_user.uid != user_id and not current_user.is_admin:
             raise HTTPException(
                 status_code=403, detail="Not authorized to view these bookings"
             )
@@ -457,7 +403,7 @@ async def get_lawyer_bookings(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     status: Optional[str] = Query(None),
-    current_user: Optional[dict] = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Get all bookings for a specific lawyer
@@ -465,12 +411,10 @@ async def get_lawyer_bookings(
     Only the lawyer or admins can view
     """
     try:
-        if not current_user:
-            raise HTTPException(
-                status_code=401, detail="Authentication required")
+        
 
         # Check authorization
-        if current_user.get("uid") != lawyer_id and not current_user.get("is_admin"):
+        if current_user.uid != lawyer_id and not current_user.is_admin:
             raise HTTPException(
                 status_code=403, detail="Not authorized to view these bookings"
             )
@@ -519,13 +463,11 @@ async def get_lawyer_bookings(
 async def update_booking(
     booking_id: str,
     booking_data: BookingUpdateSchema,
-    current_user: Optional[dict] = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Update booking details (reschedule, add notes, etc.)"""
     try:
-        if not current_user:
-            raise HTTPException(
-                status_code=401, detail="Authentication required")
+        
 
         # Verify booking exists
         doc_data = await firebase_service.get_document(f"bookings/{booking_id}")
@@ -534,9 +476,9 @@ async def update_booking(
 
         # Check authorization (client or lawyer involved)
         if (
-            current_user.get("uid") != doc_data.get("userId")
-            and current_user.get("uid") != doc_data.get("lawyerId")
-            and not current_user.get("is_admin")
+            current_user.uid != doc_data.get("userId")
+            and current_user.uid != doc_data.get("lawyerId")
+            and not current_user.is_admin
         ):
             raise HTTPException(
                 status_code=403, detail="Not authorized to update this booking"
@@ -597,7 +539,7 @@ async def update_booking(
 async def update_booking_status(
     booking_id: str,
     status_data: BookingStatusSchema,
-    current_user: Optional[dict] = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Update booking status (confirm, cancel, complete)
@@ -607,9 +549,7 @@ async def update_booking_status(
     - System marks as completed
     """
     try:
-        if not current_user:
-            raise HTTPException(
-                status_code=401, detail="Authentication required")
+        
 
         # Verify booking exists
         doc_data = await firebase_service.get_document(f"bookings/{booking_id}")
@@ -617,9 +557,9 @@ async def update_booking_status(
             raise HTTPException(status_code=404, detail="Booking not found")
 
         # Check authorization
-        is_client = current_user.get("uid") == doc_data.get("userId")
-        is_lawyer = current_user.get("uid") == doc_data.get("lawyerId")
-        is_admin = current_user.get("is_admin")
+        is_client = current_user.uid == doc_data.get("userId")
+        is_lawyer = current_user.uid == doc_data.get("lawyerId")
+        is_admin = current_user.is_admin
 
         if not (is_client or is_lawyer or is_admin):
             raise HTTPException(
@@ -687,22 +627,20 @@ async def update_booking_status(
 async def cancel_booking(
     booking_id: str,
     payload: dict,
-    current_user: Optional[dict] = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Cancel a booking (client or lawyer can cancel)."""
     try:
-        if not current_user:
-            raise HTTPException(
-                status_code=401, detail="Authentication required")
+        
 
         doc_data = await firebase_service.get_document(f"bookings/{booking_id}")
         if not doc_data:
             raise HTTPException(status_code=404, detail="Booking not found")
 
         # Authorization: client, lawyer, or admin
-        is_client = current_user.get("uid") == doc_data.get("userId")
-        is_lawyer = current_user.get("uid") == doc_data.get("lawyerId")
-        is_admin = current_user.get("is_admin")
+        is_client = current_user.uid == doc_data.get("userId")
+        is_lawyer = current_user.uid == doc_data.get("lawyerId")
+        is_admin = current_user.is_admin
         if not (is_client or is_lawyer or is_admin):
             raise HTTPException(
                 status_code=403, detail="Not authorized to cancel this booking"
@@ -738,7 +676,7 @@ async def cancel_booking(
 async def provide_feedback(
     booking_id: str,
     feedback_data: BookingFeedbackSchema,
-    current_user: Optional[dict] = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Provide feedback and rating for a completed booking
@@ -747,9 +685,7 @@ async def provide_feedback(
     - Lawyer can rate the client
     """
     try:
-        if not current_user:
-            raise HTTPException(
-                status_code=401, detail="Authentication required")
+        
 
         # Verify booking exists
         doc_data = await firebase_service.get_document(f"bookings/{booking_id}")
@@ -757,8 +693,8 @@ async def provide_feedback(
             raise HTTPException(status_code=404, detail="Booking not found")
 
         # Check authorization
-        is_client = current_user.get("uid") == doc_data.get("userId")
-        is_lawyer = current_user.get("uid") == doc_data.get("lawyerId")
+        is_client = current_user.uid == doc_data.get("userId")
+        is_lawyer = current_user.uid == doc_data.get("lawyerId")
 
         if not (is_client or is_lawyer):
             raise HTTPException(
@@ -800,7 +736,7 @@ async def provide_feedback(
 # GET /api/bookings/stats - Get booking statistics
 @router.get("/stats/overview", status_code=200)
 async def get_booking_stats(
-    current_user: Optional[dict] = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Get booking statistics (admin only or filtered by user)
@@ -808,14 +744,12 @@ async def get_booking_stats(
     Returns counts by status, payment status, and rating metrics
     """
     try:
-        if not current_user:
-            raise HTTPException(
-                status_code=401, detail="Authentication required")
+        
 
         logger.info("Fetching booking statistics")
 
         # Only admin can request full stats overview
-        if not current_user.get("is_admin"):
+        if not current_user.is_admin:
             raise HTTPException(
                 status_code=403,
                 detail="Admin access required to view booking statistics",
@@ -888,7 +822,7 @@ async def get_booking_stats(
 @router.post("/{booking_id}/join_call", status_code=200)
 async def join_call(
     booking_id: str,
-    current_user: dict = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Generate a generic Jitsi Meet URL for the booking.
@@ -903,8 +837,8 @@ async def join_call(
         booking = firestore_booking_to_model(booking_data, booking_id)
 
         # RBAC: Only participants (or admin)
-        uid = current_user.get("uid")
-        if uid != booking.userId and uid != booking.lawyerId and not current_user.get("is_admin"):
+        uid = current_user.uid
+        if uid != booking.userId and uid != booking.lawyerId and not current_user.is_admin:
             raise HTTPException(status_code=403, detail="Not a participant")
 
         # Time Validation (Optional: allow joining +/- 1 hour of scheduled time)

@@ -5,7 +5,7 @@ Authentication request/response schemas
 from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
 from typing import Optional
 from datetime import datetime
-from app.models.user import UserRole
+from app.models.user import UserRole, UserProfile
 
 
 class UserRegister(BaseModel):
@@ -17,7 +17,7 @@ class UserRegister(BaseModel):
     )
     display_name: str = Field(..., min_length=2,
                               max_length=100, alias="displayName")
-    role: str = UserRole.USER
+    role: str = "citizen"
     phone_number: Optional[str] = Field(None, alias="phoneNumber")
 
     @field_validator("password")
@@ -56,6 +56,22 @@ class AuthTokenRequest(BaseModel):
         json_schema_extra={
             "example": {
                 "id_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6..."
+            }
+        }
+    )
+
+
+class VerifyTokenRequest(AuthTokenRequest):
+    """Schema for requests to /verify-token, including optional metadata."""
+    name: Optional[str] = Field(None, description="Optional display name for new user registration.")
+    role: Optional[UserRole] = Field(None, description="Optional role for new user registration.")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "id_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6...",
+                "name": "New User",
+                "role": "citizen"
             }
         }
     )
@@ -140,6 +156,43 @@ class UserResponse(BaseModel):
                 "email_verified": True,
                 "created_at": "2024-01-15T10:30:00Z",
                 "updated_at": "2024-01-15T10:30:00Z",
+            }
+        }
+    )
+
+
+class FullUserProfileResponse(UserResponse, UserProfile):
+    """
+    Combines User and UserProfile schemas for a complete user profile response.
+    Note: Fields from UserProfile will override User fields if they have the same name.
+    """
+    model_config = ConfigDict(
+        populate_by_name=True,
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "uid": "abc123xyz",
+                "email": "user@example.com",
+                "display_name": "John Doe",
+                "role": "citizen",
+                "phone_number": "+237123456789",
+                "profile_picture": "https://example.com/photo.jpg",
+                "email_verified": True,
+                "created_at": "2024-01-15T10:30:00Z",
+                "updated_at": "2024-01-15T10:30:00Z",
+                "bio": "Legal enthusiast seeking justice",
+                "location": "Bamenda, Cameroon",
+                "country": "Cameroon",
+                "language_preference": "en",
+                "timezone": "UTC",
+                "email_notifications": True,
+                "push_notifications": True,
+                "sms_notifications": False,
+                "profile_visibility": "public",
+                "show_email": False,
+                "interests": ["human rights", "environmental law"],
+                "preferred_contact_method": "email",
+                "fcm_token": "some_fcm_token_string",
             }
         }
     )

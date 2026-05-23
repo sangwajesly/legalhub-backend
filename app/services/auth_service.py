@@ -122,6 +122,9 @@ class AuthService:
                 user_id=user.uid, email=user.email, role=user.role
             )
 
+            # Store the refresh token in Firestore for invalidation
+            await self.firebase.update_user(user.uid, {"refresh_token": tokens["refresh_token"]})
+
             return {"user": user, "tokens": tokens}
 
         except ValueError as e:
@@ -201,10 +204,17 @@ class AuthService:
             if not user:
                 raise JWTError("User not found")
 
+            # Validate refresh token against stored token in Firestore
+            if user.refresh_token != refresh_token:
+                raise JWTError("Invalid or revoked refresh token")
+
             # Create new token pair
             tokens = create_token_pair(
                 user_id=user.uid, email=user.email, role=user.role
             )
+
+            # Update the stored refresh token in Firestore
+            await self.firebase.update_user(user.uid, {"refresh_token": tokens["refresh_token"]})
 
             return tokens
 
@@ -221,14 +231,13 @@ class AuthService:
         Returns:
             True if successful
         """
-        # In a more complex system, you might want to:
-        # 1. Revoke Firebase tokens
-        # 2. Clear session data
-        # 3. Blacklist tokens
-
-        # For now, we'll just return True
-        # The client should discard the tokens
-        return True
+        try:
+            # Clear the refresh token from Firestore to invalidate it
+            await self.firebase.update_user(user_id, {"refresh_token": None})
+            return True
+        except Exception as e:
+            print(f"DEBUG: Failed to invalidate refresh token for user {user_id}: {e}")
+            raise Exception(f"Logout failed: {str(e)}")
 
     async def send_password_reset_email(self, email: str) -> bool:
         """
@@ -293,12 +302,14 @@ class AuthService:
         """
         return await self.firebase.get_user_by_uid(user_id)
 
-    async def authenticate_with_social_provider(self, id_token: str) -> Dict[str, Any]:
+    async def authenticate_with_social_provider(self, id_token: str, name: Optional[str] = None, role: Optional[UserRole] = None) -> Dict[str, Any]:
         """
         Authenticate a user with a social provider (Google, etc.) using a Firebase ID token.
 
         Args:
             id_token: Firebase ID token from the client
+            name: Optional display name provided by the frontend for new user registration
+            role: Optional role provided by the frontend for new user registration
 
         Returns:
             Dictionary containing user and tokens
@@ -321,15 +332,16 @@ class AuthService:
             if not user:
                 # 3. Create new user in user_profiles (for social login)
                 # We store Google/Social users in user_profiles collection as per requirement
-                display_name = decoded_token.get("name", "")
+                display_name_to_set = name if name else decoded_token.get("name", email.split("@")[0])
+                role_to_set = role.value if role else UserRole.CITIZEN.value # Default to citizen
                 picture = decoded_token.get("picture", None)
 
                 # Construct profile data including auth fields
                 profile_data = {
                     "uid": uid,
                     "email": email,
-                    "role": "user",
-                    "displayName": display_name,
+                    "role": role_to_set,
+                    "displayName": display_name_to_set,
                     "profilePicture": picture,
                     "emailVerified": decoded_token.get("email_verified", False),
                     "bio": f"Joined via Google Login",
@@ -344,8 +356,8 @@ class AuthService:
                 user = User(
                     uid=uid,
                     email=email,
-                    display_name=display_name,
-                    role="user",
+                    display_name=display_name_to_set,
+                    role=role_to_set,
                     profile_picture=picture,
                     email_verified=decoded_token.get("email_verified", False),
                     created_at=datetime.now(UTC),
@@ -354,22 +366,28 @@ class AuthService:
 
             else:
                 # 3b. Use existing user - CHECK FOR UPDATES
-                # Check if display name or profile picture has changed in the Google profile
                 should_update = False
                 update_data = {}
 
-                token_name = decoded_token.get("name")
-                token_picture = decoded_token.get("picture")
+                # Prioritize provided name, then token name
+                display_name_from_token = decoded_token.get("name")
+                name_to_check = name if name else display_name_from_token
 
-                # Check display name (if token has one and it differs)
-                if token_name and token_name != user.display_name:
-                    update_data["display_name"] = token_name
+                if name_to_check and name_to_check != user.display_name:
+                    update_data["display_name"] = name_to_check
                     should_update = True
 
-                # Check profile picture (if token has one and it differs)
+                # Prioritize provided role
+                role_to_check = role.value if role else user.role # Only update if role is explicitly passed
+                if role_to_check and role_to_check != user.role:
+                    update_data["role"] = role_to_check
+                    should_update = True
+
+                token_picture = decoded_token.get("picture")
                 if token_picture and token_picture != user.profile_picture:
                     update_data["profile_picture"] = token_picture
                     should_update = True
+
 
                 if should_update:
                     try:
@@ -380,6 +398,9 @@ class AuthService:
                             profile_update["displayName"] = update_data["display_name"]
                         if "profile_picture" in update_data:
                             profile_update["profilePicture"] = update_data["profile_picture"]
+                        if "role" in update_data:
+                            profile_update["role"] = update_data["role"]
+
 
                         if profile_update:
                             await self.firebase.update_user_profile(uid, profile_update)
@@ -389,6 +410,8 @@ class AuthService:
                                 user.display_name = update_data["display_name"]
                             if "profile_picture" in update_data:
                                 user.profile_picture = update_data["profile_picture"]
+                            if "role" in update_data:
+                                user.role = update_data["role"]
 
                     except Exception as e:
                         print(
@@ -399,6 +422,9 @@ class AuthService:
             tokens = create_token_pair(
                 user_id=user.uid, email=user.email, role=user.role
             )
+
+            # Store the refresh token in Firestore for invalidation
+            await self.firebase.update_user(user.uid, {"refresh_token": tokens["refresh_token"]})
 
             return {"user": user, "tokens": tokens}
 

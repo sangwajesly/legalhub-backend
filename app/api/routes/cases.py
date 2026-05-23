@@ -38,7 +38,7 @@ from app.schemas.case import (
     CaseDetailSchema,
     CaseListSchema,
 )
-from app.models.user import UserRole
+from app.models.user import UserRole, User # Imported User here
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/cases", tags=["cases"])
@@ -48,7 +48,7 @@ router = APIRouter(prefix="/api/v1/cases", tags=["cases"])
 @router.post("/", response_model=CaseDetailSchema, status_code=201)
 async def create_case(
     case_data: CaseCreateSchema,
-    current_user: Optional[dict] = Depends(get_current_user),
+    current_user: User = Depends(require_roles(UserRole.CITIZEN, UserRole.NGO)), # Apply role validation
 ):
     """
     Create a new case (anonymous or identified)
@@ -75,7 +75,7 @@ async def create_case(
         new_case = Case(
             case_id=case_id,
             user_id=(
-                current_user.get("uid")
+                current_user.uid
                 if current_user and not case_data.is_anonymous
                 else None
             ),
@@ -87,13 +87,14 @@ async def create_case(
             email=(
                 case_data.email
                 if case_data.is_anonymous
-                else current_user.get("email") if current_user else None
+                else current_user.email if current_user else None
             ),
             phone=case_data.phone,
             contact_name=case_data.contact_name,
             tags=case_data.tags,
             priority=case_data.priority,
             legal_basis=case_data.legal_basis,
+            jurisdiction=case_data.jurisdiction, # Added jurisdiction
             status=CaseStatus.SUBMITTED,
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
@@ -117,7 +118,7 @@ async def create_case(
 @router.get("/{case_id}", response_model=CaseDetailSchema)
 async def get_case(
     case_id: str,
-    current_user: Optional[dict] = Depends(get_current_user),
+    current_user: User = Depends(get_current_user), # Changed type hint
 ):
     """Retrieve detailed information about a specific case"""
     try:
@@ -131,9 +132,8 @@ async def get_case(
         # 1. Allow if Public/Anonymous? -> Policy decision: Cases are private by default unless owner consents.
         #    However, specialized users (Lawyers/Orgs) need to see them to take them.
 
-        is_owner = current_user and current_user.get(
-            "uid") == doc_data.get("userId")
-        user_role = current_user.get("role") if current_user else None
+        is_owner = current_user and current_user.uid == doc_data.get("userId")
+        user_role = current_user.role if current_user else None
         is_professional = user_role in [
             UserRole.LAWYER, UserRole.ORGANIZATION, UserRole.ADMIN]
 
@@ -168,7 +168,7 @@ async def list_cases(
     category: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
     priority: Optional[str] = Query(None),
-    current_user: Optional[dict] = Depends(get_current_user),
+    current_user: User = Depends(get_current_user), # Changed type hint
 ):
     """
     List cases with optional filtering by category, status, or priority
@@ -177,11 +177,6 @@ async def list_cases(
     Use /api/v1/cases/user/{uid} to view your own cases specifically.
     """
     try:
-        # Require authentication (but allow all roles)
-        if not current_user:
-            raise HTTPException(
-                status_code=401, detail="Authentication required")
-
         logger.info(
             f"Listing cases: page={page}, page_size={page_size}, category={category}, status={status}"
         )
@@ -233,7 +228,7 @@ async def get_user_cases(
     user_id: str,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    current_user: Optional[dict] = Depends(get_current_user),
+    current_user: User = Depends(get_current_user), # Changed type hint
 ):
     """
     Retrieve all cases filed by a specific user
@@ -243,9 +238,8 @@ async def get_user_cases(
     try:
         # Check authorization
         if (
-            current_user
-            and current_user.get("uid") != user_id
-            and not current_user.get("is_admin")
+            current_user.uid != user_id
+            and not current_user.is_admin
         ):
             raise HTTPException(
                 status_code=403, detail="Not authorized to view these cases"
@@ -293,7 +287,7 @@ async def get_user_cases(
 async def update_case(
     case_id: str,
     case_data: CaseUpdateSchema,
-    current_user: Optional[dict] = Depends(get_current_user),
+    current_user: User = Depends(get_current_user), # Changed type hint
 ):
     """Update case details (title, description, tags, etc.)"""
     try:
@@ -303,8 +297,8 @@ async def update_case(
             raise HTTPException(status_code=404, detail="Case not found")
 
         # Check authorization
-        if doc_data.get("userId") != current_user.get("uid") if current_user else None:
-            if not current_user or not current_user.get("is_admin"):
+        if doc_data.get("userId") != current_user.uid:
+            if not current_user.is_admin:
                 raise HTTPException(
                     status_code=403, detail="Not authorized to update this case"
                 )
@@ -369,7 +363,7 @@ async def update_case(
 async def update_case_status(
     case_id: str,
     status_data: CaseStatusUpdateSchema,
-    current_user: Optional[dict] = Depends(get_current_user),
+    current_user: User = Depends(get_current_user), # Changed type hint
 ):
     """
     Update case status and optionally assign to a lawyer/admin
@@ -383,9 +377,9 @@ async def update_case_status(
             raise HTTPException(status_code=404, detail="Case not found")
 
         # Check authorization (admin or assigned handler)
-        if not current_user or not (
-            current_user.get("is_admin")
-            or current_user.get("uid") == doc_data.get("assignedTo")
+        if not (
+            current_user.is_admin
+            or current_user.uid == doc_data.get("assignedTo")
         ):
             raise HTTPException(
                 status_code=403, detail="Not authorized to update case status"
@@ -399,7 +393,7 @@ async def update_case_status(
             {
                 "status": status_data.status.value,
                 "changedAt": datetime.now(UTC).isoformat(),
-                "changedBy": current_user.get("uid"),
+                "changedBy": current_user.uid,
                 "notes": status_data.notes,
             }
         )
@@ -448,7 +442,7 @@ async def upload_attachment(
     case_id: str,
     file: UploadFile = File(...),
     description: Optional[str] = Query(None),
-    current_user: Optional[dict] = Depends(get_current_user),
+    current_user: User = Depends(get_current_user), # Changed type hint
 ):
     """
     Upload evidence/attachment files to a case
@@ -462,8 +456,8 @@ async def upload_attachment(
             raise HTTPException(status_code=404, detail="Case not found")
 
         # Check authorization
-        if doc_data.get("userId") != current_user.get("uid") if current_user else None:
-            if not current_user or not current_user.get("is_admin"):
+        if doc_data.get("userId") != current_user.uid:
+            if not current_user.is_admin:
                 raise HTTPException(
                     status_code=403, detail="Not authorized to upload to this case"
                 )
@@ -500,8 +494,7 @@ async def upload_attachment(
                         "file_name": file.filename,
                         "file_type": file.content_type,
                         "uploaded_by": (
-                            current_user.get(
-                                "uid") if current_user else "anonymous"
+                            current_user.uid
                         ),
                         "description": description,
                     },
@@ -523,7 +516,7 @@ async def upload_attachment(
             file_type=file.content_type or "application/octet-stream",
             file_size=len(file_content),
             uploaded_at=datetime.now(UTC),
-            uploaded_by=current_user.get("uid") if current_user else None,
+            uploaded_by=current_user.uid,
         )
 
         # Add to case attachments
@@ -555,7 +548,7 @@ async def upload_attachment(
 # GET /api/cases/stats - Get case statistics
 @router.get("/stats/overview", status_code=200)
 async def get_case_stats(
-    current_user: Optional[dict] = Depends(get_current_user),
+    current_user: User = Depends(get_current_user), # Changed type hint
 ):
     """
     Get aggregate case statistics (admin only)
@@ -563,7 +556,7 @@ async def get_case_stats(
     Returns counts by category, status, priority, and resolution metrics
     """
     try:
-        if not current_user or current_user.get("role") != UserRole.ADMIN:
+        if current_user.role != UserRole.ADMIN:
             raise HTTPException(
                 status_code=403, detail="Admin access required")
 

@@ -56,6 +56,10 @@ async def load_pdfs_from_folder(pdf_folder: str) -> Dict[str, int]:
                 stats["skipped"] += 1
                 continue
             
+            # Classify legal document via LLM
+            logger.info(f"Classifying: {pdf_file.name} using LLM...")
+            classification = await pdf_processor.classify_legal_document(text)
+            
             # Prepare document
             document = {
                 "id": f"pdf_{pdf_file.stem}",
@@ -65,6 +69,10 @@ async def load_pdfs_from_folder(pdf_folder: str) -> Dict[str, int]:
                     "filename": pdf_file.name,
                     "size_bytes": pdf_file.stat().st_size,
                     "pages": len(text.split("\n\n")),  # Rough estimate
+                    "document_type": classification.get("document_type", "Other"),
+                    "legal_domain": classification.get("legal_domain", "Other"),
+                    "jurisdiction": classification.get("jurisdiction", "Other"),
+                    "summary": classification.get("summary", "Legal document."),
                     **metadata
                 }
             }

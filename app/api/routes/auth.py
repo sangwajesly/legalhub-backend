@@ -15,11 +15,13 @@ from app.schemas.auth import (
     UserResponse,
     AuthResponse,
     PasswordReset,
-    AuthTokenRequest,  # Added AuthTokenRequest
+    AuthTokenRequest,
+    VerifyTokenRequest,
+    FullUserProfileResponse  # Added FullUserProfileResponse
 )
 from app.services.auth_service import auth_service
 from app.dependencies import get_current_user
-from app.models.user import User
+from app.models.user import User, UserProfile # Also import UserProfile
 
 # Create router
 router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
@@ -44,7 +46,7 @@ async def register(user_data: UserRegister):
 
 
 @router.post("/verify-token", response_model=AuthResponse)
-async def verify_token(payload: dict):
+async def verify_token(payload: VerifyTokenRequest): # Changed payload type
     """
     Verify Firebase ID Token and sync/create user in backend
 
@@ -54,18 +56,21 @@ async def verify_token(payload: dict):
     - Other social providers (authenticated via Firebase SDK on frontend)
 
     - **idToken**: valid Firebase ID token from client
+    - **name**: Optional display name for new user registration
+    - **role**: Optional role for new user registration
 
     Returns user data and authentication tokens
     """
     try:
-        id_token = payload.get("idToken")
-        if not id_token:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="idToken is required"
-            )
+        id_token = payload.id_token
+        name = payload.name
+        role = payload.role
 
-        result = await auth_service.authenticate_with_social_provider(id_token)
+        result = await auth_service.authenticate_with_social_provider(
+            id_token,
+            name=name,  # Pass name
+            role=role   # Pass role
+        )
 
         # Convert user to response format
         user_dict = result["user"].model_dump(by_alias=True)
@@ -199,21 +204,29 @@ async def verify_email(user_id: str):
         )
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get("/me", response_model=FullUserProfileResponse)  # Changed response_model
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
     """
     Get current authenticated user information
 
-    Requires authentication.
+    Requires authentication. Returns a combined User and UserProfile object.
     """
-    return UserResponse(
-        uid=current_user.uid,
-        email=current_user.email,
-        display_name=current_user.display_name,
-        role=current_user.role,
-        phone_number=current_user.phone_number,
-        profile_picture=current_user.profile_picture,
-        email_verified=current_user.email_verified,
-        created_at=current_user.created_at,
-        updated_at=current_user.updated_at,
-    )
+    try:
+        user_profile = await auth_service.firebase.get_user_profile(current_user.uid)
+
+        # Combine User and UserProfile data
+        user_data = current_user.model_dump(by_alias=True)
+        if user_profile:
+            profile_data = user_profile.model_dump(by_alias=True)
+            # Merge, with profile_data overriding common fields if necessary
+            combined_data = {**user_data, **profile_data}
+        else:
+            combined_data = user_data
+
+        return FullUserProfileResponse(**combined_data)
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve user profile: {str(e)}",
+        )
