@@ -403,9 +403,23 @@ class FirebaseService:
             # Always set canonical updatedAt timestamp
             normalized["updatedAt"] = datetime.now(UTC)
 
-            # Update Firestore
-            user_ref = self.db.collection("users").document(uid)
-            await asyncio.to_thread(user_ref.update, normalized)
+            # Update Firestore - Check if standard user or social user
+            users_ref = self.db.collection("users").document(uid)
+            users_doc = await asyncio.to_thread(users_ref.get)
+            
+            if users_doc.exists:
+                await asyncio.to_thread(users_ref.update, normalized)
+            else:
+                profiles_ref = self.db.collection("user_profiles").document(uid)
+                profiles_doc = await asyncio.to_thread(profiles_ref.get)
+                if profiles_doc.exists:
+                    # Map any auth fields to camelCase as defined by user_profiles schema
+                    if "refresh_token" in normalized:
+                        normalized["refreshToken"] = normalized.pop("refresh_token")
+                    await asyncio.to_thread(profiles_ref.update, normalized)
+                else:
+                    # Fallback: create in standard users collection if doc doesn't exist anywhere
+                    await asyncio.to_thread(users_ref.set, normalized)
 
             # Also update Firebase Auth if display name changed
             if "displayName" in normalized:
