@@ -46,51 +46,29 @@ async def register(user_data: UserRegister):
 
 
 @router.post("/verify-token", response_model=AuthResponse)
-async def verify_token(payload: VerifyTokenRequest): # Changed payload type
+async def verify_token(payload: VerifyTokenRequest):
     """
-    Verify Firebase ID Token and sync/create user in backend
-
-    This endpoint handles all Firebase authentication methods:
-    - Email/password (authenticated via Firebase SDK on frontend)
-    - Google OAuth (authenticated via Firebase SDK on frontend)
-    - Other social providers (authenticated via Firebase SDK on frontend)
-
-    - **idToken**: valid Firebase ID token from client
-    - **name**: Optional display name for new user registration
-    - **role**: Optional role for new user registration
-
-    Returns user data and authentication tokens
+    Verify Firebase ID Token and sync/create user in backend (BYPASSED)
     """
-    try:
-        id_token = payload.id_token
-        name = payload.name
-        role = payload.role
-
-        result = await auth_service.authenticate_with_social_provider(
-            id_token,
-            name=name,  # Pass name
-            role=role   # Pass role
-        )
-
-        # Convert user to response format
-        user_dict = result["user"].model_dump(by_alias=True)
-        print(f"DEBUG: user_dict for UserResponse: {user_dict}")
-        user_response = UserResponse(**user_dict)
-
-        # Convert tokens to response format
-        token_response = Token(**result["tokens"])
-        print(f"DEBUG: token_response for AuthResponse: {token_response}")
-
-        return AuthResponse(user=user_response, tokens=token_response)
-
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Firebase authentication failed: {str(e)}",
-        )
+    from datetime import datetime, UTC
+    user_response = UserResponse(
+        uid="mock_citizen_demo_uid",
+        email="demo@legalhub.com",
+        displayName="Demo User",
+        role="citizen",
+        phoneNumber="+237123456789",
+        profilePicture=None,
+        emailVerified=True,
+        createdAt=datetime.now(UTC),
+        updatedAt=datetime.now(UTC)
+    )
+    token_response = Token(
+        access_token="mock_access_token_demo",
+        refresh_token="mock_refresh_token_demo",
+        token_type="bearer",
+        expires_in=3600
+    )
+    return AuthResponse(user=user_response, tokens=token_response)
 
 
 # Keep /google as an alias for backward compatibility (deprecated)

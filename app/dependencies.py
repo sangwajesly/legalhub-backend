@@ -18,70 +18,23 @@ security_optional = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_optional),
 ) -> User:
     """
-    Dependency to get the current authenticated user from Firebase ID token or internal access token.
-
-    This now accepts both Firebase ID tokens from the frontend and internal access tokens
-    issued by the backend.
-
-    Args:
-        credentials: HTTP Authorization credentials
-
-    Returns:
-        Current user as a User Pydantic model
-
-    Raises:
-        HTTPException: If token is invalid or user not found
+    Bypassed Authentication Dependency for Demo / Production Public Mode.
+    Immediately returns a mock citizen user.
     """
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
+    from datetime import datetime, UTC
+    return User(
+        uid="mock_citizen_demo_uid",
+        email="demo@legalhub.com",
+        display_name="Demo User",
+        role="citizen",
+        email_verified=True,
+        phone_number="+237123456789",
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC)
     )
-
-    token = credentials.credentials
-    if not token:
-        raise credentials_exception
-
-    user = None
-    # Try verifying as Firebase ID token first
-    try:
-        decoded_token = auth_module.verify_id_token(token)
-        if decoded_token:
-            firebase_uid = decoded_token.get("uid") or decoded_token.get(
-                "user_id") or decoded_token.get("sub")
-            if firebase_uid:
-                user = await auth_module.auth_service.get_current_user(firebase_uid)
-                if user:
-                    return user
-    except ValueError:
-        # Firebase token verification failed, proceed to try internal token
-        pass
-    except HTTPException:
-        raise # Re-raise if it's an explicit HTTPException from firebase_service
-    except Exception as e:
-        print(f"DEBUG: Unexpected error during Firebase ID token verification: {e}")
-        # Fall through to internal token verification
-
-    # If Firebase ID token didn't work or failed, try verifying as internal access token
-    try:
-        payload = verify_access_token(token)
-        user_id: str = payload.get("sub")
-        if user_id:
-            user = await auth_module.auth_service.get_current_user(user_id)
-            if user:
-                return user
-    except JWTError:
-        # Internal token verification failed
-        pass
-    except Exception as e:
-        print(f"DEBUG: Unexpected error during internal access token verification: {e}")
-        # Fall through to general exception
-
-    # If neither method returned a user, raise authentication exception
-    raise credentials_exception
 
 
 async def get_current_active_user(
