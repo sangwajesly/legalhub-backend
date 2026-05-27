@@ -247,11 +247,20 @@ class FAISSVectorStore:
             return
 
         # 2. Firebase Storage upload (background, non-blocking)
+        index_path_copy = index_path
+        docs_path_copy = docs_path
+        remote_index = self._remote_index_path()
+        remote_docs = self._remote_docs_path()
+
         def _upload():
-            _upload_to_firebase(index_path, self._remote_index_path())
-            _upload_to_firebase(docs_path, self._remote_docs_path())
+            try:
+                _upload_to_firebase(index_path_copy, remote_index)
+                _upload_to_firebase(docs_path_copy, remote_docs)
+            except Exception as e:
+                logger.debug(f"Background Firebase upload error: {e}")
 
         t = threading.Thread(target=_upload, daemon=True, name="faiss-firebase-upload")
+        t.daemon = True
         t.start()
 
     # ------------------------------------------------------------------
