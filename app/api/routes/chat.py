@@ -18,6 +18,15 @@ from app.schemas.chat import (
 from app.models.chat import (
     ChatMessage as ChatMessageModel,
 )
+from pydantic import BaseModel
+
+
+class QueryRequest(BaseModel):
+    message: str
+    session_id: Optional[str] = None
+    history: Optional[List[dict]] = None
+    use_rag: bool = True
+    top_k: int = 5
 
 # FIXED: Changed prefix from /api/chat to /api/v1/chat to match frontend
 router = APIRouter(prefix="/api/v1/chat", tags=["chat"])
@@ -113,59 +122,99 @@ async def send_message_to_session(
     payload: MessageRequest,
     user: User = Depends(get_current_user)
 ):
-    """Send a message to a specific session"""
-    # Check if session exists in memory to update its timestamp
+    """Send a message to a specific session using the RAG pipeline."""
     from datetime import datetime, UTC
-    session_exists = False
+
+    # Update in-memory session timestamp / title
     for s in IN_MEMORY_SESSIONS:
         if s.get("sessionId") == session_id:
             s["lastMessageAt"] = datetime.now(UTC)
             s["title"] = payload.message[:30] + "..." if len(payload.message) > 30 else payload.message
-            session_exists = True
             break
-            
+
     # Store user message in memory
-    user_msg = {
+    if session_id not in IN_MEMORY_MESSAGES:
+        IN_MEMORY_MESSAGES[session_id] = []
+    IN_MEMORY_MESSAGES[session_id].append({
         "id": f"msg-user-{int(datetime.now(UTC).timestamp()*1000)}",
         "role": "user",
         "text": payload.message,
         "userId": user.uid,
         "createdAt": datetime.now(UTC)
-    }
-    if session_id not in IN_MEMORY_MESSAGES:
-        IN_MEMORY_MESSAGES[session_id] = []
-    IN_MEMORY_MESSAGES[session_id].append(user_msg)
+    })
 
-    # Call LangChain service
+    # --- RAG Pipeline ---
     try:
-        reply_text = await langchain_service.generate_response(
+        from app.services.rag_service import rag_service
+        history = payload.history if hasattr(payload, 'history') else None
+        reply_text, _docs = await rag_service.generate_rag_response(
             session_id=session_id,
             user_id=user.uid,
             user_message=payload.message,
-            attachments=payload.attachments if hasattr(
-                payload, 'attachments') else None,
-            history=payload.history if hasattr(payload, 'history') else None
+            use_rag=True,
+            top_k=5
         )
     except Exception as e:
-        print(f"Error calling langchain service: {e}. Falling back to mock generator.")
+        print(f"RAG pipeline failed: {e}. Falling back to direct Gemini call.")
         from app.services import gemini_service
         try:
-            reply_text = await gemini_service.send_message(payload.message)
+            result = await gemini_service.send_message(payload.message)
+            reply_text = result.get("response", str(result)) if isinstance(result, dict) else str(result)
         except Exception as gemini_err:
-            print(f"Gemini failed: {gemini_err}. Returning template legal response.")
-            reply_text = "I am here to assist you with Cameroonian law. Please ask any specific legal questions regarding the Penal Code, family law, or civil processes."
+            print(f"Gemini also failed: {gemini_err}.")
+            reply_text = "I am here to assist you with Cameroonian law. Please ask any specific legal questions."
 
     # Store assistant message in memory
-    bot_msg = {
+    IN_MEMORY_MESSAGES[session_id].append({
         "id": f"msg-bot-{int(datetime.now(UTC).timestamp()*1000)}",
         "role": "assistant",
         "text": reply_text,
         "userId": user.uid,
         "createdAt": datetime.now(UTC)
-    }
-    IN_MEMORY_MESSAGES[session_id].append(bot_msg)
+    })
 
     return {"reply": reply_text, "sessionId": session_id}
+
+
+@router.post("/query")
+async def stateless_query(
+    payload: QueryRequest,
+    user: Optional[User] = Depends(get_current_user)
+):
+    """
+    Stateless RAG query endpoint - works for guest users and authenticated users.
+    Accepts message + optional history, returns a RAG-augmented response.
+    """
+    from app.services.rag_service import rag_service
+
+    user_id = user.uid if user else "guest"
+    session_id = payload.session_id  # May be None for guests
+
+    try:
+        reply_text, retrieved_docs = await rag_service.generate_rag_response(
+            session_id=session_id,
+            user_id=user_id,
+            user_message=payload.message,
+            use_rag=payload.use_rag,
+            top_k=payload.top_k
+        )
+        return {
+            "reply": reply_text,
+            "sessionId": session_id,
+            "sources": [
+                {"source": d.get("source"), "score": round(d.get("score", 0), 3)}
+                for d in retrieved_docs
+            ]
+        }
+    except Exception as e:
+        print(f"Stateless RAG query failed: {e}")
+        from app.services import gemini_service
+        try:
+            result = await gemini_service.send_message(payload.message)
+            reply_text = result.get("response", str(result)) if isinstance(result, dict) else str(result)
+            return {"reply": reply_text, "sessionId": session_id, "sources": []}
+        except Exception as gemini_err:
+            raise HTTPException(status_code=500, detail=f"Chat service unavailable: {gemini_err}")
 
 
 @router.get("/sessions/{session_id}/messages", response_model=HistoryResponse)
