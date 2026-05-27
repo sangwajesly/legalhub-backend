@@ -37,39 +37,42 @@ except Exception:
 # ---------------------------------------------------------------------------
 # Gemini embedding (lazy import — avoids startup crashes)
 # ---------------------------------------------------------------------------
-_EMBEDDING_DIMENSION = 768   # embedding-001 output dimension
-_EMBEDDING_MODEL     = "models/embedding-001"
+_EMBEDDING_DIMENSION = 3072  # gemini-embedding-001 output dimension
+_EMBEDDING_MODEL     = "gemini-embedding-001"
+_EMBED_API_VER       = "v1"
 
-def _embed_texts(texts: List[str], task_type: str = "retrieval_document") -> List[List[float]]:
+def _embed_texts(texts: List[str], task_type: str = "RETRIEVAL_DOCUMENT") -> List[List[float]]:
     """
-    Embed a list of texts using Gemini text-embedding-004.
-    task_type should be:
-      - "retrieval_document"  during ingestion
-      - "retrieval_query"     at query time
+    Embed texts using Gemini embedding-001 via direct REST API (no SDK).
+    task_type: RETRIEVAL_DOCUMENT (ingestion) or RETRIEVAL_QUERY (search)
     """
-    import google.generativeai as genai
+    import requests as _requests
 
     api_key = _GOOGLE_API_KEY or os.environ.get("GOOGLE_API_KEY", "")
     if not api_key:
-        raise RuntimeError(
-            "GOOGLE_API_KEY is not set. Cannot generate embeddings."
-        )
-    genai.configure(api_key=api_key)
+        raise RuntimeError("GOOGLE_API_KEY is not set. Cannot generate embeddings.")
+
+    url = (
+        f"https://generativelanguage.googleapis.com/{_EMBED_API_VER}"
+        f"/models/{_EMBEDDING_MODEL}:embedContent?key={api_key}"
+    )
 
     embeddings = []
     for text in texts:
-        result = genai.embed_content(
-            model=_EMBEDDING_MODEL,
-            content=text,
-            task_type=task_type,
-        )
-        embeddings.append(result["embedding"])
+        payload = {
+            "model": f"models/{_EMBEDDING_MODEL}",
+            "content": {"parts": [{"text": text}]},
+            "taskType": task_type,
+        }
+        resp = _requests.post(url, json=payload, timeout=30)
+        resp.raise_for_status()
+        embeddings.append(resp.json()["embedding"]["values"])
     return embeddings
 
 
 def _embed_query(query: str) -> List[float]:
     """Embed a single query string for similarity search."""
-    return _embed_texts([query], task_type="retrieval_query")[0]
+    return _embed_texts([query], task_type="RETRIEVAL_QUERY")[0]
 
 
 # ---------------------------------------------------------------------------

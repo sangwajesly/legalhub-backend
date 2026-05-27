@@ -45,29 +45,36 @@ GOOGLE_API_KEY = _ENV.get("GOOGLE_API_KEY", os.environ.get("GOOGLE_API_KEY", "")
 CHROMADB_PATH  = _ENV.get("CHROMADB_PATH", str(PROJECT_ROOT / "chroma_db"))
 
 # ---------------------------------------------------------------------------
-# Gemini embedding (text-embedding-004, 768-dim)
+# Gemini embedding (gemini-embedding-001, 3072-dim) via direct REST
 # ---------------------------------------------------------------------------
-import google.generativeai as genai
+import requests
 import faiss
 import numpy as np
 
-EMBED_MODEL = "models/embedding-001"
-DIMENSION   = 768
+EMBED_MODEL = "gemini-embedding-001"
+DIMENSION   = 3072
+EMBED_URL   = f"https://generativelanguage.googleapis.com/v1/models/{EMBED_MODEL}:embedContent"
 
-def embed_texts(texts: list[str], task_type: str = "retrieval_document",
-                retry: int = 3) -> list[list[float]]:
-    """Embed a list of texts. One API call per text with retry + back-off."""
+def embed_texts(texts: list, task_type: str = "RETRIEVAL_DOCUMENT",
+                retry: int = 3) -> list:
+    """Embed texts via Gemini REST API (no SDK — avoids Windows crashes)."""
     embeddings = []
     for i, text in enumerate(texts):
         for attempt in range(retry):
             try:
-                result = genai.embed_content(
-                    model=EMBED_MODEL,
-                    content=text,
-                    task_type=task_type,
+                resp = requests.post(
+                    EMBED_URL,
+                    params={"key": GOOGLE_API_KEY},
+                    json={
+                        "model": f"models/{EMBED_MODEL}",
+                        "content": {"parts": [{"text": text}]},
+                        "taskType": task_type,
+                    },
+                    timeout=30,
                 )
-                embeddings.append(result["embedding"])
-                time.sleep(0.07)   # ~14 req/s  (well under 1500/min limit)
+                resp.raise_for_status()
+                embeddings.append(resp.json()["embedding"]["values"])
+                time.sleep(0.05)   # ~20 req/s — safe under rate limits
                 break
             except Exception as e:
                 wait = 2 ** attempt
@@ -193,8 +200,6 @@ def main():
     if not GOOGLE_API_KEY:
         print("ERROR: GOOGLE_API_KEY not found in .env or environment.")
         sys.exit(1)
-
-    genai.configure(api_key=GOOGLE_API_KEY)
 
     pdf_folder = Path(args.pdf_folder)
     if not pdf_folder.exists():
