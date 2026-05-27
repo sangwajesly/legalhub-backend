@@ -173,6 +173,16 @@ class FAISSVectorStore:
     # Public API
     # ------------------------------------------------------------------
 
+    def _document_ids(self) -> set[str]:
+        return {doc["id"] for doc in self.documents}
+
+    def document_ids_for_prefix(self, prefix: str) -> set[str]:
+        prefix_token = f"{prefix}_chunk_"
+        return {doc_id for doc_id in self._document_ids() if doc_id.startswith(prefix_token)}
+
+    def has_document_prefix(self, prefix: str) -> bool:
+        return bool(self.document_ids_for_prefix(prefix))
+
     def add_documents(self, documents: List[Dict[str, str]]) -> Dict[str, int]:
         """
         Embed and add documents using Gemini text-embedding-004.
@@ -182,13 +192,19 @@ class FAISSVectorStore:
         if not self.index:
             return {"added": 0, "total": len(self.documents)}
 
-        texts = [doc["content"] for doc in documents]
+        existing_ids = self._document_ids()
+        deduped_docs = [doc for doc in documents if doc["id"] not in existing_ids]
+
+        if not deduped_docs:
+            return {"added": 0, "total": len(self.documents)}
+
+        texts = [doc["content"] for doc in deduped_docs]
         embeddings = _embed_texts(texts, task_type="retrieval_document")
 
         self.index.add(np.array(embeddings, dtype="float32"))
-        self.documents.extend(documents)
+        self.documents.extend(deduped_docs)
         self._save_index()
-        return {"added": len(documents), "total": len(self.documents)}
+        return {"added": len(deduped_docs), "total": len(self.documents)}
 
     def search(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
         """Return the top_k most relevant chunks for a query."""

@@ -40,8 +40,7 @@ class Settings(BaseSettings):
 
     # CORS Configuration - Allow all localhost ports in development
     ALLOWED_ORIGINS: str = (
-        "http://localhost:3000,http://localhost:3001,http://localhost:5173,"
-        "https://legalhubeasy.vercel.app,https://legalhub-backend.vercel.app"
+        "http://localhost:3000,https://legalhubeasy.vercel.app"
     )
 
     @property
@@ -74,6 +73,15 @@ class Settings(BaseSettings):
     # FAISS/Vector Store Configuration
     # Path for FAISS index storage (legacy name kept for compatibility)
     CHROMADB_PATH: str = "./chroma_db"
+    # Hybrid backend support: use a hosted vector database when enabled,
+    # otherwise fall back to local FAISS files for offline operation.
+    USE_REMOTE_VECTOR_STORE: bool = False
+    VECTOR_STORE_TYPE: str = "local"  # local | pinecone
+    VECTOR_STORE_REMOTE_URL: str = ""
+    PINECONE_API_KEY: str = ""
+    PINECONE_ENVIRONMENT: str = ""
+    PINECONE_INDEX_NAME: str = "legalhub_documents"
+    PINECONE_METRIC: str = "cosine"
 
     model_config = {"env_file": ".env",
                     "case_sensitive": True, "extra": "allow"}

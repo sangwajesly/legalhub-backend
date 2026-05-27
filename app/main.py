@@ -3,6 +3,7 @@ LegalHub Backend - Main FastAPI Application
 """
 
 from fastapi import FastAPI, Request
+import asyncio
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
@@ -31,6 +32,7 @@ from app.api.routes import (
     payments,
 )
 from app.api.routes import debug
+from app.utils.vector_store import get_vector_store
 
 
 # Define lifespan context manager for startup/shutdown
@@ -114,6 +116,25 @@ async def add_process_time_header(request: Request, call_next):
     return response
 
 
+# Path rewrite middleware for backwards compatibility
+@app.middleware("http")
+async def rewrite_api_version_middleware(request: Request, call_next):
+    """
+    Path rewrite middleware for backwards compatibility.
+    Rewrites '/api/...' to '/api/v1/...' if '/api/v1/' is not in the path,
+    allowing legacy routes/tests to work transparently.
+    """
+    path = request.url.path
+    if path.startswith("/api/") and not path.startswith("/api/v1/"):
+        new_path = path.replace("/api/", "/api/v1/", 1)
+        request.scope["path"] = new_path
+        if "raw_path" in request.scope:
+            request.scope["raw_path"] = new_path.encode("ascii")
+            
+    response = await call_next(request)
+    return response
+
+
 # Global exception handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -161,7 +182,7 @@ async def root():
 @app.get("/health", tags=["Health"])
 async def health_check():
     """Detailed health check endpoint"""
-    return {
+    result = {
         "status": "healthy",
         "app": settings.APP_NAME,
         "version": settings.APP_VERSION,
@@ -170,6 +191,29 @@ async def health_check():
         "gemini_configured": bool(settings.GOOGLE_API_KEY),
         "cors_origins": settings.allowed_origins_list,
     }
+
+    # Vector store health (non-blocking)
+    try:
+        store = get_vector_store()
+        try:
+            count = await asyncio.to_thread(store.count)
+            active = type(store).__name__
+            result["vector_store"] = {
+                "active_backend": active,
+                "configured_remote": bool(settings.USE_REMOTE_VECTOR_STORE),
+                "vector_count": int(count),
+            }
+        except Exception as e:
+            result["vector_store"] = {
+                "active_backend": type(store).__name__,
+                "configured_remote": bool(settings.USE_REMOTE_VECTOR_STORE),
+                "vector_count": None,
+                "error": str(e),
+            }
+    except Exception as e:
+        result["vector_store"] = {"active_backend": None, "error": str(e)}
+
+    return result
 
 
 if __name__ == "__main__":

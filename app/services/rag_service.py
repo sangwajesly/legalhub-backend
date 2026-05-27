@@ -15,7 +15,7 @@ from datetime import datetime, UTC
 
 from app.config import settings
 from app.services import firebase_service, gemini_service
-from app.utils.faiss_store import get_vector_store
+from app.utils.vector_store import get_vector_store
 
 from app.models.chat import ChatMessage
 from app.prompts import (

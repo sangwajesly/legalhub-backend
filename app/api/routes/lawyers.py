@@ -12,6 +12,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from datetime import datetime, timezone
 from app.services import firebase_service
 from app.dependencies import get_current_user
+from app.models.lawyer import (
+    Lawyer,
+    firestore_lawyer_to_model,
+    lawyer_model_to_firestore,
+    utc_now,
+)
 from app.schemas.lawyer import (
     LawyerProfile,
     LawyerListResponse,
@@ -23,7 +29,7 @@ from app.schemas.lawyer import (
 router = APIRouter(prefix="/api/v1/lawyers", tags=["lawyers"])
 
 
-@router.get("", response_model=LawyerListResponse)
+@router.get("", response_model=LawyerListResponse, response_model_by_alias=False)
 async def list_lawyers(
     page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100)
 ):
@@ -42,7 +48,7 @@ async def list_lawyers(
     )
 
 
-@router.get("/{lawyer_id}", response_model=LawyerProfile)
+@router.get("/{lawyer_id}", response_model=LawyerProfile, response_model_by_alias=False)
 async def get_lawyer(lawyer_id: str):
     doc = await firebase_service.get_document(f"lawyers/{lawyer_id}")
     if not doc:
@@ -51,7 +57,7 @@ async def get_lawyer(lawyer_id: str):
     return LawyerProfile.model_validate(model)
 
 
-@router.post("", response_model=LawyerProfile)
+@router.post("", response_model=LawyerProfile, response_model_by_alias=False)
 async def create_or_update_lawyer(
     data: LawyerCreate, current_user: Optional[dict] = Depends(get_current_user)
 ):
@@ -82,7 +88,7 @@ async def create_or_update_lawyer(
     )
 
 
-@router.put("/{lawyer_id}", response_model=LawyerProfile)
+@router.put("/{lawyer_id}", response_model=LawyerProfile, response_model_by_alias=False)
 async def update_lawyer(
     lawyer_id: str,
     data: LawyerUpdate,

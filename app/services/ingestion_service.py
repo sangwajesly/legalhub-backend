@@ -40,7 +40,7 @@ from typing import List, Dict, Any, Optional
 
 from app.services.pdf_processor import PDFProcessor
 from app.services.embedding_service import EmbeddingService
-from app.utils.faiss_store import get_vector_store
+from app.utils.vector_store import get_vector_store
 import logging
 
 logger = logging.getLogger(__name__)
@@ -117,6 +117,17 @@ class IngestionService:
         # Chunk the text
         chunks = self.embedding_service.semantic_chunk_text(full_text)
 
+        # Ensure vector store exists
+        self._ensure_collection()
+        existing_chunk_ids = set()
+        if hasattr(self.vector_store, "document_ids_for_prefix"):
+            existing_chunk_ids = self.vector_store.document_ids_for_prefix(document_id)
+
+        if existing_chunk_ids:
+            logger.info(
+                f"Document {document_id} already has {len(existing_chunk_ids)} chunk(s) in FAISS."
+            )
+
         # Prepare data for FAISS
         documents_for_faiss = []
         chunk_ids = []
@@ -145,6 +156,18 @@ class IngestionService:
                 f"No chunks generated for document {document_id}. Skipping embedding and storage."
             )
             return []
+
+        if existing_chunk_ids and set(chunk_ids) <= existing_chunk_ids:
+            logger.info(
+                f"Document {document_id} already fully embedded in FAISS. Skipping ingestion."
+            )
+            return []
+
+        if existing_chunk_ids:
+            missing = len(chunk_ids) - len(existing_chunk_ids.intersection(chunk_ids))
+            logger.info(
+                f"Document {document_id} has {len(existing_chunk_ids)} existing chunk(s); adding {missing} new chunk(s)."
+            )
 
         # Add to FAISS
         try:

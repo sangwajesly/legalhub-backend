@@ -9,7 +9,7 @@ Usage:
     uv run python scripts/ingest_pdfs_direct.py          # adds new PDFs only
 
 Rate limit: Gemini free tier allows 1,500 embedding requests/min.
-            Script pauses 0.1s between API calls to be safe.
+            Script pauses 0.05s between API calls to be safe.
 """
 
 import sys
@@ -56,8 +56,10 @@ DIMENSION   = 3072
 EMBED_URL   = f"https://generativelanguage.googleapis.com/v1/models/{EMBED_MODEL}:embedContent"
 
 def embed_texts(texts: list, task_type: str = "RETRIEVAL_DOCUMENT",
-                retry: int = 3) -> list:
-    """Embed texts via Gemini REST API (no SDK — avoids Windows crashes)."""
+                retry: int = 3, base_wait: float = 0.05) -> list:
+    """Embed texts via Gemini REST API (no SDK — avoids Windows crashes).
+    `base_wait` controls the seconds to sleep after each successful request.
+    """
     embeddings = []
     for i, text in enumerate(texts):
         for attempt in range(retry):
@@ -74,7 +76,7 @@ def embed_texts(texts: list, task_type: str = "RETRIEVAL_DOCUMENT",
                 )
                 resp.raise_for_status()
                 embeddings.append(resp.json()["embedding"]["values"])
-                time.sleep(0.05)   # ~20 req/s — safe under rate limits
+                time.sleep(base_wait)
                 break
             except Exception as e:
                 wait = 2 ** attempt
@@ -166,11 +168,35 @@ class DirectFAISSStore:
         self._save()
         print("[OK] Index reset (empty).")
 
+    def _document_ids(self):
+        return {doc["id"] for doc in self.documents}
+
+    def document_ids_for_prefix(self, prefix: str) -> set:
+        prefix_token = f"{prefix}_chunk_"
+        return {doc_id for doc_id in self._document_ids() if doc_id.startswith(prefix_token)}
+
+    def has_document_prefix(self, prefix: str) -> bool:
+        return bool(self.document_ids_for_prefix(prefix))
+
     def add(self, docs: list, embeddings: list) -> int:
-        self.index.add(np.array(embeddings, dtype="float32"))
-        self.documents.extend(docs)
+        existing_ids = self._document_ids()
+        deduped_docs = []
+        deduped_embeddings = []
+
+        for doc, emb in zip(docs, embeddings):
+            if doc["id"] in existing_ids:
+                continue
+            deduped_docs.append(doc)
+            deduped_embeddings.append(emb)
+
+        if not deduped_docs:
+            print("[OK] All chunks already exist in FAISS. Nothing to add.")
+            return 0
+
+        self.index.add(np.array(deduped_embeddings, dtype="float32"))
+        self.documents.extend(deduped_docs)
         self._save()
-        return len(docs)
+        return len(deduped_docs)
 
     def count(self) -> int:
         return len(self.documents)
@@ -192,6 +218,8 @@ def main():
     parser.add_argument("--overlap",    type=int, default=200)
     parser.add_argument("--batch-size", type=int, default=10,
                         help="Chunks to embed per batch (default 10)")
+    parser.add_argument("--embed-delay", type=float, default=0.05,
+                        help="Seconds to wait after each embedding request (default 0.05)")
     parser.add_argument("--reset",      action="store_true",
                         help="Clear the store before ingesting")
     args = parser.parse_args()
@@ -229,7 +257,7 @@ def main():
         print()
 
     total = len(pdf_files)
-    success = skipped = failed = total_chunks = 0
+    success = skipped = failed = total_chunks = duplicate_chunks_skipped = duplicate_documents_skipped = 0
 
     for i, pdf_path in enumerate(pdf_files, 1):
         print(f"[{i}/{total}] {pdf_path.name}")
@@ -246,6 +274,19 @@ def main():
             print(f"         -> {len(text):,} chars | {len(chunks)} chunks | {clf['legal_domain']}")
 
             doc_id    = re.sub(r"[^a-zA-Z0-9_]", "_", pdf_path.stem)[:60]
+            document_chunk_ids = {f"{doc_id}_chunk_{j}" for j in range(len(chunks))}
+            existing_chunk_ids = store.document_ids_for_prefix(doc_id)
+
+            if document_chunk_ids <= existing_chunk_ids:
+                print(f"         -> SKIPPED (document already fully embedded in FAISS)")
+                duplicate_documents_skipped += 1
+                duplicate_chunks_skipped += len(document_chunk_ids)
+                skipped += 1
+                continue
+
+            if existing_chunk_ids:
+                print(f"         -> Partial document already embedded, appending missing chunks")
+
             documents = [
                 {
                     "id":            f"{doc_id}_chunk_{j}",
@@ -262,15 +303,24 @@ def main():
 
             # Embed in batches
             added = 0
+            batch_skipped = 0
             for k in range(0, len(documents), args.batch_size):
                 batch     = documents[k:k + args.batch_size]
                 texts     = [d["content"] for d in batch]
-                embeddings = embed_texts(texts, task_type="retrieval_document")
-                added     += store.add(batch, embeddings)
+                try:
+                    embeddings = embed_texts(texts, task_type="retrieval_document", base_wait=args.embed_delay)
+                    batch_added = store.add(batch, embeddings)
+                    added += batch_added
+                    batch_skipped += len(batch) - batch_added
+                except Exception as e:
+                    print(f"\n         -> WARNING: embedding batch failed: {e}  -- skipping this batch and continuing")
+                    # continue with remaining batches
+                    continue
                 sys.stdout.write(f"\r         -> Embedded {min(k+args.batch_size, len(documents))}/{len(documents)} chunks...")
                 sys.stdout.flush()
 
-            print(f"\r         -> Added {added} chunks  [Total in store: {store.count()}]")
+            duplicate_chunks_skipped += batch_skipped
+            print(f"\r         -> Added {added} chunks  [Skipped {batch_skipped} duplicate chunks] [Total in store: {store.count()}]")
             total_chunks += added
             success += 1
 
@@ -284,7 +334,9 @@ def main():
     print(f"{'='*60}")
     print(f"  Processed : {total}")
     print(f"  Succeeded : {success}")
-    print(f"  Skipped   : {skipped}  (image/scanned PDFs)")
+    print(f"  Skipped   : {skipped}  (image/scanned or fully duplicated PDFs)")
+    print(f"  Duplicate chunks skipped: {duplicate_chunks_skipped}")
+    print(f"  Duplicate documents skipped: {duplicate_documents_skipped}")
     print(f"  Failed    : {failed}")
     print(f"  Chunks    : {total_chunks} added | {store.count()} total in index")
     print(f"{'='*60}")
