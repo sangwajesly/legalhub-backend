@@ -164,6 +164,22 @@ def main():
     if success == 0:
         sys.exit(1)
 
+    # ------------------------------------------------------------------
+    # Sync to Firebase Storage so Vercel / any cloud env gets the index
+    # ------------------------------------------------------------------
+    print("\nSyncing FAISS index to Firebase Storage...")
+    try:
+        synced = vector_store.sync_to_firebase()
+        if synced:
+            print("Firebase Storage sync complete. Vercel backend will use this index.")
+        else:
+            print(
+                "WARNING: Firebase Storage sync failed or bucket not configured.\n"
+                "The index is saved locally only. Run again or check FIREBASE_STORAGE_BUCKET in .env"
+            )
+    except Exception as e:
+        print(f"WARNING: Firebase sync error: {e}")
+
 
 if __name__ == "__main__":
     main()
