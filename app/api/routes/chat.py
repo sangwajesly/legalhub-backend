@@ -27,6 +27,34 @@ IN_MEMORY_SESSIONS = []
 IN_MEMORY_MESSAGES = {}
 
 
+def safe_iso_format(val):
+    """Safely format a datetime or similar object to an ISO 8601 string"""
+    if hasattr(val, "isoformat"):
+        return val.isoformat()
+    return str(val) if val else None
+
+
+def normalize_session_data(s: dict) -> dict:
+    """Normalize a session dict to be fully serializable with camelCase keys"""
+    if not isinstance(s, dict):
+        return s
+    
+    normalized = {}
+    for k, v in s.items():
+        if k in ("createdAt", "lastMessageAt", "created_at", "last_message_at"):
+            normalized[k] = safe_iso_format(v)
+        else:
+            normalized[k] = v
+            
+    # Ensure standard frontend keys are populated
+    if "sessionId" not in normalized and "id" in normalized:
+        normalized["sessionId"] = normalized["id"]
+    elif "id" not in normalized and "sessionId" in normalized:
+        normalized["id"] = normalized["sessionId"]
+        
+    return normalized
+
+
 @router.post("/sessions", response_model=CreateSessionResponse)
 async def create_session(user: User = Depends(get_current_user)):
     """Create a new chat session for the authenticated user."""
@@ -39,10 +67,11 @@ async def create_session(user: User = Depends(get_current_user)):
         from datetime import datetime, UTC
         new_session = {
             "sessionId": session_id,
+            "id": session_id,
             "userId": user.uid,
             "title": "New Chat",
-            "createdAt": datetime.now(UTC),
-            "lastMessageAt": datetime.now(UTC)
+            "createdAt": safe_iso_format(datetime.now(UTC)),
+            "lastMessageAt": safe_iso_format(datetime.now(UTC))
         }
         IN_MEMORY_SESSIONS.insert(0, new_session)
         IN_MEMORY_MESSAGES[session_id] = []
@@ -54,12 +83,14 @@ async def get_sessions(user: User = Depends(get_current_user)):
     """Get all chat sessions for the current user"""
     try:
         sessions = await firebase_service.get_user_chat_sessions(user.uid)
-        if not sessions and IN_MEMORY_SESSIONS:
-            return {"sessions": IN_MEMORY_SESSIONS}
-        return {"sessions": sessions}
+        normalized_sessions = [normalize_session_data(s) for s in sessions] if sessions else []
+        
+        if not normalized_sessions and IN_MEMORY_SESSIONS:
+            return {"sessions": [normalize_session_data(s) for s in IN_MEMORY_SESSIONS]}
+        return {"sessions": normalized_sessions}
     except Exception as e:
         print(f"Error fetching sessions: {e}. Falling back to in-memory store.")
-        return {"sessions": IN_MEMORY_SESSIONS}
+        return {"sessions": [normalize_session_data(s) for s in IN_MEMORY_SESSIONS]}
 
 
 @router.delete("/sessions/{id}")

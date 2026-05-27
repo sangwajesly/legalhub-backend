@@ -24,6 +24,7 @@ class UserRole(str, Enum):
     LAWYER = "lawyer"
     NGO = "ngo"
     GOVERNMENT = "government"
+    ORGANIZATION = "organization"
     ADMIN = "admin"
 
 
@@ -34,7 +35,7 @@ class UserBase(BaseModel):
     display_name: str = Field(
         ..., min_length=2, max_length=100, description="User's display name", alias="displayName"
     )
-    role: Literal["citizen", "lawyer", "ngo", "government", "admin"] = Field(
+    role: Literal["citizen", "lawyer", "ngo", "government", "organization", "admin"] = Field(
         default="citizen", description="User role in the system"
     )
     profile_picture: Optional[str] = Field(
