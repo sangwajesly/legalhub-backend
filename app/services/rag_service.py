@@ -18,7 +18,12 @@ from app.services import firebase_service, gemini_service
 from app.utils.faiss_store import get_vector_store
 
 from app.models.chat import ChatMessage
-from app.prompts import RAG_SYSTEM_PROMPT_TEMPLATE, LEGALHUB_CORE_SYSTEM_PROMPT, QUERY_EXPANSION_PROMPT
+from app.prompts import (
+    RAG_SYSTEM_PROMPT_TEMPLATE,
+    LEGALHUB_CORE_SYSTEM_PROMPT,
+    LEGALHUB_NO_DOCS_SYSTEM_PROMPT,
+    QUERY_EXPANSION_PROMPT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -59,17 +64,14 @@ class RAGService:
     async def _expand_query(self, user_query: str) -> str:
         """
         Rewrite a conversational query into precise Cameroonian legal terminology
-        before FAISS retrieval. Significantly improves retrieval quality for
-        vague or colloquial questions (e.g. "got fired" -> "wrongful dismissal").
-
-        This is a fast, single-sentence Gemini call (~0.3s).
+        before FAISS retrieval. Returns "off-topic query" for clearly unrelated input.
         Falls back to the original query on any error.
         """
         try:
             prompt = QUERY_EXPANSION_PROMPT.format(user_query=user_query)
             result = await gemini_service.send_message(prompt)
             expanded = result.get("response", "").strip() if isinstance(result, dict) else str(result).strip()
-            if expanded and len(expanded) > 5:
+            if expanded and len(expanded) > 3:
                 logger.info(f"Query expanded: '{user_query[:40]}' -> '{expanded[:60]}'")
                 return expanded
         except Exception as e:
@@ -208,13 +210,6 @@ class RAGService:
         """
         Generate a RAG-augmented response.
 
-        Args:
-            session_id: Chat session ID
-            user_id: User ID
-            user_message: User's message/query
-            use_rag: Whether to use RAG enhancement
-            top_k: Number of top documents to retrieve
-
         Returns:
             Tuple of (response_text, retrieved_documents)
         """
@@ -223,53 +218,61 @@ class RAGService:
         try:
             # 1. Persist user message
             if session_id:
-                user_chat_message = ChatMessage(
-                    role="user",
-                    text=user_message,
-                    userId=user_id,
-                    createdAt=datetime.now(UTC)
-                )
-                await firebase_service.add_chat_message(session_id, user_chat_message)
+                await firebase_service.add_chat_message(session_id, ChatMessage(
+                    role="user", text=user_message,
+                    userId=user_id, createdAt=datetime.now(UTC)
+                ))
 
-            # 2. Expand query for better retrieval, then retrieve documents
+            # 2. Expand query; detect off-topic early
+            search_query = user_message
             if use_rag:
                 search_query = await self._expand_query(user_message)
-                retrieved_docs = await self.retrieve_documents(
-                    search_query,   # expanded query for FAISS
-                    top_k=top_k
-                )
 
-            # 3. Build augmented prompt
+                # Short-circuit: query expander flagged this as off-topic
+                if search_query.strip().lower() == "off-topic query":
+                    logger.info("Off-topic query detected — skipping FAISS, using no-docs prompt.")
+                    final_prompt = await self._build_chat_context_prompt(
+                        session_id, user_message, no_docs_found=True
+                    )
+                    ai_result = await gemini_service.send_message(final_prompt)
+                    reply = ai_result.get("response", str(ai_result)) if isinstance(ai_result, dict) else str(ai_result)
+                    if session_id:
+                        await firebase_service.add_chat_message(session_id, ChatMessage(
+                            role="assistant", text=reply,
+                            userId=user_id, createdAt=datetime.now(UTC)
+                        ))
+                    return reply, []
+
+                retrieved_docs = await self.retrieve_documents(search_query, top_k=top_k)
+
+            # 3. Build prompt
             if retrieved_docs and use_rag:
                 final_prompt = await self.augment_prompt(user_message, retrieved_docs)
             else:
-                # Fallback to chat history context if no RAG docs
+                # No docs found — use dedicated no-docs prompt
                 final_prompt = await self._build_chat_context_prompt(
-                    session_id, user_message
+                    session_id, user_message,
+                    no_docs_found=use_rag  # True only if we tried RAG but found nothing
                 )
 
-            # 4. Generate response using LLM
+            # 4. Generate response
             try:
                 ai_result = await gemini_service.send_message(final_prompt)
             except Exception as e:
                 logger.error(f"LLM call failed: {e}")
                 return "I'm sorry, I couldn't process that right now. Please try again later.", retrieved_docs
 
-            # 5. Normalize reply
-            reply = ai_result.get("response", str(ai_result)) if isinstance(
-                ai_result, dict) else str(ai_result)
+            # 5. Normalize
+            reply = ai_result.get("response", str(ai_result)) if isinstance(ai_result, dict) else str(ai_result)
             if not reply:
                 reply = ""
 
             # 6. Persist assistant message
             if session_id:
-                assistant_chat_message = ChatMessage(
-                    role="assistant",
-                    text=reply,
-                    userId=user_id,
-                    createdAt=datetime.now(UTC)
-                )
-                await firebase_service.add_chat_message(session_id, assistant_chat_message)
+                await firebase_service.add_chat_message(session_id, ChatMessage(
+                    role="assistant", text=reply,
+                    userId=user_id, createdAt=datetime.now(UTC)
+                ))
 
             return reply, retrieved_docs
 
@@ -287,7 +290,6 @@ class RAGService:
     ):
         """
         Generate a streaming RAG-augmented response.
-
         Yields response chunks as they become available.
         """
         retrieved_docs = []
@@ -295,28 +297,42 @@ class RAGService:
         try:
             # 1. Persist user message
             if session_id:
-                user_chat_message = ChatMessage(
-                    role="user",
-                    text=user_message,
-                    userId=user_id,
-                    createdAt=datetime.now(UTC)
-                )
-                await firebase_service.add_chat_message(session_id, user_chat_message)
+                await firebase_service.add_chat_message(session_id, ChatMessage(
+                    role="user", text=user_message,
+                    userId=user_id, createdAt=datetime.now(UTC)
+                ))
 
-            # 2. Expand query for better retrieval, then retrieve documents
+            # 2. Expand query; detect off-topic early
+            search_query = user_message
             if use_rag:
                 search_query = await self._expand_query(user_message)
-                retrieved_docs = await self.retrieve_documents(
-                    search_query,   # expanded query for FAISS
-                    top_k=top_k
-                )
 
-            # 3. Build augmented prompt
+                if search_query.strip().lower() == "off-topic query":
+                    logger.info("Off-topic query detected (stream) — skipping FAISS.")
+                    final_prompt = await self._build_chat_context_prompt(
+                        session_id, user_message, no_docs_found=True
+                    )
+                    final_parts = []
+                    async for chunk in gemini_service.stream_send_message(final_prompt):
+                        text = chunk.get("response", "") if isinstance(chunk, dict) else str(chunk)
+                        final_parts.append(text)
+                        yield text
+                    if session_id:
+                        await firebase_service.add_chat_message(session_id, ChatMessage(
+                            role="assistant", text="".join(final_parts),
+                            userId=user_id, createdAt=datetime.now(UTC)
+                        ))
+                    return
+
+                retrieved_docs = await self.retrieve_documents(search_query, top_k=top_k)
+
+            # 3. Build prompt
             if retrieved_docs and use_rag:
                 final_prompt = await self.augment_prompt(user_message, retrieved_docs)
             else:
                 final_prompt = await self._build_chat_context_prompt(
-                    session_id, user_message
+                    session_id, user_message,
+                    no_docs_found=use_rag
                 )
 
             # 4. Stream response from LLM
@@ -351,49 +367,41 @@ class RAGService:
         session_id: Optional[str],
         user_message: str,
         max_messages: int = 5,
-        max_prompt_length: int = 4000  # Added parameter
+        max_prompt_length: int = 4000,
+        no_docs_found: bool = False
     ) -> str:
         """
-        Build a prompt using chat history context (fallback when no RAG docs).
-        Truncates chat history to fit within max_prompt_length.
+        Build a prompt using chat history context.
+        Uses LEGALHUB_NO_DOCS_SYSTEM_PROMPT when RAG retrieval returned nothing,
+        so the model handles off-topic and knowledge-gap questions correctly.
         """
         context_messages = []
 
         if session_id:
             try:
-                # Retrieve more messages than max_messages initially to allow for truncation
                 msgs = await firebase_service.get_chat_history(session_id)
                 if msgs:
-                    # Filter out any potentially None messages
                     msgs = [m for m in msgs if m]
-                    # Start with the most recent messages
                     context_messages = [f"{m.role}: {m.text}" for m in msgs]
             except Exception as e:
                 logger.warning(f"Failed to load chat history: {e}")
 
-        system = LEGALHUB_CORE_SYSTEM_PROMPT
+        # Choose system prompt based on whether docs were found
+        system = LEGALHUB_NO_DOCS_SYSTEM_PROMPT if no_docs_found else LEGALHUB_CORE_SYSTEM_PROMPT
 
-        # Build prompt parts, prioritizing system prompt and user's current message
         prompt_parts = [f"System: {system}"]
         base_prompt_length = len("\n".join(prompt_parts)) + \
             len(f"\nUser: {user_message}\nAssistant:")
 
-        # Add conversation history, truncating if necessary
-        # Iterate from oldest to newest messages, adding until max_prompt_length is reached
         if context_messages:
             current_history_length = 0
             temp_history_parts = []
-
-            # Reverse to iterate from oldest to newest for easier length management
             for msg_text in reversed(context_messages):
                 if base_prompt_length + current_history_length + len(msg_text) + len("\nConversation so far:") > max_prompt_length:
-                    logger.warning(
-                        f"Truncating chat history for session {session_id} to fit max_prompt_length ({max_prompt_length}).")
-                    break  # Stop adding if next message exceeds limit
-
-                # Add to beginning to maintain chronological order
+                    logger.warning(f"Truncating chat history for session {session_id}.")
+                    break
                 temp_history_parts.insert(0, msg_text)
-                current_history_length += len(msg_text) + 1  # +1 for newline
+                current_history_length += len(msg_text) + 1
 
             if temp_history_parts:
                 prompt_parts.append("Conversation so far:")
