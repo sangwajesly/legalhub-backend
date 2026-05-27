@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     FIREBASE_CREDENTIALS_PATH: str = "./firebase-credentials.json"
     # Support for raw JSON credentials (env var)
     FIREBASE_CREDENTIALS_JSON: str = ""
-    FIREBASE_STORAGE_BUCKET: str = ""
+    FIREBASE_STORAGE_BUCKET: str = "legahub-70645.appspot.com"
     FIREBASE_EMULATOR_HOST: str = ""
     DEV_MODE: bool = False
 
