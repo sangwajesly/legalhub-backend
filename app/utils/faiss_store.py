@@ -37,8 +37,8 @@ except Exception:
 # ---------------------------------------------------------------------------
 # Gemini embedding (lazy import — avoids startup crashes)
 # ---------------------------------------------------------------------------
-_EMBEDDING_DIMENSION = 768   # text-embedding-004 output dimension
-_EMBEDDING_MODEL     = "models/text-embedding-004"
+_EMBEDDING_DIMENSION = 768   # embedding-001 output dimension
+_EMBEDDING_MODEL     = "models/embedding-001"
 
 def _embed_texts(texts: List[str], task_type: str = "retrieval_document") -> List[List[float]]:
     """

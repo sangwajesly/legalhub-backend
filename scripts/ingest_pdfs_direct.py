@@ -51,7 +51,7 @@ import google.generativeai as genai
 import faiss
 import numpy as np
 
-EMBED_MODEL = "models/text-embedding-004"
+EMBED_MODEL = "models/embedding-001"
 DIMENSION   = 768
 
 def embed_texts(texts: list[str], task_type: str = "retrieval_document",
