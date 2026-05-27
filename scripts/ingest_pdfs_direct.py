@@ -1,30 +1,33 @@
 """
-Direct PDF Ingestion Script for LegalHub RAG
-============================================
-Self-contained: imports NOTHING from app.* — avoids Python 3.12/Windows
-incompatibilities in the google/transformers/jinja2 dependency chain.
+Direct PDF Ingestion Script — Gemini Embedding Edition
+=======================================================
+Uses Google Gemini text-embedding-004 (768-dim) for all embeddings.
+NO torch / sentence-transformers required.
 
 Usage:
-    uv run python scripts/ingest_pdfs_direct.py
     uv run python scripts/ingest_pdfs_direct.py --reset
+    uv run python scripts/ingest_pdfs_direct.py          # adds new PDFs only
+
+Rate limit: Gemini free tier allows 1,500 embedding requests/min.
+            Script pauses 0.1s between API calls to be safe.
 """
 
 import sys
 import os
 import re
 import pickle
+import time
 import logging
 import argparse
 from pathlib import Path
 
 logging.basicConfig(level=logging.WARNING)
-logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 # ---------------------------------------------------------------------------
-# Minimal config — read CHROMADB_PATH from .env without importing app.config
+# Load .env without importing app.* (avoids the google/jinja2 crash chain)
 # ---------------------------------------------------------------------------
 def _read_env() -> dict:
     env = {}
@@ -34,32 +37,62 @@ def _read_env() -> dict:
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 k, _, v = line.partition("=")
-                env[k.strip()] = v.strip()
+                env[k.strip()] = v.strip().strip('"').strip("'")
     return env
 
 _ENV = _read_env()
-CHROMADB_PATH = _ENV.get("CHROMADB_PATH", str(PROJECT_ROOT / "chroma_db"))
+GOOGLE_API_KEY = _ENV.get("GOOGLE_API_KEY", os.environ.get("GOOGLE_API_KEY", ""))
+CHROMADB_PATH  = _ENV.get("CHROMADB_PATH", str(PROJECT_ROOT / "chroma_db"))
 
 # ---------------------------------------------------------------------------
-# PDF extraction (inline — no app.services import)
+# Gemini embedding (text-embedding-004, 768-dim)
 # ---------------------------------------------------------------------------
+import google.generativeai as genai
+import faiss
+import numpy as np
+
+EMBED_MODEL = "models/text-embedding-004"
+DIMENSION   = 768
+
+def embed_texts(texts: list[str], task_type: str = "retrieval_document",
+                retry: int = 3) -> list[list[float]]:
+    """Embed a list of texts. One API call per text with retry + back-off."""
+    embeddings = []
+    for i, text in enumerate(texts):
+        for attempt in range(retry):
+            try:
+                result = genai.embed_content(
+                    model=EMBED_MODEL,
+                    content=text,
+                    task_type=task_type,
+                )
+                embeddings.append(result["embedding"])
+                time.sleep(0.07)   # ~14 req/s  (well under 1500/min limit)
+                break
+            except Exception as e:
+                wait = 2 ** attempt
+                print(f"         [embed retry {attempt+1}/{retry} — {e} — wait {wait}s]")
+                time.sleep(wait)
+        else:
+            raise RuntimeError(f"Embedding failed after {retry} retries for text #{i}")
+    return embeddings
+
+# ---------------------------------------------------------------------------
+# PDF text extraction (pure Python — no app.* imports)
+# ---------------------------------------------------------------------------
+import io as _io
+
 def extract_pdf_text(pdf_bytes: bytes) -> str:
     try:
         import pypdf
-        reader = pypdf.PdfReader(io_module.BytesIO(pdf_bytes))
-        pages = []
-        for page in reader.pages:
-            text = page.extract_text() or ""
-            pages.append(text)
-        return "\n".join(pages)
+        reader = pypdf.PdfReader(_io.BytesIO(pdf_bytes))
+        return "\n".join(page.extract_text() or "" for page in reader.pages)
     except Exception as e:
-        logger.warning(f"pypdf extraction failed: {e}")
+        print(f"         [pypdf error: {e}]")
         return ""
 
-import io as io_module  # needed above
-
 # ---------------------------------------------------------------------------
-# Document classification (filename-based, no API)
+# Helpers
 # ---------------------------------------------------------------------------
 def classify_by_filename(filename: str) -> dict:
     name = filename.lower()
@@ -90,18 +123,15 @@ def chunk_text(text: str, chunk_size: int = 1000, overlap: int = 200) -> list:
 
 
 # ---------------------------------------------------------------------------
-# Minimal FAISS wrapper (no app.utils import)
+# Minimal FAISS store (no app.* imports)
 # ---------------------------------------------------------------------------
 class DirectFAISSStore:
-    def __init__(self, path: str, name: str = "legalhub_documents", dim: int = 384):
+    def __init__(self, path: str, name: str = "legalhub_documents"):
         self.path = path
         self.name = name
-        self.dim = dim
-        self.index = None
+        self.index = faiss.IndexFlatL2(DIMENSION)
         self.documents = []
-        self._faiss = None
-        self._np = None
-        self._model = None
+        self._load()
 
     def _paths(self):
         os.makedirs(self.path, exist_ok=True)
@@ -110,17 +140,7 @@ class DirectFAISSStore:
             os.path.join(self.path, f"{self.name}_docs.pkl"),
         )
 
-    def init(self):
-        """Load heavy deps and existing index."""
-        import faiss
-        import numpy as np
-        from sentence_transformers import SentenceTransformer
-
-        self._faiss = faiss
-        self._np = np
-        self._model = SentenceTransformer("all-MiniLM-L6-v2")
-        self.index = faiss.IndexFlatL2(self.dim)
-
+    def _load(self):
         idx_path, docs_path = self._paths()
         if os.path.exists(idx_path) and os.path.exists(docs_path):
             try:
@@ -129,20 +149,18 @@ class DirectFAISSStore:
                     self.documents = pickle.load(f)
                 print(f"[OK] Loaded existing index: {len(self.documents)} chunks")
             except Exception as e:
-                print(f"[WARN] Could not load existing index: {e}. Starting fresh.")
+                print(f"[WARN] Could not load index: {e}. Starting fresh.")
         else:
             print("[OK] No existing index — starting fresh.")
 
     def reset(self):
-        self.index = self._faiss.IndexFlatL2(self.dim)
+        self.index = faiss.IndexFlatL2(DIMENSION)
         self.documents = []
         self._save()
         print("[OK] Index reset (empty).")
 
-    def add(self, docs: list) -> int:
-        texts = [d["content"] for d in docs]
-        embeddings = self._model.encode(texts, show_progress_bar=False)
-        self.index.add(self._np.array(embeddings, dtype="float32"))
+    def add(self, docs: list, embeddings: list) -> int:
+        self.index.add(np.array(embeddings, dtype="float32"))
         self.documents.extend(docs)
         self._save()
         return len(docs)
@@ -152,7 +170,7 @@ class DirectFAISSStore:
 
     def _save(self):
         idx_path, docs_path = self._paths()
-        self._faiss.write_index(self.index, idx_path)
+        faiss.write_index(self.index, idx_path)
         with open(docs_path, "wb") as f:
             pickle.dump(self.documents, f)
 
@@ -161,12 +179,22 @@ class DirectFAISSStore:
 # Main
 # ---------------------------------------------------------------------------
 def main():
-    parser = argparse.ArgumentParser(description="Direct PDF ingestion into FAISS")
+    parser = argparse.ArgumentParser(description="Ingest PDFs into FAISS using Gemini embeddings")
     parser.add_argument("--pdf-folder", default=str(PROJECT_ROOT / "data" / "pdfs"))
     parser.add_argument("--chunk-size", type=int, default=1000)
-    parser.add_argument("--overlap", type=int, default=200)
-    parser.add_argument("--reset", action="store_true")
+    parser.add_argument("--overlap",    type=int, default=200)
+    parser.add_argument("--batch-size", type=int, default=10,
+                        help="Chunks to embed per batch (default 10)")
+    parser.add_argument("--reset",      action="store_true",
+                        help="Clear the store before ingesting")
     args = parser.parse_args()
+
+    # Verify API key
+    if not GOOGLE_API_KEY:
+        print("ERROR: GOOGLE_API_KEY not found in .env or environment.")
+        sys.exit(1)
+
+    genai.configure(api_key=GOOGLE_API_KEY)
 
     pdf_folder = Path(args.pdf_folder)
     if not pdf_folder.exists():
@@ -179,17 +207,16 @@ def main():
         sys.exit(1)
 
     print(f"\n{'='*60}")
-    print("LegalHub Direct PDF Ingestion")
+    print("LegalHub Direct PDF Ingestion  [Gemini text-embedding-004]")
     print(f"{'='*60}")
     print(f"PDF Folder : {pdf_folder}")
     print(f"PDFs Found : {len(pdf_files)}")
     print(f"Chunk Size : {args.chunk_size} chars  |  Overlap: {args.overlap} chars")
+    print(f"Embed Dim  : {DIMENSION}  (Gemini text-embedding-004)")
     print(f"FAISS Path : {CHROMADB_PATH}")
     print(f"{'='*60}\n")
 
-    print("Loading embedding model (this may take ~30s on first run)...")
     store = DirectFAISSStore(CHROMADB_PATH)
-    store.init()
 
     if args.reset:
         print("Resetting vector store...")
@@ -202,39 +229,43 @@ def main():
     for i, pdf_path in enumerate(pdf_files, 1):
         print(f"[{i}/{total}] {pdf_path.name}")
         try:
-            pdf_bytes = pdf_path.read_bytes()
-            text = extract_pdf_text(pdf_bytes)
+            text = extract_pdf_text(pdf_path.read_bytes())
 
             if not text or len(text.strip()) < 100:
-                print(f"         -> SKIPPED (insufficient text — likely scanned PDF)")
+                print(f"         -> SKIPPED (no extractable text — likely scanned PDF)")
                 skipped += 1
                 continue
 
-            clf = classify_by_filename(pdf_path.name)
+            clf    = classify_by_filename(pdf_path.name)
             chunks = chunk_text(text, args.chunk_size, args.overlap)
             print(f"         -> {len(text):,} chars | {len(chunks)} chunks | {clf['legal_domain']}")
 
-            doc_id = re.sub(r"[^a-zA-Z0-9_]", "_", pdf_path.stem)[:60]
+            doc_id    = re.sub(r"[^a-zA-Z0-9_]", "_", pdf_path.stem)[:60]
             documents = [
                 {
-                    "id": f"{doc_id}_chunk_{j}",
-                    "content": chunk,
-                    "source": f"pdf:{pdf_path.name}",
-                    "filename": pdf_path.name,
+                    "id":            f"{doc_id}_chunk_{j}",
+                    "content":       chunk,
+                    "source":        f"pdf:{pdf_path.name}",
+                    "filename":      pdf_path.name,
                     "document_type": clf["document_type"],
-                    "legal_domain": clf["legal_domain"],
-                    "jurisdiction": "Cameroon",
-                    "chunk_index": j,
+                    "legal_domain":  clf["legal_domain"],
+                    "jurisdiction":  "Cameroon",
+                    "chunk_index":   j,
                 }
                 for j, chunk in enumerate(chunks)
             ]
 
-            # Add in batches of 50
+            # Embed in batches
             added = 0
-            for k in range(0, len(documents), 50):
-                added += store.add(documents[k:k+50])
+            for k in range(0, len(documents), args.batch_size):
+                batch     = documents[k:k + args.batch_size]
+                texts     = [d["content"] for d in batch]
+                embeddings = embed_texts(texts, task_type="retrieval_document")
+                added     += store.add(batch, embeddings)
+                sys.stdout.write(f"\r         -> Embedded {min(k+args.batch_size, len(documents))}/{len(documents)} chunks...")
+                sys.stdout.flush()
 
-            print(f"         -> Added {added} chunks  [Total: {store.count()}]")
+            print(f"\r         -> Added {added} chunks  [Total in store: {store.count()}]")
             total_chunks += added
             success += 1
 
@@ -257,10 +288,10 @@ def main():
         sys.exit(1)
 
     print(f"\n{'='*60}")
-    print("Next: commit the index to Git so Vercel picks it up")
+    print("Next: commit the new index to Git so Vercel picks it up")
     print(f"{'='*60}")
     print(f"  git add chroma_db/")
-    print(f'  git commit -m "chore: update FAISS index ({total_chunks} chunks)"')
+    print(f'  git commit -m "chore: rebuild FAISS index with Gemini embeddings ({total_chunks} chunks)"')
     print(f"  git push")
     print(f"{'='*60}\n")
 

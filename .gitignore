@@ -18,3 +18,7 @@ __pycache__/
 # Test reports
 htmlcov/
 .pytest_cache/
+
+# Thesis / personal documents (not for version control)
+thesis_draft.md
+thesis*.md
