@@ -18,7 +18,7 @@ from app.services import firebase_service, gemini_service
 from app.utils.faiss_store import get_vector_store
 
 from app.models.chat import ChatMessage
-from app.prompts import RAG_SYSTEM_PROMPT_TEMPLATE, LEGALHUB_CORE_SYSTEM_PROMPT
+from app.prompts import RAG_SYSTEM_PROMPT_TEMPLATE, LEGALHUB_CORE_SYSTEM_PROMPT, QUERY_EXPANSION_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +55,26 @@ class RAGService:
         except Exception as e:
             logger.error(f"Failed to initialize RAG collection: {e}")
             raise
+
+    async def _expand_query(self, user_query: str) -> str:
+        """
+        Rewrite a conversational query into precise Cameroonian legal terminology
+        before FAISS retrieval. Significantly improves retrieval quality for
+        vague or colloquial questions (e.g. "got fired" -> "wrongful dismissal").
+
+        This is a fast, single-sentence Gemini call (~0.3s).
+        Falls back to the original query on any error.
+        """
+        try:
+            prompt = QUERY_EXPANSION_PROMPT.format(user_query=user_query)
+            result = await gemini_service.send_message(prompt)
+            expanded = result.get("response", "").strip() if isinstance(result, dict) else str(result).strip()
+            if expanded and len(expanded) > 5:
+                logger.info(f"Query expanded: '{user_query[:40]}' -> '{expanded[:60]}'")
+                return expanded
+        except Exception as e:
+            logger.warning(f"Query expansion failed (using original): {e}")
+        return user_query
 
     async def add_documents(
         self,
@@ -211,10 +231,11 @@ class RAGService:
                 )
                 await firebase_service.add_chat_message(session_id, user_chat_message)
 
-            # 2. Retrieve relevant documents if RAG is enabled
+            # 2. Expand query for better retrieval, then retrieve documents
             if use_rag:
+                search_query = await self._expand_query(user_message)
                 retrieved_docs = await self.retrieve_documents(
-                    user_message,
+                    search_query,   # expanded query for FAISS
                     top_k=top_k
                 )
 
@@ -282,10 +303,11 @@ class RAGService:
                 )
                 await firebase_service.add_chat_message(session_id, user_chat_message)
 
-            # 2. Retrieve relevant documents if RAG is enabled
+            # 2. Expand query for better retrieval, then retrieve documents
             if use_rag:
+                search_query = await self._expand_query(user_message)
                 retrieved_docs = await self.retrieve_documents(
-                    user_message,
+                    search_query,   # expanded query for FAISS
                     top_k=top_k
                 )
 
