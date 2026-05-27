@@ -99,8 +99,7 @@ async def create_booking(
         # 2. Check Availability (Conflict Detection)
         # Calculate end time
         requested_start = booking_data.scheduled_at
-        requested_end = requested_start + 
-            timedelta(minutes=booking_data.duration)
+        requested_end = requested_start + timedelta(minutes=booking_data.duration)
 
         # Query existing bookings for this lawyer around this time
         # Note: Firestore generic query is limited, but we can filter in memory for now OR use composite index.
@@ -125,8 +124,7 @@ async def create_booking(
 
             existing_start = _parse_datetime(doc.get("scheduledAt"))
             existing_duration = doc.get("duration", 30)
-            existing_end = existing_start + 
-                timedelta(minutes=existing_duration)
+            existing_end = existing_start + timedelta(minutes=existing_duration)
 
             # Check overlap
             if requested_start < existing_end and requested_end > existing_start:

@@ -18,7 +18,7 @@ from datetime import datetime, UTC
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_roles
 from app.services import firebase_service
 from app.services.notification_service import notification_service
 from app.services.ingestion_service import (
