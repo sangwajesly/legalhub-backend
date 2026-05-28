@@ -1,10 +1,4 @@
-"""
-Service for semantic chunking and embedding generation for RAG.
-"""
-
 from typing import List, Dict, Any
-from transformers import AutoTokenizer, AutoModel
-import torch
 import logging
 
 logger = logging.getLogger(__name__)
@@ -28,6 +22,7 @@ class EmbeddingService:
         """
         Performs mean pooling to get sentence embeddings.
         """
+        import torch
         token_embeddings = model_output[
             0
         ]  # First element of model_output contains all token embeddings
@@ -44,6 +39,10 @@ class EmbeddingService:
         """
         if not text:
             return []
+
+        # Defer heavy ML imports to avoid import-time crashes and timeouts on Vercel
+        from transformers import AutoTokenizer, AutoModel
+        import torch
 
         # Lazy-load tokenizer and model to avoid import-time heavy downloads
         if self.tokenizer is None or self.model is None:
