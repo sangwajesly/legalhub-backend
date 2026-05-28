@@ -32,6 +32,24 @@ class Settings(BaseSettings):
     )
     DEBUG_MOCK_GEMINI: bool = False
 
+    # Fallback AI provider configuration
+    FALLBACK_AI_PROVIDERS: str = "huggingface,openai,cohere,groq,grok"
+    HUGGINGFACE_API_KEY: str = ""
+    HUGGINGFACE_API_URL: str = ""
+    HUGGINGFACE_MODEL: str = "google/flan-t5-small"
+    OPENAI_API_KEY: str = ""
+    OPENAI_API_URL: str = ""
+    OPENAI_MODEL: str = "gpt-3.5-turbo"
+    COHERE_API_KEY: str = ""
+    COHERE_API_URL: str = ""
+    COHERE_MODEL: str = "command-xlarge-nightly"
+    GROQ_API_KEY: str = ""
+    GROQ_API_URL: str = ""
+    GROQ_MODEL: str = "groq-1-small"
+    GROK_API_KEY: str = ""
+    GROK_API_URL: str = ""
+    GROK_MODEL: str = "grok-1"
+
     # JWT Configuration
     JWT_SECRET_KEY: str = ""
     JWT_ALGORITHM: str = "HS256"
@@ -40,7 +58,10 @@ class Settings(BaseSettings):
 
     # CORS Configuration - Allow all localhost ports in development
     ALLOWED_ORIGINS: str = (
-        "http://localhost:3000,https://legalhubeasy.vercel.app"
+        "http://localhost:3000,http://localhost:3001,http://localhost:5173,"
+        "https://legalhub-frontend-lime.vercel.app,"
+        "https://legalhub-eight.vercel.app,"
+        "https://legalhubeasy.vercel.app"
     )
 
     @property
