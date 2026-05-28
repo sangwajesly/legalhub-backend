@@ -6,7 +6,6 @@ local FAISS by default and optionally switch to a hosted vector database.
 
 from app.config import settings
 from app.utils.faiss_store import get_vector_store as get_faiss_vector_store
-from app.utils.pinecone_store import PineconeVectorStore
 import logging
 
 logger = logging.getLogger(__name__)
@@ -20,6 +19,7 @@ def get_vector_store(collection_name: str = "legalhub_documents"):
             return get_faiss_vector_store(collection_name)
         if store_type == "pinecone":
             try:
+                from app.utils.pinecone_store import PineconeVectorStore
                 return PineconeVectorStore(collection_name)
             except Exception as e:
                 logger.warning(
