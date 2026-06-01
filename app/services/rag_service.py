@@ -10,6 +10,7 @@ This service orchestrates the RAG pipeline:
 
 import asyncio
 import logging
+import re
 from typing import List, Dict, Optional, Tuple
 from datetime import datetime, UTC
 
@@ -26,6 +27,12 @@ from app.prompts import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Standard greeting patterns (case-insensitive, whole-word matches) to bypass RAG retrieval
+GREETING_PATTERN = re.compile(
+    r"^\s*(hi|hello|hey|greetings|good\s+morning|good\s+afternoon|good\s+evening|yo|sup|hola|bonjour|hi\s+there|hello\s+there|hey\s+there|hello\s+legalhub|hi\s+legalhub)\b\s*[!?.]*\s*$",
+    re.IGNORECASE
+)
 
 
 class RAGService:
@@ -229,6 +236,12 @@ class RAGService:
                     userId=user_id, createdAt=datetime.now(UTC)
                 ))
 
+            # Check for simple greetings or extremely short inputs to prevent RAG noise
+            cleaned_msg = user_message.strip().lower()
+            if use_rag and (len(cleaned_msg) < 4 or bool(GREETING_PATTERN.match(cleaned_msg))):
+                logger.info(f"Greeting/Short query detected ('{user_message}') — bypassing RAG retrieval.")
+                use_rag = False
+
             # 2. Expand query; detect off-topic early
             search_query = user_message
             if use_rag:
@@ -307,6 +320,12 @@ class RAGService:
                     role="user", text=user_message,
                     userId=user_id, createdAt=datetime.now(UTC)
                 ))
+
+            # Check for simple greetings or extremely short inputs to prevent RAG noise
+            cleaned_msg = user_message.strip().lower()
+            if use_rag and (len(cleaned_msg) < 4 or bool(GREETING_PATTERN.match(cleaned_msg))):
+                logger.info(f"Greeting/Short query detected (stream) ('{user_message}') — bypassing RAG retrieval.")
+                use_rag = False
 
             # 2. Expand query; detect off-topic early
             search_query = user_message
