@@ -14,7 +14,7 @@ from typing import List, Dict, Optional, Tuple
 from datetime import datetime, UTC
 
 from app.config import settings
-from app.services import firebase_service, gemini_service
+from app.services import ai_service, firebase_service
 from app.utils.vector_store import get_vector_store
 
 from app.models.chat import ChatMessage
@@ -69,7 +69,7 @@ class RAGService:
         """
         try:
             prompt = QUERY_EXPANSION_PROMPT.format(user_query=user_query)
-            result = await gemini_service.send_message(prompt)
+            result = await ai_service.send_message(prompt)
             expanded = result.get("response", "").strip() if isinstance(result, dict) else str(result).strip()
             if expanded and len(expanded) > 3:
                 logger.info(f"Query expanded: '{user_query[:40]}' -> '{expanded[:60]}'")
@@ -178,12 +178,18 @@ class RAGService:
         for doc in retrieved_docs:
             content = doc.get("content", "")
             score = doc.get("score", 0)
-            # Source can be in doc directly or in metadata
+            # Source and page can be in doc directly or in metadata
             source = doc.get("source") or doc.get(
                 "metadata", {}).get("source", "unknown")
+            page = doc.get("page") or doc.get(
+                "metadata", {}).get("page")
 
-            # Format context chunk
-            chunk = f"[Source: {source} (relevance: {score:.2f})]\n{content}\n"
+            # Format context chunk with page details for precise LLM legal citations
+            if page:
+                chunk = f"[Source: {source}, Page: {page} (relevance: {score:.2f})]\n{content}\n"
+            else:
+                chunk = f"[Source: {source} (relevance: {score:.2f})]\n{content}\n"
+            
             chunk_length = len(chunk)
 
             if total_length + chunk_length > max_context_length:
@@ -234,7 +240,7 @@ class RAGService:
                     final_prompt = await self._build_chat_context_prompt(
                         session_id, user_message, no_docs_found=True
                     )
-                    ai_result = await gemini_service.send_message(final_prompt)
+                    ai_result = await ai_service.send_message(final_prompt)
                     reply = ai_result.get("response", str(ai_result)) if isinstance(ai_result, dict) else str(ai_result)
                     if session_id:
                         await firebase_service.add_chat_message(session_id, ChatMessage(
@@ -257,7 +263,7 @@ class RAGService:
 
             # 4. Generate response
             try:
-                ai_result = await gemini_service.send_message(final_prompt)
+                ai_result = await ai_service.send_message(final_prompt)
             except Exception as e:
                 logger.error(f"LLM call failed: {e}")
                 return "I'm sorry, I couldn't process that right now. Please try again later.", retrieved_docs
@@ -313,7 +319,7 @@ class RAGService:
                         session_id, user_message, no_docs_found=True
                     )
                     final_parts = []
-                    async for chunk in gemini_service.stream_send_message(final_prompt):
+                    async for chunk in ai_service.stream_send_message(final_prompt):
                         text = chunk.get("response", "") if isinstance(chunk, dict) else str(chunk)
                         final_parts.append(text)
                         yield text
@@ -338,7 +344,7 @@ class RAGService:
             # 4. Stream response from LLM
             final_parts = []
             try:
-                async for chunk in gemini_service.stream_send_message(final_prompt):
+                async for chunk in ai_service.stream_send_message(final_prompt):
                     text = chunk.get("response", "") if isinstance(
                         chunk, dict) else str(chunk)
                     final_parts.append(text)

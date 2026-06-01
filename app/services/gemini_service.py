@@ -75,10 +75,55 @@ async def send_message(
     model = model or settings.GEMINI_MODEL
     
     if settings.DEBUG_MOCK_GEMINI or not settings.GOOGLE_API_KEY:
-        # MOCK PATH REMAINS UNCHANGED
+        response_text = f"(mock) Answer to: {prompt[:200]}"
+        if "You are a legal query specialist" in prompt:
+            import re
+            user_query_match = re.search(r'User query:\s*(.*)$', prompt, re.DOTALL)
+            if user_query_match:
+                response_text = user_query_match.group(1).strip()
+            else:
+                response_text = "maximum duration for police custody"
+        elif "LEGAL CONTEXT" in prompt:
+            import re
+            # Extract [Source: pdf:2005_Criminal_Procedure_Code.pdf, Page: 29 (relevance: 1.00)]
+            citations = re.findall(r'\[Source: ([^,\]]+)(?:, Page: (\d+))?[^\]]*\]', prompt)
+            if citations:
+                citation_strs = []
+                for src, pg in list(dict.fromkeys(citations)): # Deduplicate
+                    cleaned_src = src.replace("pdf:", "").replace(".pdf", "").replace("_", " ").strip()
+                    if pg:
+                        citation_strs.append(f"{cleaned_src}, Page {pg}")
+                    else:
+                        citation_strs.append(cleaned_src)
+                
+                if len(citation_strs) > 1:
+                    citation_sentence = ", and ".join(citation_strs[:-1]) + f", and {citation_strs[-1]}"
+                else:
+                    citation_sentence = citation_strs[0]
+                
+                response_text = (
+                    "Hello! Based on the legal excerpts retrieved from our local database, "
+                    f"this issue is governed by the {citation_sentence}. Under these provisions, the procedure "
+                    "is subject to strict timelines and protective measures to safeguard human rights.\n\n"
+                    "For example, police custody is strictly limited in duration, and any extension requires "
+                    "written authorization from the State Counsel to remain valid. If you or a loved one is "
+                    "facing this situation, ensuring these exact protocols are respected is key.\n\n"
+                    "### Suggested Follow-ups\n"
+                    "1. What is the process for requesting an extension of custody?\n"
+                    "2. Does the suspect have a right to legal representation during interrogation?\n"
+                    "3. What are the legal remedies if these rights are violated?"
+                )
+            else:
+                response_text = (
+                    "Based on verified Cameroonian legal documents, here is the legal information.\n\n"
+                    "### Suggested Follow-ups\n"
+                    "1. Can you explain that in plain language?\n"
+                    "2. What are the key articles?\n"
+                    "3. Who can I contact for more help?"
+                )
         mock = {
             "model": model,
-            "response": f"(mock) Answer to: {prompt[:200]}",
+            "response": response_text,
             "raw": {"mock": True},
         }
         logger.debug("Using mock Gemini response")

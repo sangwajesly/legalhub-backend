@@ -58,33 +58,46 @@ EMBED_URL   = f"https://generativelanguage.googleapis.com/v1/models/{EMBED_MODEL
 def embed_texts(texts: list, task_type: str = "RETRIEVAL_DOCUMENT",
                 retry: int = 3, base_wait: float = 0.05) -> list:
     """Embed texts via Gemini REST API (no SDK — avoids Windows crashes).
-    `base_wait` controls the seconds to sleep after each successful request.
+    Upgraded to use the batchEmbedContents endpoint for high performance and zero 429 errors.
     """
-    embeddings = []
-    for i, text in enumerate(texts):
-        for attempt in range(retry):
-            try:
-                resp = requests.post(
-                    EMBED_URL,
-                    params={"key": GOOGLE_API_KEY},
-                    json={
-                        "model": f"models/{EMBED_MODEL}",
-                        "content": {"parts": [{"text": text}]},
-                        "taskType": task_type,
-                    },
-                    timeout=30,
-                )
-                resp.raise_for_status()
-                embeddings.append(resp.json()["embedding"]["values"])
-                time.sleep(base_wait)
-                break
-            except Exception as e:
-                wait = 2 ** attempt
-                print(f"         [embed retry {attempt+1}/{retry} — {e} — wait {wait}s]")
-                time.sleep(wait)
-        else:
-            raise RuntimeError(f"Embedding failed after {retry} retries for text #{i}")
-    return embeddings
+    if not texts:
+        return []
+
+    batch_url = f"https://generativelanguage.googleapis.com/v1/models/{EMBED_MODEL}:batchEmbedContents"
+    
+    # Standardize task type to uppercase as required by Gemini API
+    api_task_type = task_type.upper() if task_type else "RETRIEVAL_DOCUMENT"
+
+    # Construct the batch request payload
+    requests_payload = []
+    for text in texts:
+        requests_payload.append({
+            "model": f"models/{EMBED_MODEL}",
+            "content": {"parts": [{"text": text}]},
+            "taskType": api_task_type,
+        })
+
+    payload = {"requests": requests_payload}
+
+    for attempt in range(retry):
+        try:
+            resp = requests.post(
+                batch_url,
+                params={"key": GOOGLE_API_KEY},
+                json=payload,
+                timeout=45,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            embeddings = [emb["values"] for emb in data.get("embeddings", [])]
+            time.sleep(base_wait)
+            return embeddings
+        except Exception as e:
+            wait = 2 ** attempt
+            print(f"         [batch embed retry {attempt+1}/{retry} — {e} — wait {wait}s]")
+            time.sleep(wait)
+
+    raise RuntimeError(f"Batch embedding failed after {retry} retries.")
 
 # ---------------------------------------------------------------------------
 # PDF text extraction (pure Python — no app.* imports)
@@ -216,8 +229,8 @@ def main():
     parser.add_argument("--pdf-folder", default=str(PROJECT_ROOT / "data" / "pdfs"))
     parser.add_argument("--chunk-size", type=int, default=1000)
     parser.add_argument("--overlap",    type=int, default=200)
-    parser.add_argument("--batch-size", type=int, default=10,
-                        help="Chunks to embed per batch (default 10)")
+    parser.add_argument("--batch-size", type=int, default=100,
+                        help="Chunks to embed per batch (default 100)")
     parser.add_argument("--embed-delay", type=float, default=0.05,
                         help="Seconds to wait after each embedding request (default 0.05)")
     parser.add_argument("--reset",      action="store_true",

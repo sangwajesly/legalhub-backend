@@ -25,7 +25,7 @@ async def test_pdf_processing():
     pdf_path = Path("data/pdfs/Penal-Code-eng.pdf")
 
     if not pdf_path.exists():
-        print(f"❌ PDF file not found: {pdf_path}")
+        print(f"[FAIL] PDF file not found: {pdf_path}")
         return None
 
     try:
@@ -37,7 +37,7 @@ async def test_pdf_processing():
         text_content, metadata = PDFProcessor.extract_text_from_pdf(
             pdf_content)
 
-        print(f"✅ PDF processed successfully")
+        print(f"[OK] PDF processed successfully")
         print(f"   Title: {metadata.get('title', 'Unknown')}")
         print(f"   Pages: {metadata.get('pages', 'Unknown')}")
         print(f"   Text length: {len(text_content)} characters")
@@ -46,7 +46,7 @@ async def test_pdf_processing():
         return text_content, metadata
 
     except Exception as e:
-        print(f"❌ Error processing PDF: {e}")
+        print(f"[FAIL] Error processing PDF: {e}")
         return None
 
 
@@ -83,7 +83,7 @@ async def test_rag_ingestion():
             jurisdiction="General Law",
             section="Contract Formation"
         )
-        print(f"✅ Contract law added: {result1['status']}")
+        print(f"[OK] Contract law added: {result1['status']}")
 
         # Add sample criminal law
         result2 = await add_statute_to_rag(
@@ -120,12 +120,12 @@ async def test_rag_ingestion():
             jurisdiction="Criminal Code",
             section="General Principles"
         )
-        print(f"✅ Criminal law added: {result2['status']}")
+        print(f"[OK] Criminal law added: {result2['status']}")
 
         return True
 
     except Exception as e:
-        print(f"❌ Error adding documents to RAG: {e}")
+        print(f"[FAIL] Error adding documents to RAG: {e}")
         return False
 
 
@@ -143,7 +143,7 @@ async def test_rag_search():
     ]
 
     for query in test_queries:
-        print(f"\n🔍 Searching for: '{query}'")
+        print(f"\n[SEARCH] Searching for: '{query}'")
 
         try:
             result = await search_rag(
@@ -153,7 +153,7 @@ async def test_rag_search():
             )
 
             if result["status"] == "success":
-                print(f"✅ Found {result['results_count']} relevant documents")
+                print(f"[OK] Found {result['results_count']} relevant documents")
 
                 for i, doc in enumerate(result["documents"], 1):
                     score = doc.get('score', 0)
@@ -164,10 +164,10 @@ async def test_rag_search():
                     print(f"      Content: {doc.get('content', '')[:200]}...")
             else:
                 print(
-                    f"❌ Search failed: {result.get('error', 'Unknown error')}")
+                    f"[FAIL] Search failed: {result.get('error', 'Unknown error')}")
 
         except Exception as e:
-            print(f"❌ Error during search: {e}")
+            print(f"[FAIL] Error during search: {e}")
 
 
 async def test_rag_chat():
@@ -185,7 +185,7 @@ async def test_rag_chat():
     ]
 
     for message in test_messages:
-        print(f"\n💬 User: {message}")
+        print(f"\n[USER] User: {message}")
 
         try:
             # Test RAG-augmented response
@@ -197,8 +197,8 @@ async def test_rag_chat():
                 top_k=2
             )
 
-            print(f"🤖 Assistant: {response[:300]}...")
-            print(f"📚 Retrieved {len(retrieved_docs)} relevant documents")
+            print(f"[BOT] Assistant: {response[:300]}...")
+            print(f"[DOCS] Retrieved {len(retrieved_docs)} relevant documents")
 
             if retrieved_docs:
                 print("   Relevant sources:")
@@ -209,12 +209,12 @@ async def test_rag_chat():
                     print(f"   - Score: {score:.3f}, Source: {source}")
 
         except Exception as e:
-            print(f"❌ Error generating RAG response: {e}")
+            print(f"[FAIL] Error generating RAG response: {e}")
 
 
 async def main():
     """Main test function"""
-    print("🚀 LegalHub RAG System Test")
+    print("[START] LegalHub RAG System Test")
     print("=" * 50)
 
     # Test 1: PDF Processing
@@ -225,7 +225,7 @@ async def main():
     # Test 2: RAG Ingestion
     ingestion_success = await test_rag_ingestion()
     if not ingestion_success:
-        print("❌ RAG ingestion failed, cannot continue with other tests")
+        print("[FAIL] RAG ingestion failed, cannot continue with other tests")
         return
 
     # Test 3: RAG Search
@@ -235,7 +235,7 @@ async def main():
     await test_rag_chat()
 
     print("\n" + "=" * 50)
-    print("🎉 RAG System Testing Complete!")
+    print("[DONE] RAG System Testing Complete!")
     print("=" * 50)
 
 

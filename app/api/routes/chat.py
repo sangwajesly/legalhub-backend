@@ -155,13 +155,13 @@ async def send_message_to_session(
             top_k=5
         )
     except Exception as e:
-        print(f"RAG pipeline failed: {e}. Falling back to direct Gemini call.")
-        from app.services import gemini_service
+        print(f"RAG pipeline failed: {e}. Falling back to direct AI provider call.")
+        from app.services import ai_service
         try:
-            result = await gemini_service.send_message(payload.message)
+            result = await ai_service.send_message(payload.message)
             reply_text = result.get("response", str(result)) if isinstance(result, dict) else str(result)
-        except Exception as gemini_err:
-            print(f"Gemini also failed: {gemini_err}.")
+        except Exception as ai_err:
+            print(f"AI fallback also failed: {ai_err}.")
             reply_text = "I am here to assist you with Cameroonian law. Please ask any specific legal questions."
 
     # Store assistant message in memory
@@ -208,13 +208,13 @@ async def stateless_query(
         }
     except Exception as e:
         print(f"Stateless RAG query failed: {e}")
-        from app.services import gemini_service
+        from app.services import ai_service
         try:
-            result = await gemini_service.send_message(payload.message)
+            result = await ai_service.send_message(payload.message)
             reply_text = result.get("response", str(result)) if isinstance(result, dict) else str(result)
             return {"reply": reply_text, "sessionId": session_id, "sources": []}
-        except Exception as gemini_err:
-            raise HTTPException(status_code=500, detail=f"Chat service unavailable: {gemini_err}")
+        except Exception as ai_err:
+            raise HTTPException(status_code=500, detail=f"Chat service unavailable: {ai_err}")
 
 
 @router.get("/sessions/{session_id}/messages", response_model=HistoryResponse)

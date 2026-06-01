@@ -37,15 +37,15 @@ def print_header(text: str):
 
 
 def print_success(text: str):
-    print(f"{Colors.OKGREEN}✓ {text}{Colors.ENDC}")
+    print(f"{Colors.OKGREEN}[OK] {text}{Colors.ENDC}")
 
 
 def print_error(text: str):
-    print(f"{Colors.FAIL}✗ {text}{Colors.ENDC}")
+    print(f"{Colors.FAIL}[FAIL] {text}{Colors.ENDC}")
 
 
 def print_info(text: str):
-    print(f"{Colors.OKCYAN}ℹ {text}{Colors.ENDC}")
+    print(f"{Colors.OKCYAN}[INFO] {text}{Colors.ENDC}")
 
 
 async def main():
@@ -68,7 +68,7 @@ async def main():
     
     args = parser.parse_args()
     
-    print_header("🚀 PDF Batch Loader for LegalHub RAG")
+    print_header("[START] PDF Batch Loader for LegalHub RAG")
     print_info(f"PDF Folder: {args.folder}")
     print_info(f"Cleanup after processing: {args.cleanup}")
     
@@ -76,7 +76,7 @@ async def main():
     stats = await load_pdfs_from_folder(args.folder)
     
     # Print summary
-    print_header("📊 Processing Summary")
+    print_header("[STATS] Processing Summary")
     print(f"  Total files:    {stats['total']}")
     print(f"  {Colors.OKGREEN}Success:      {stats['success']}{Colors.ENDC}")
     print(f"  {Colors.FAIL}Failed:        {stats['failed']}{Colors.ENDC}")
@@ -91,7 +91,7 @@ async def main():
     
     # Cleanup if requested
     if args.cleanup and stats["success"] > 0:
-        print_header("🗑️ Cleaning Up")
+        print_header("[CLEAN] Cleaning Up")
         pdf_folder = Path(args.folder)
         pdf_files = list(pdf_folder.glob("*.pdf"))
         

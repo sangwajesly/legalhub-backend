@@ -149,7 +149,7 @@ async def send_rag_message(
         top_k: Number of top documents to retrieve
     """
     try:
-        session_id = payload.sessionId or None
+        session_id = payload.session_id or None
         
         # Generate RAG response
         reply, retrieved_docs = await langchain_service.generate_rag_response(
@@ -186,7 +186,7 @@ async def send_rag_message_stream(
     """
     from fastapi.responses import StreamingResponse
 
-    session_id = payload.sessionId or None
+    session_id = payload.session_id or None
 
     async def event_stream():
         try:

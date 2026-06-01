@@ -182,8 +182,15 @@ async def initialize_scheduler():
         
         # Optionally run immediately on startup
         if settings.RAG_SCRAPE_ON_STARTUP:
-            logger.info("Running initial scrape on startup...")
-            await scheduler.run_now()
+            # SAFEGUARD: Never run on startup if RENDER is detected to prevent 512MB RAM OOM crashes.
+            if os.environ.get("RENDER") or os.environ.get("ENVIRONMENT") == "production":
+                logger.warning(
+                    "⚠️ RENDER/Production environment detected: Skipping initial scrape on startup "
+                    "to prevent Out of Memory (OOM) crashes on Free Tier (512MB RAM limit)."
+                )
+            else:
+                logger.info("Running initial scrape on startup...")
+                await scheduler.run_now()
     except Exception as e:
         logger.error(f"Failed to initialize RAG scheduler: {str(e)}")
 

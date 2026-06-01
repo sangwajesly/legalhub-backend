@@ -91,7 +91,7 @@ class PDFProcessor:
         Returns:
             A dictionary containing document_type, legal_domain, jurisdiction, and summary.
         """
-        from app.services.gemini_service import send_message
+        from app.services.ai_service import send_message
         import json
 
         # Take first 3000 characters

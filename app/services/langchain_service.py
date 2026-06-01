@@ -4,7 +4,7 @@ from fastapi import HTTPException
 import logging
 from datetime import datetime, UTC
 
-from app.services import firebase_service, gemini_service, file_service
+from app.services import firebase_service, ai_service, file_service
 from app.services.pdf_ingestion_service import extract_text_from_pdf
 import mimetypes
 import base64
@@ -187,13 +187,11 @@ async def generate_response(
 
     prompt = _compose_prompt(context, full_message)
 
-    # Call gemini adapter (mocked in DEV by default)
+    # Call AI provider adapter (Gemini first, then configured fallbacks)
     try:
-        # Pass images if available
-        ai_result = await gemini_service.send_message(prompt, images=images_for_gemini)
+        ai_result = await ai_service.send_message(prompt, images=images_for_gemini)
     except Exception as e:
         logger.error("LLM call failed: %s", e)
-        # Return a safe fallback message
         return "I'm sorry, I couldn't process that right now. Please try again later."
 
     # Normalize reply
@@ -284,7 +282,7 @@ async def generate_response_stream(
     final_parts: List[str] = []
 
     try:
-        async for chunk in gemini_service.stream_send_message(prompt):
+        async for chunk in ai_service.stream_send_message(prompt):
             text = ""
             if isinstance(chunk, dict):
                 text = chunk.get("response") or ""
