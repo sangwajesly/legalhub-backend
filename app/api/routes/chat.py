@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request
 from fastapi.responses import StreamingResponse
 from typing import Optional, List
 import uuid
@@ -30,6 +30,13 @@ class QueryRequest(BaseModel):
 
 # FIXED: Changed prefix from /api/chat to /api/v1/chat to match frontend
 router = APIRouter(prefix="/api/v1/chat", tags=["chat"])
+
+from app.utils.rate_limiter import TokenBucketRateLimiter
+
+# Initialize In-Memory Rate Limiters (12 requests/min for message endpoints, 5 sessions/min)
+chat_message_limiter = TokenBucketRateLimiter(requests_per_minute=12.0, capacity=8, name="Chat Message")
+chat_session_limiter = TokenBucketRateLimiter(requests_per_minute=5.0, capacity=5, name="Chat Session")
+stateless_query_limiter = TokenBucketRateLimiter(requests_per_minute=12.0, capacity=8, name="Stateless Query")
 
 # In-memory storage fallback for demo/development mode when Firestore is unavailable
 IN_MEMORY_SESSIONS = []
@@ -65,7 +72,11 @@ def normalize_session_data(s: dict) -> dict:
 
 
 @router.post("/sessions", response_model=CreateSessionResponse)
-async def create_session(user: User = Depends(get_current_user)):
+async def create_session(
+    request: Request,
+    user: User = Depends(get_current_user),
+    _: None = Depends(chat_session_limiter)
+):
     """Create a new chat session for the authenticated user."""
     session_id = str(uuid.uuid4())
     try:
@@ -120,7 +131,9 @@ async def delete_session(id: str, user: Optional[dict] = Depends(get_current_use
 async def send_message_to_session(
     session_id: str,
     payload: MessageRequest,
-    user: User = Depends(get_current_user)
+    request: Request,
+    user: User = Depends(get_current_user),
+    _: None = Depends(chat_message_limiter)
 ):
     """Send a message to a specific session using the RAG pipeline."""
     from datetime import datetime, UTC
@@ -179,7 +192,9 @@ async def send_message_to_session(
 @router.post("/query")
 async def stateless_query(
     payload: QueryRequest,
-    user: Optional[User] = Depends(get_current_user)
+    request: Request,
+    user: Optional[User] = Depends(get_current_user),
+    _: None = Depends(stateless_query_limiter)
 ):
     """
     Stateless RAG query endpoint - works for guest users and authenticated users.
