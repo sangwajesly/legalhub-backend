@@ -12,14 +12,14 @@ from app.schemas.analytics import (
     LawyerDashboardStats,
     OrganizationDashboardStats
 )
-from app.dependencies import require_roles, require_lawyer, require_organization
+from app.dependencies import get_current_user, require_roles, require_lawyer, require_organization
 from app.models.user import UserRole
 
 router = APIRouter(prefix="/api/v1/analytics", tags=["Analytics"])
 
 
 @router.get("/overview", response_model=OverviewResponse)
-async def overview(current_user=Depends(require_roles(UserRole.ADMIN))):
+async def overview(current_user=Depends(get_current_user)):
     """Return basic counts for the dashboard."""
     db = firebase_service.db
 

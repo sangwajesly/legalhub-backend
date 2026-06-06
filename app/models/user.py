@@ -84,6 +84,22 @@ class User(UserBase):
         default=None, description="Current refresh token", alias="refreshToken"
     )
 
+    @property
+    def is_admin(self) -> bool:
+        """Check if user has admin role"""
+        return self.role == UserRole.ADMIN or self.role == "admin"
+
+    def __getitem__(self, item):
+        """Allow dict-like subscription access (e.g. user['uid'])"""
+        try:
+            return getattr(self, item)
+        except AttributeError:
+            raise KeyError(item)
+
+    def get(self, key, default=None):
+        """Allow dict-like get access (e.g. user.get('uid'))"""
+        return getattr(self, key, default)
+
     model_config = ConfigDict(
         populate_by_name=True,
         json_schema_extra={
