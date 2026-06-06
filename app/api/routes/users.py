@@ -2,7 +2,7 @@
 User profile management API endpoints
 """
 
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File
 from typing import Dict, Any
 
 from app.schemas.auth import UserResponse, UserUpdate, PublicUserResponse
@@ -229,4 +229,40 @@ async def get_extended_profile(user_id: str):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error retrieving profile: {str(e)}",
+        )
+
+
+@router.post("/profile/avatar")
+async def upload_avatar(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Upload profile picture / avatar.
+    Saves file to Firebase Storage and updates user profile picture URL.
+    """
+    try:
+        # Read file bytes
+        file_bytes = await file.read()
+        
+        # Prepare filename: users/{user_id}/avatar_{filename}
+        safe_filename = "".join([c for c in file.filename if c.isalnum() or c in "._-"])
+        storage_path = f"users/{current_user.uid}/avatar_{safe_filename}"
+        
+        # Upload using firebase_service
+        file_url = await firebase_service.upload_file(
+            path=storage_path,
+            content=file_bytes,
+            content_type=file.content_type
+        )
+        
+        # Update main user doc
+        await firebase_service.update_user(current_user.uid, {"profilePicture": file_url})
+        
+        return {"url": file_url}
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to upload avatar: {str(e)}"
         )

@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     HOST: str = "0.0.0.0"
     PORT: int = 8001
+    BACKEND_URL: str = "http://localhost:8001"
 
     # Firebase Configuration
     FIREBASE_CREDENTIALS_PATH: str = "./firebase-credentials.json"
@@ -27,6 +28,9 @@ class Settings(BaseSettings):
     # Google Gemini API
     GOOGLE_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-2.5-flash"
+    # Ordered list of Gemini models to try before falling back to other providers.
+    # The primary GEMINI_MODEL is always tried first automatically.
+    GEMINI_FALLBACK_MODELS: str = "gemini-2.0-flash,gemini-1.5-flash,gemini-1.5-pro"
     GEMINI_API_URL: str = (
         "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
     )

@@ -35,7 +35,7 @@ def generate_dummy_lawyer_data(uid: str, email: str, display_name: str) -> Lawye
         hourly_rate=round(random.uniform(50.0, 300.0), 2),
         years_experience=random.randint(3, 30),
         languages=random.sample(languages, k=random.randint(1, len(languages))),
-        verified=random.choice([True, False]),
+        verified=True,
         rating=round(random.uniform(3.0, 5.0), 1),
         num_reviews=random.randint(0, 200),
         created_at=datetime.now(timezone.utc) - timedelta(days=random.randint(30, 365*5)),

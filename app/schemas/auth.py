@@ -40,7 +40,7 @@ class UserRegister(BaseModel):
                 "email": "user@example.com",
                 "password": "SecurePass123",
                 "display_name": "John Doe",
-                "role": "user",
+                "role": "citizen",
                 "phone_number": "+237123456789",
             }
         }
@@ -121,7 +121,7 @@ class PublicUserResponse(BaseModel):
             "example": {
                 "uid": "abc123xyz",
                 "display_name": "John Doe",
-                "role": "user",
+                "role": "citizen",
                 "profile_picture": "https://example.com/photo.jpg",
                 "created_at": "2024-01-15T10:30:00Z",
             }
@@ -150,7 +150,7 @@ class UserResponse(BaseModel):
                 "uid": "abc123xyz",
                 "email": "user@example.com",
                 "display_name": "John Doe",
-                "role": "user",
+                "role": "citizen",
                 "phone_number": "+237123456789",
                 "profile_picture": "https://example.com/photo.jpg",
                 "email_verified": True,
@@ -263,7 +263,7 @@ class AuthResponse(BaseModel):
                     "uid": "abc123xyz",
                     "email": "user@example.com",
                     "display_name": "John Doe",
-                    "role": "user",
+                    "role": "citizen",
                     "phone_number": "+237123456789",
                     "profile_picture": None,
                     "email_verified": True,

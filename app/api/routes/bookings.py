@@ -58,7 +58,7 @@ def _parse_datetime(value):
 
 
 # POST /api/bookings - Create a new booking
-@router.post("/", response_model=BookingDetailSchema, status_code=201)
+@router.post("", response_model=BookingDetailSchema, status_code=201)
 async def create_booking(
     booking_data: BookingCreateSchema,
     current_user: User = Depends(require_roles(UserRole.CITIZEN, UserRole.NGO)), # Apply role validation

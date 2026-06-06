@@ -11,6 +11,27 @@ logger = logging.getLogger(__name__)
 _SUPPORTED_PROVIDERS = ["gemini", "huggingface", "openai", "cohere", "groq", "grok"]
 
 
+def _gemini_model_list() -> List[str]:
+    """Return an ordered list of Gemini models to attempt.
+
+    Always starts with the primary GEMINI_MODEL, followed by any additional
+    models listed in GEMINI_FALLBACK_MODELS (comma-separated). Duplicates are
+    removed while preserving order.
+    """
+    primary = settings.GEMINI_MODEL.strip()
+    fallbacks_raw = getattr(settings, "GEMINI_FALLBACK_MODELS", "")
+    fallbacks = [m.strip() for m in fallbacks_raw.split(",") if m.strip()]
+
+    seen: set = set()
+    ordered: List[str] = []
+    for m in [primary] + fallbacks:
+        if m and m not in seen:
+            seen.add(m)
+            ordered.append(m)
+    return ordered
+
+
+
 def _extract_text_from_api_response(resp: Any) -> str:
     if resp is None:
         return ""
@@ -166,10 +187,10 @@ async def _send_groq(prompt: str, model: str) -> Dict[str, Any]:
     }
     
     # Use standard chat models if the configured one looks incorrect or generic
-    # Standard models are: llama-3.3-70b-versatile, mixtral-8x7b-32768, gemma2-9b-it, llama3-8b-8192
+    # Standard models are: llama-3.3-70b-versatile, llama-3.1-8b-instant, gemma2-9b-it
     groq_model = model
     if not groq_model or groq_model in ["groq-1-small", "default"]:
-        groq_model = "mixtral-8x7b-32768"
+        groq_model = "llama-3.1-8b-instant"
 
     payload = {
         "model": groq_model,
@@ -239,6 +260,16 @@ async def _send_grok(prompt: str, model: str) -> Dict[str, Any]:
     return {"provider": "grok", "model": grok_model, "response": content.strip(), "raw": raw}
 
 
+def _is_retryable_gemini_error(exc: Exception) -> bool:
+    """Return True for transient Gemini errors worth retrying on another model.
+
+    Retryable: 503 Service Unavailable, 429 Too Many Requests, 500 Internal.
+    Non-retryable: 400 Bad Request, 401/403 auth errors (wrong key).
+    """
+    msg = str(exc).lower()
+    return any(code in msg for code in ("503", "429", "500", "overload", "unavailable", "quota"))
+
+
 async def send_message(
     prompt: str,
     model: Optional[str] = None,
@@ -250,40 +281,71 @@ async def send_message(
         mock_res["provider"] = "mock"
         return mock_res
 
-    provider_order = ["gemini"]
-    provider_order.extend(
-        [p for p in _normalize_provider_list(settings.FALLBACK_AI_PROVIDERS) if p in _SUPPORTED_PROVIDERS and p != "gemini"]
-    )
-
     last_error: Optional[Exception] = None
+
+    # ---------------------------------------------------------------
+    # PHASE 1 — Try every configured Gemini model in priority order
+    # ---------------------------------------------------------------
+    if settings.GOOGLE_API_KEY:
+        # If a specific model was passed in, try that first; otherwise use the full list.
+        gemini_models = [model] if model else _gemini_model_list()
+
+        for gemini_model in gemini_models:
+            try:
+                logger.debug("Trying Gemini model: %s", gemini_model)
+                result = await gemini_service.send_message(prompt, model=gemini_model, images=images)
+                result["provider"] = "gemini"
+                result["model"] = gemini_model
+                return result
+            except Exception as exc:
+                last_error = exc
+                if _is_retryable_gemini_error(exc):
+                    logger.warning(
+                        "Gemini model '%s' failed with retryable error, trying next Gemini model: %s",
+                        gemini_model, exc,
+                    )
+                    continue  # try the next Gemini model
+                else:
+                    logger.warning(
+                        "Gemini model '%s' failed with non-retryable error, skipping remaining Gemini models: %s",
+                        gemini_model, exc,
+                    )
+                    break  # non-retryable (e.g. bad key) — skip straight to other providers
+
+        logger.warning("All Gemini models exhausted. Trying external fallback providers.")
+    else:
+        logger.warning("GOOGLE_API_KEY not configured. Skipping Gemini entirely.")
+
+    # ---------------------------------------------------------------
+    # PHASE 2 — External providers (order from FALLBACK_AI_PROVIDERS)
+    # ---------------------------------------------------------------
+    provider_order = [
+        p for p in _normalize_provider_list(settings.FALLBACK_AI_PROVIDERS)
+        if p in _SUPPORTED_PROVIDERS and p != "gemini"
+    ]
+
     for provider in provider_order:
         try:
-            if provider == "gemini":
-                if not settings.GOOGLE_API_KEY:
-                    raise RuntimeError("Gemini API key is not configured.")
-                return await gemini_service.send_message(prompt, model=model, images=images)
-
             if provider == "huggingface":
-                return await _send_huggingface(prompt, model or settings.HUGGINGFACE_MODEL)
+                return await _send_huggingface(prompt, settings.HUGGINGFACE_MODEL)
 
             if provider == "openai":
-                return await _send_openai(prompt, model or settings.OPENAI_MODEL)
+                return await _send_openai(prompt, settings.OPENAI_MODEL)
 
             if provider == "cohere":
-                return await _send_cohere(prompt, model or settings.COHERE_MODEL)
+                return await _send_cohere(prompt, settings.COHERE_MODEL)
 
             if provider == "groq":
-                return await _send_groq(prompt, model or settings.GROQ_MODEL)
+                return await _send_groq(prompt, settings.GROQ_MODEL)
 
             if provider == "grok":
-                return await _send_grok(prompt, model or settings.GROK_MODEL)
+                return await _send_grok(prompt, settings.GROK_MODEL)
 
         except Exception as exc:
             last_error = exc
             logger.warning(
                 "AI provider '%s' failed, trying next fallback: %s",
-                provider,
-                exc,
+                provider, exc,
             )
             continue
 
@@ -299,3 +361,4 @@ async def stream_send_message(prompt: str, model: Optional[str] = None):
     result = await send_message(prompt, model=model)
     text = result.get("response", "") if isinstance(result, dict) else str(result)
     yield {"model": model or settings.GEMINI_MODEL, "response": text, "raw": result}
+

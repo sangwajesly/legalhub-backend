@@ -112,7 +112,7 @@ class AuthService:
                     password=None,  # Explicitly mark as not used for this path
                     display_name=decoded_token.get(
                         "name", email.split("@")[0]),
-                    role="user",  # Default role
+                    role=UserRole.CITIZEN.value,  # Default role
                     phone_number=decoded_token.get("phone_number"),
                     email_verified=decoded_token.get("email_verified", False),
                     photo_url=decoded_token.get("picture"),
@@ -126,6 +126,9 @@ class AuthService:
 
             # Store the refresh token in Firestore for invalidation
             await self.firebase.update_user(user.uid, {"refresh_token": tokens["refresh_token"]})
+
+            # Update the last_login field
+            await self.firebase.update_user(user.uid, {"last_login": datetime.now(UTC)})
 
             return {"user": user, "tokens": tokens}
 
@@ -427,6 +430,9 @@ class AuthService:
 
             # Store the refresh token in Firestore for invalidation
             await self.firebase.update_user(user.uid, {"refresh_token": tokens["refresh_token"]})
+
+            # Update the last_login field
+            await self.firebase.update_user(user.uid, {"last_login": datetime.now(UTC)})
 
             return {"user": user, "tokens": tokens}
 

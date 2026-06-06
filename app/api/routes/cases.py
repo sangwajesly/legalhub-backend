@@ -18,7 +18,7 @@ from datetime import datetime, UTC
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 
-from app.dependencies import get_current_user, require_roles
+from app.dependencies import get_current_user, get_optional_user
 from app.services import firebase_service
 from app.services.notification_service import notification_service
 from app.services.ingestion_service import (
@@ -45,10 +45,10 @@ router = APIRouter(prefix="/api/v1/cases", tags=["cases"])
 
 
 # POST /api/cases - Create a new case
-@router.post("/", response_model=CaseDetailSchema, status_code=201)
+@router.post("", response_model=CaseDetailSchema, status_code=201)
 async def create_case(
     case_data: CaseCreateSchema,
-    current_user: User = Depends(require_roles(UserRole.CITIZEN, UserRole.NGO)), # Apply role validation
+    current_user: Optional[User] = Depends(get_optional_user),
 ):
     """
     Create a new case (anonymous or identified)
@@ -61,6 +61,26 @@ async def create_case(
             f"Creating case: category={case_data.category}, "
             f"anonymous={case_data.is_anonymous}"
         )
+
+        # Only authenticated users can file identified cases
+        if not case_data.is_anonymous:
+            if not current_user:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Authentication required for identified case reporting",
+                )
+            if current_user.role not in {
+                UserRole.CITIZEN,
+                UserRole.NGO,
+                UserRole.LAWYER,
+                UserRole.ORGANIZATION,
+                UserRole.GOVERNMENT,
+                UserRole.ADMIN,
+            }:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Not authorized to report a non-anonymous case",
+                )
 
         # Validate anonymous submission
         if case_data.is_anonymous:

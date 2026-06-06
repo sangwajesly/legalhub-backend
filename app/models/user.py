@@ -47,7 +47,7 @@ class UserBase(BaseModel):
             "example": {
                 "email": "john.doe@example.com",
                 "display_name": "John Doe",
-                "role": "user",
+                "role": "citizen",
                 "profile_picture": "https://example.com/photos/user.jpg",
             }
         }
@@ -91,7 +91,7 @@ class User(UserBase):
                 "uid": "firebase_user_uid_123",
                 "email": "john.doe@example.com",
                 "display_name": "John Doe",
-                "role": "user",
+                "role": "citizen",
                 "email_verified": True,
                 "phone_number": "+237123456789",
                 "profile_picture": "https://example.com/photos/user.jpg",

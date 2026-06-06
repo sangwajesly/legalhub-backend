@@ -48,27 +48,23 @@ async def register(user_data: UserRegister):
 @router.post("/verify-token", response_model=AuthResponse)
 async def verify_token(payload: VerifyTokenRequest):
     """
-    Verify Firebase ID Token and sync/create user in backend (BYPASSED)
+    Verify Firebase ID Token and sync/create user in backend
     """
-    from datetime import datetime, UTC
-    user_response = UserResponse(
-        uid="mock_citizen_demo_uid",
-        email="demo@legalhub.com",
-        displayName="Demo User",
-        role="citizen",
-        phoneNumber="+237123456789",
-        profilePicture=None,
-        emailVerified=True,
-        createdAt=datetime.now(UTC),
-        updatedAt=datetime.now(UTC)
-    )
-    token_response = Token(
-        access_token="mock_access_token_demo",
-        refresh_token="mock_refresh_token_demo",
-        token_type="bearer",
-        expires_in=3600
-    )
-    return AuthResponse(user=user_response, tokens=token_response)
+    try:
+        auth_data = await auth_service.login_user(payload.id_token)
+        user_response = UserResponse(**auth_data["user"].model_dump(by_alias=True))
+        tokens_response = Token(**auth_data["tokens"])
+        return AuthResponse(user=user_response, tokens=tokens_response)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Token verification failed: {str(e)}"
+        )
 
 
 # Keep /google as an alias for backward compatibility (deprecated)

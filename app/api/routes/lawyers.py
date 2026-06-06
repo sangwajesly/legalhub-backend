@@ -31,21 +31,34 @@ router = APIRouter(prefix="/api/v1/lawyers", tags=["lawyers"])
 
 @router.get("", response_model=LawyerListResponse, response_model_by_alias=False)
 async def list_lawyers(
-    page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100)
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    specialty: Optional[str] = Query(None, description="Filter by practice area/specialty"),
+    location: Optional[str] = Query(None, description="Filter by location (city or region)"),
 ):
+    filters = {}
+    if location:
+        filters["location"] = location
+
     docs, total = await firebase_service.query_collection(
-        "lawyers", filters={}, limit=page_size, offset=(page - 1) * page_size
+        "lawyers", filters=filters, limit=page_size, offset=(page - 1) * page_size
     )
+
     lawyers = []
     for doc_id, doc in docs:
         try:
             m = firestore_lawyer_to_model(doc, doc_id)
+            # Filter by specialty/practice area in-memory (Firestore array-contains requires a single value)
+            if specialty and specialty.lower() not in [pa.lower() for pa in (m.practice_areas or [])]:
+                continue
             lawyers.append(LawyerProfile.model_validate(m))
         except Exception:
             continue
+
     return LawyerListResponse(
-        lawyers=lawyers, total=total, page=page, page_size=page_size
+        lawyers=lawyers, total=len(lawyers), page=page, page_size=page_size
     )
+
 
 
 @router.get("/{lawyer_id}", response_model=LawyerProfile, response_model_by_alias=False)

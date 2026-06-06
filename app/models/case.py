@@ -8,7 +8,7 @@ case data stored in Firebase Firestore for both anonymous and identified reporti
 from datetime import datetime, timezone
 from typing import Optional, List, Literal
 from enum import Enum
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 
 
 # Helper function for timezone-aware UTC datetime
@@ -88,6 +88,28 @@ class CaseLocation(BaseModel):
     country: Optional[str] = Field(default=None, description="Country name")
     postal_code: Optional[str] = Field(
         default=None, description="Postal code", alias="postalCode")
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_location_data(cls, values):
+        if isinstance(values, str):
+            return {"address": values}
+
+        if isinstance(values, dict):
+            normalized = {}
+            for key, value in values.items():
+                lower_key = key.lower()
+                if lower_key == "lat":
+                    normalized["latitude"] = value
+                elif lower_key in {"lng", "long", "longitude"}:
+                    normalized["longitude"] = value
+                elif lower_key == "postalcode":
+                    normalized["postalCode"] = value
+                else:
+                    normalized[key] = value
+            return normalized
+
+        return values
 
     model_config = ConfigDict(populate_by_name=True)
 

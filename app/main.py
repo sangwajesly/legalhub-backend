@@ -3,11 +3,15 @@ LegalHub Backend - Main FastAPI Application
 """
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 import asyncio
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
+import logging
 import time
+from fastapi.staticfiles import StaticFiles
+import os
 
 
 # hghgh
@@ -105,6 +109,11 @@ app.add_middleware(
 )
 
 
+# Mount static directory for uploads (fallback if Firebase Storage is unavailable)
+os.makedirs("uploads", exist_ok=True)
+app.mount("/static", StaticFiles(directory="uploads"), name="static")
+
+
 # Request timing middleware
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
@@ -133,6 +142,27 @@ async def rewrite_api_version_middleware(request: Request, call_next):
             
     response = await call_next(request)
     return response
+
+
+# Request validation error handler
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Return and log detailed validation errors for request payloads."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+
+    logging.error(
+        f"Validation error for {request.method} {request.url.path}: errors={exc.errors()} body={body}"
+    )
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": exc.errors(),
+            "body": body,
+        },
+    )
 
 
 # Global exception handler

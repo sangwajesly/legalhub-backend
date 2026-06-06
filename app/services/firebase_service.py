@@ -116,7 +116,7 @@ class FirebaseService:
         email: str,
         password: Optional[str] = None,  # Make password optional
         display_name: str = None,
-        role: str = "user",
+        role: str = "citizen",
         phone_number: Optional[str] = None,
         email_verified: bool = False,  # Add email_verified
         photo_url: Optional[str] = None,  # Add photo_url
@@ -266,7 +266,7 @@ class FirebaseService:
                 if not data.get("email"):
                     data["email"] = f"{uid}@unknown.com"
                 if not data.get("role"):
-                    data["role"] = "user"
+                    data["role"] = "citizen"
                 if not data.get("displayName"):
                     data["displayName"] = "User"
 
@@ -289,7 +289,7 @@ class FirebaseService:
                     uid=uid,
                     email=firebase_user.email,
                     display_name=firebase_user.display_name or "User",
-                    role="user",
+                    role="citizen",
                     photo_url=firebase_user.photo_url,
                     email_verified=firebase_user.email_verified,
                     created_at=datetime.now(UTC),
@@ -314,12 +314,16 @@ class FirebaseService:
 
     def _construct_safe_user(self, uid: str, data: Dict[str, Any]) -> User:
         """Helper to manually construct a User object ignoring validation strictness"""
+        role_value = data.get("role") or "citizen"
+        if role_value == "user":
+            role_value = "citizen"
+
         return User(
             uid=uid,
             email=data.get("email") or f"{uid}@unknown.com",
             display_name=data.get("displayName") or data.get(
                 "display_name") or "User",
-            role=data.get("role") or "user",
+            role=role_value,
             email_verified=data.get("emailVerified") or False,
             is_active=data.get("isActive", True),
             created_at=datetime.now(UTC),
@@ -613,6 +617,10 @@ class FirebaseService:
     async def add_chat_message(self, session_id: str, message: ChatMessage):
         """
         Adds a chat message to a session's subcollection in Firestore.
+
+        This method is resilient: it will create the parent `chat_sessions/{session_id}`
+        document (with minimal metadata) if it does not already exist to avoid
+        ``404 No document to update`` errors when updating `lastMessageAt`.
         """
         import asyncio  # Ensure asyncio is imported
         message_dict = message.model_dump(by_alias=True)
@@ -639,14 +647,35 @@ class FirebaseService:
         # Ensure the ID is part of the stored document
         message_dict["id"] = message_id
 
+        # Ensure the parent session document exists (idempotent)
+        session_ref = self.db.collection("chat_sessions").document(session_id)
+        try:
+            # Use merge=True to avoid overwriting existing session metadata
+            await asyncio.to_thread(session_ref.set, {
+                "sessionId": session_id,
+                "lastMessageAt": datetime.now(UTC),
+            }, merge=True)
+        except Exception as e:
+            # Log and continue; the subsequent writes should still work or raise a clear error
+            print(f"DEBUG: Failed to ensure session doc exists for {session_id}: {e}")
+
+        # Write the message document
         await asyncio.to_thread(self.db.collection("chat_sessions").document(session_id).collection(
             "messages"
         ).document(message_id).set, message_dict)
 
-        # Update lastMessageAt for the session
-        await asyncio.to_thread(self.db.collection("chat_sessions").document(session_id).update,
-                                {"lastMessageAt": datetime.now(UTC)}
-                                )
+        # Update lastMessageAt for the session (safe because session doc now exists)
+        try:
+            await asyncio.to_thread(self.db.collection("chat_sessions").document(session_id).update,
+                                    {"lastMessageAt": datetime.now(UTC)}
+                                    )
+        except Exception as e:
+            # If update fails for any reason, attempt to set with merge as a fallback
+            try:
+                await asyncio.to_thread(session_ref.set, {"lastMessageAt": datetime.now(UTC)}, merge=True)
+            except Exception as e2:
+                print(f"ERROR: Failed to update lastMessageAt for session {session_id}: {e2}")
+                raise
 
     async def get_chat_history(self, session_id: str) -> List[ChatMessage]:
         """
@@ -751,9 +780,8 @@ class FirebaseService:
     async def upload_file(self, path: str, content: bytes, content_type: str) -> str:
         """Upload bytes to Firebase Storage and return a usable URL.
 
-        Tries to make the object public and return `public_url`. If signing is
-        available will attempt to generate a signed URL, otherwise returns a
-        gs:// path as a fallback.
+        Falls back to local file storage if Firebase Storage is not provisioned
+        (e.g., billing required) or fails.
         """
         try:
             # import here to avoid module-level dependency at import time
@@ -780,8 +808,36 @@ class FirebaseService:
             # Run blocking upload in a thread to avoid blocking the event loop
             return await asyncio.to_thread(_upload)
         except Exception as e:
-            # bubble up or return a fallback
-            raise Exception(f"Storage upload failed: {str(e)}")
+            print(f"[Firebase Storage] Upload failed: {e}. Falling back to LOCAL file storage.")
+            
+            # Save file locally
+            try:
+                import os
+                import asyncio
+                
+                # Define local path relative to backend root
+                local_dir = os.path.join("uploads", os.path.dirname(path))
+                os.makedirs(local_dir, exist_ok=True)
+                
+                filename = os.path.basename(path)
+                local_filepath = os.path.join(local_dir, filename)
+                
+                # Write file bytes
+                def _write_local():
+                    with open(local_filepath, 'wb') as f:
+                        f.write(content)
+                
+                await asyncio.to_thread(_write_local)
+                
+                # Construct local access URL
+                url_path = path.replace("\\", "/")
+                backend_url = getattr(settings, "BACKEND_URL", f"http://localhost:{settings.PORT}")
+                local_url = f"{backend_url}/static/{url_path}"
+                print(f"[Local Storage] Saved file to {local_filepath}. URL: {local_url}")
+                return local_url
+            except Exception as local_err:
+                print(f"[Local Storage] Failed to save file locally: {local_err}")
+                raise Exception(f"Storage upload failed: {str(e)} (Local fallback error: {str(local_err)})")
 
     # ============================================
     # ARTICLE OPERATIONS
@@ -934,6 +990,72 @@ class FirebaseService:
         docs = await asyncio.to_thread(_get_stream_data, query)
 
         return docs, total_count
+
+    # ============================================
+    # GENERIC DOCUMENT CRUD HELPERS
+    # ============================================
+
+    async def get_document(self, path: str) -> Optional[Dict[str, Any]]:
+        """
+        Retrieve a single document by its Firestore path (e.g. 'cases/case_abc123').
+
+        Returns the document data as a dict, or None if not found.
+        """
+        import asyncio
+        parts = path.strip("/").split("/")
+        ref = self.db
+        for i, part in enumerate(parts):
+            if i % 2 == 0:
+                ref = ref.collection(part)
+            else:
+                ref = ref.document(part)
+        doc = await asyncio.to_thread(ref.get)
+        if doc.exists:
+            return doc.to_dict()
+        return None
+
+    async def set_document(self, path: str, data: Dict[str, Any]) -> None:
+        """
+        Create or overwrite a document at the given Firestore path.
+        """
+        import asyncio
+        parts = path.strip("/").split("/")
+        ref = self.db
+        for i, part in enumerate(parts):
+            if i % 2 == 0:
+                ref = ref.collection(part)
+            else:
+                ref = ref.document(part)
+        await asyncio.to_thread(ref.set, data)
+
+    async def update_document(self, path: str, data: Dict[str, Any]) -> None:
+        """
+        Partially update an existing document at the given Firestore path.
+        """
+        import asyncio
+        parts = path.strip("/").split("/")
+        ref = self.db
+        for i, part in enumerate(parts):
+            if i % 2 == 0:
+                ref = ref.collection(part)
+            else:
+                ref = ref.document(part)
+        await asyncio.to_thread(ref.update, data)
+
+    async def delete_document(self, path: str) -> None:
+        """
+        Delete a document at the given Firestore path.
+        """
+        import asyncio
+        parts = path.strip("/").split("/")
+        ref = self.db
+        for i, part in enumerate(parts):
+            if i % 2 == 0:
+                ref = ref.collection(part)
+            else:
+                ref = ref.document(part)
+        await asyncio.to_thread(ref.delete)
+
 
 
 # Global Firebase service instance

@@ -162,7 +162,7 @@ class RAGService:
         self,
         user_query: str,
         retrieved_docs: List[Dict],
-        max_context_length: int = 2000
+        max_context_length: int = 5000
     ) -> str:
         """
         Augment the user query with retrieved document context.
