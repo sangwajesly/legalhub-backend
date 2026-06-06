@@ -49,13 +49,17 @@ class UserRegister(BaseModel):
 
 class AuthTokenRequest(BaseModel):
     """Schema for requests containing a Firebase ID token."""
-    id_token: str = Field(...,
-                          description="Firebase ID token from client-side authentication.")
+    id_token: str = Field(
+        ...,
+        alias="idToken",
+        description="Firebase ID token from client-side authentication."
+    )
 
     model_config = ConfigDict(
+        populate_by_name=True,
         json_schema_extra={
             "example": {
-                "id_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6..."
+                "idToken": "eyJhbGciOiJSUzI1NiIsImtpZCI6..."
             }
         }
     )
@@ -67,9 +71,10 @@ class VerifyTokenRequest(AuthTokenRequest):
     role: Optional[UserRole] = Field(None, description="Optional role for new user registration.")
 
     model_config = ConfigDict(
+        populate_by_name=True,
         json_schema_extra={
             "example": {
-                "id_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6...",
+                "idToken": "eyJhbGciOiJSUzI1NiIsImtpZCI6...",
                 "name": "New User",
                 "role": "citizen"
             }
