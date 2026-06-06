@@ -5,6 +5,7 @@ Firebase service for Firestore and Authentication operations
 from __future__ import annotations
 import json  # Import json for parsing credentials
 import firebase_admin
+import asyncio
 from firebase_admin import credentials, firestore, auth as firebase_auth
 from typing import Optional, Dict, Any, List
 from datetime import datetime, UTC, timedelta
