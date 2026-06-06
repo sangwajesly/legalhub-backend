@@ -75,12 +75,14 @@ class AuthService:
         except Exception as e:
             raise Exception(f"Registration failed: {str(e)}")
 
-    async def login_user(self, id_token: str) -> Dict[str, Any]:
+    async def login_user(self, id_token: str, name: Optional[str] = None, role: Optional[UserRole] = None) -> Dict[str, Any]:
         """
         Authenticate user via Firebase ID token and generate internal tokens.
 
         Args:
             id_token: Firebase ID token obtained from the client-side authentication.
+            name: Optional display name for new user registration.
+            role: Optional role for new user registration.
 
         Returns:
             Dictionary containing user and internal tokens.
@@ -103,20 +105,19 @@ class AuthService:
             # 2. Get user from our Firestore database
             user = await self.firebase.get_user_by_uid(uid)
             if not user:
-                # If user exists in Firebase Auth but not in our Firestore, create them
-                # This handles cases where a user logs in via Firebase Auth for the first time
-                # but hasn't been synced to our Firestore 'users' collection yet.
+                # Prioritize provided name/role, fallback to token metadata
+                display_name_to_set = name if name else decoded_token.get("name", email.split("@")[0])
+                role_to_set = role.value if role else UserRole.CITIZEN.value
+
                 user = await self.firebase.create_user(
                     email=email,
-                    # Password is not needed here as Firebase Auth has already verified it
-                    password=None,  # Explicitly mark as not used for this path
-                    display_name=decoded_token.get(
-                        "name", email.split("@")[0]),
-                    role=UserRole.CITIZEN.value,  # Default role
+                    password=None,
+                    display_name=display_name_to_set,
+                    role=role_to_set,
                     phone_number=decoded_token.get("phone_number"),
                     email_verified=decoded_token.get("email_verified", False),
                     photo_url=decoded_token.get("picture"),
-                    is_new_user=False  # Not a new user from this path in create_user context
+                    is_new_user=False
                 )
 
             # 3. Create internal tokens (access and refresh)

@@ -51,7 +51,11 @@ async def verify_token(payload: VerifyTokenRequest):
     Verify Firebase ID Token and sync/create user in backend
     """
     try:
-        auth_data = await auth_service.login_user(payload.id_token)
+        auth_data = await auth_service.login_user(
+            payload.id_token,
+            name=payload.name,
+            role=payload.role
+        )
         user_response = UserResponse(**auth_data["user"].model_dump(by_alias=True))
         tokens_response = Token(**auth_data["tokens"])
         return AuthResponse(user=user_response, tokens=tokens_response)
