@@ -4,7 +4,8 @@ from fastapi import HTTPException
 import logging
 from datetime import datetime, UTC
 
-from app.services import firebase_service, ai_service, file_service
+from app.services import firebase_service, file_service, gemini_service
+ai_service = gemini_service
 from app.services.pdf_ingestion_service import extract_text_from_pdf
 import mimetypes
 import base64

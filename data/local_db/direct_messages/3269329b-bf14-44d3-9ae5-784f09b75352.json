@@ -1,0 +1,9 @@
+{
+  "id": "3269329b-bf14-44d3-9ae5-784f09b75352",
+  "senderId": "test_citizen_uid",
+  "receiverId": "test_lawyer_uid",
+  "content": "Hello counselor, did you check my booking?",
+  "timestamp": "2026-06-08T13:57:40.691624+00:00",
+  "read": false,
+  "bookingId": null
+}

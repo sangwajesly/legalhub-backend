@@ -19,7 +19,7 @@ client = TestClient(app)
 
 @pytest.fixture
 def mock_gemini_service():
-    with patch("app.services.langchain_service.gemini_service") as mock:
+    with patch("app.services.langchain_service.ai_service") as mock:
         yield mock
 
 @pytest.fixture
@@ -30,6 +30,7 @@ def mock_firebase_service():
         mock.add_chat_message = AsyncMock()
         mock.create_chat_session = AsyncMock()
         mock.get_user_chat_sessions = AsyncMock(return_value=[])
+        mock.get_chat_session = AsyncMock(return_value={"userId": "u1"})
         yield mock
 
 @pytest.fixture

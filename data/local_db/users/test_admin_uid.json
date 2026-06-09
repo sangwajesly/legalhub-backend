@@ -1,0 +1,16 @@
+{
+  "email": "admin@test.com",
+  "displayName": "Test Admin",
+  "role": "admin",
+  "profilePicture": null,
+  "emailVerified": true,
+  "phoneNumber": null,
+  "isActive": true,
+  "isDeleted": false,
+  "createdAt": "2026-06-08T14:35:39.986472+00:00",
+  "updatedAt": "2026-06-08T14:35:39.986472+00:00",
+  "lastLogin": null,
+  "refreshToken": null,
+  "uid": "test_admin_uid",
+  "id": "test_admin_uid"
+}

@@ -11,6 +11,11 @@ from firebase_admin import auth as firebase_auth
 from jose import JWTError
 from app.models.user import UserRole, User
 
+from app.config import settings
+if settings.USE_LOCAL_DATABASE:
+    from app.utils.local_db import MockFirebaseAuth
+    firebase_auth = MockFirebaseAuth
+
 from app.services.firebase_service import firebase_service, user_to_firestore_dict
 from app.utils.security import verify_refresh_token
 from app.utils.security import create_token_pair
@@ -35,17 +40,11 @@ class AuthService:
 
     async def register_user(self, user_data: UserRegister) -> Dict[str, Any]:
         """
-        Register a new user
-
-        Args:
-            user_data: User registration data
-
-        Returns:
-            Dictionary containing user and tokens
-
-        Raises:
-            ValueError: If email already exists or validation fails
+        Register a new user (with local fallback if enabled)
         """
+        if settings.USE_LOCAL_DATABASE:
+            return await self.register_user_local(user_data)
+
         try:
             # Check if user already exists
             existing_user = await self.firebase.get_user_by_email(user_data.email)
@@ -74,6 +73,107 @@ class AuthService:
             raise e
         except Exception as e:
             raise Exception(f"Registration failed: {str(e)}")
+
+    async def register_user_local(self, user_data: UserRegister) -> Dict[str, Any]:
+        """
+        Register a user locally in the offline database
+        """
+        import uuid
+        import asyncio
+        from app.models.user import user_model_to_firestore
+        from app.utils.security import hash_password
+
+        try:
+            # Check if user already exists
+            existing_user = await self.firebase.get_user_by_email(user_data.email)
+            if existing_user:
+                raise ValueError("Email already registered")
+
+            uid = f"local_{uuid.uuid4().hex}"
+            
+            # Create user model
+            user = User(
+                uid=uid,
+                email=user_data.email,
+                display_name=user_data.display_name,
+                role=user_data.role,
+                phone_number=user_data.phone_number,
+                email_verified=False,
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
+            )
+
+            # Generate firestore compatible dict and inject hashed password
+            firestore_data = user_model_to_firestore(user)
+            firestore_data["passwordHash"] = hash_password(user_data.password)
+            firestore_data["uid"] = uid
+
+            # Save to local db
+            await asyncio.to_thread(
+                self.firebase.db.collection("users").document(uid).set,
+                firestore_data
+            )
+
+            # Create tokens
+            tokens = create_token_pair(
+                user_id=uid, email=user.email, role=user.role
+            )
+
+            # Update database with refresh token and last login
+            await self.firebase.update_user(uid, {"refresh_token": tokens["refresh_token"]})
+            await self.firebase.update_user(uid, {"last_login": datetime.now(UTC)})
+
+            return {"user": user, "tokens": tokens}
+
+        except ValueError as e:
+            raise e
+        except Exception as e:
+            raise Exception(f"Local registration failed: {str(e)}")
+
+    async def login_with_email_password_local(self, email: str, password: str) -> Dict[str, Any]:
+        """
+        Authenticate with email and password using the local offline database
+        """
+        import asyncio
+        from app.utils.security import verify_password
+
+        try:
+            # Retrieve raw document snapshot query to check password hash
+            def query_db():
+                query = self.firebase.db.collection("users").where("email", "==", email).limit(1)
+                docs = query.stream()
+                return docs[0] if docs else None
+
+            doc = await asyncio.to_thread(query_db)
+            if not doc:
+                raise ValueError("Invalid email or password")
+
+            doc_data = doc.to_dict()
+            hashed_password = doc_data.get("passwordHash") or doc_data.get("password_hash")
+            
+            if not hashed_password or not verify_password(password, hashed_password):
+                raise ValueError("Invalid email or password")
+
+            uid = doc.id
+            user = await self.firebase.get_user_by_uid(uid)
+            if not user:
+                raise ValueError("User profile not found")
+
+            # Create tokens
+            tokens = create_token_pair(
+                user_id=user.uid, email=user.email, role=user.role
+            )
+
+            # Update refresh token and last login in local db
+            await self.firebase.update_user(user.uid, {"refresh_token": tokens["refresh_token"]})
+            await self.firebase.update_user(user.uid, {"last_login": datetime.now(UTC)})
+
+            return {"user": user, "tokens": tokens}
+
+        except ValueError as e:
+            raise e
+        except Exception as e:
+            raise Exception(f"Local login failed: {str(e)}")
 
     async def login_user(self, id_token: str, name: Optional[str] = None, role: Optional[UserRole] = None) -> Dict[str, Any]:
         """
@@ -140,18 +240,13 @@ class AuthService:
 
     async def login_with_email_password(self, email: str, password: str) -> Dict[str, Any]:
         """
-        Authenticate with email and password via Firebase REST API.
-
-        Args:
-            email: User's email
-            password: User's password
-
-        Returns:
-            Dictionary containing user and internal tokens (same as login_user)
+        Authenticate with email and password via Firebase REST API (with local fallback).
         """
+        if settings.USE_LOCAL_DATABASE:
+            return await self.login_with_email_password_local(email, password)
+
         try:
             import httpx
-            from app.config import settings
 
             api_key = settings.GOOGLE_API_KEY
             if not api_key:

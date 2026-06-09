@@ -836,7 +836,7 @@ async def join_call(
 
         # RBAC: Only participants (or admin)
         uid = current_user.uid
-        if uid != booking.userId and uid != booking.lawyerId and not current_user.is_admin:
+        if uid != booking.user_id and uid != booking.lawyer_id and not current_user.is_admin:
             raise HTTPException(status_code=403, detail="Not a participant")
 
         # Time Validation (Optional: allow joining +/- 1 hour of scheduled time)

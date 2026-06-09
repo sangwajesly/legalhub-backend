@@ -20,30 +20,43 @@ from app.schemas.auth import (
     FullUserProfileResponse  # Added FullUserProfileResponse
 )
 from app.services.auth_service import auth_service
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_optional_user
 from app.models.user import User, UserProfile # Also import UserProfile
 
 # Create router
 router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
 
 
-@router.post("/register", deprecated=True, status_code=status.HTTP_410_GONE)
+@router.post("/register", response_model=AuthResponse)
 async def register(user_data: UserRegister):
     """
-    **DEPRECATED**: Registration is now handled by frontend via Firebase SDK.
-
-    Frontend should:
-    1. Use Firebase Authentication SDK for email/password registration
-    2. Get Firebase ID token after registration
-    3. Send token to `/api/v1/auth/verify-token` to sync user with backend
-
-    This endpoint will be removed in a future version.
+    Register a user. In local database mode, this handles local registration.
+    In cloud mode, registration is handled by Firebase SDK directly on the client.
     """
-    raise HTTPException(
-        status_code=status.HTTP_410_GONE,
-        detail="Registration is now handled by frontend. Use Firebase SDK for registration."
-    )
+    from app.config import settings
+    if not settings.USE_LOCAL_DATABASE:
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail="Registration is now handled by frontend. Use Firebase SDK for registration."
+        )
+    try:
+        auth_data = await auth_service.register_user(user_data)
+        user_response = UserResponse(**auth_data["user"].model_dump(by_alias=True))
+        tokens_response = Token(**auth_data["tokens"])
+        return AuthResponse(user=user_response, tokens=tokens_response)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Registration failed: {str(e)}"
+        )
 
+
+import traceback
 
 @router.post("/verify-token", response_model=AuthResponse)
 async def verify_token(payload: VerifyTokenRequest):
@@ -60,11 +73,23 @@ async def verify_token(payload: VerifyTokenRequest):
         tokens_response = Token(**auth_data["tokens"])
         return AuthResponse(user=user_response, tokens=tokens_response)
     except ValueError as e:
+        tb = traceback.format_exc()
+        try:
+            with open("auth_error.log", "w", encoding="utf-8") as f:
+                f.write(f"ValueError: {str(e)}\nTraceback:\n{tb}")
+        except:
+            pass
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e)
         )
     except Exception as e:
+        tb = traceback.format_exc()
+        try:
+            with open("auth_error.log", "w", encoding="utf-8") as f:
+                f.write(f"Exception: {str(e)}\nTraceback:\n{tb}")
+        except:
+            pass
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Token verification failed: {str(e)}"
@@ -82,22 +107,39 @@ async def google_login(payload: dict):
     return await verify_token(payload)
 
 
-@router.post("/login", deprecated=True, status_code=status.HTTP_410_GONE)
+@router.post("/login", response_model=AuthResponse)
 async def login(payload: UserLogin | AuthTokenRequest):
     """
-    **DEPRECATED**: Email/password login is now handled by frontend via Firebase SDK.
-
-    Frontend should:
-    1. Use Firebase Authentication SDK for email/password login
-    2. Get Firebase ID token after authentication
-    3. Send token to `/api/v1/auth/verify-token` to sync user with backend
-
-    This endpoint will be removed in a future version.
+    Log in a user. In local database mode, this handles local email/password login.
+    In cloud mode, login is handled by Firebase SDK.
     """
-    raise HTTPException(
-        status_code=status.HTTP_410_GONE,
-        detail="Email/password login is now handled by frontend. Use Firebase SDK for login."
-    )
+    from app.config import settings
+    if not settings.USE_LOCAL_DATABASE:
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail="Email/password login is now handled by frontend. Use Firebase SDK for login."
+        )
+    try:
+        if hasattr(payload, "id_token") and payload.id_token:
+            auth_data = await auth_service.login_user(payload.id_token)
+        elif hasattr(payload, "email") and payload.email:
+            auth_data = await auth_service.login_with_email_password(payload.email, payload.password)
+        else:
+            raise ValueError("Invalid request format")
+
+        user_response = UserResponse(**auth_data["user"].model_dump(by_alias=True))
+        tokens_response = Token(**auth_data["tokens"])
+        return AuthResponse(user=user_response, tokens=tokens_response)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Login failed: {str(e)}"
+        )
 
 
 @router.post("/refresh", response_model=Token)
@@ -121,21 +163,21 @@ async def refresh_token(token_data: TokenRefresh):
 
 
 @router.post("/logout")
-async def logout(current_user: User = Depends(get_current_user)):
+async def logout(current_user: User = Depends(get_optional_user)):
     """
-    Logout current user
-
-    Requires authentication. Client should discard tokens after this call.
+    Logout current user.
+    Works whether or not the token is valid — always clears the session.
+    Client should discard tokens after this call.
     """
     try:
-        await auth_service.logout_user(current_user.uid)
+        if current_user:
+            await auth_service.logout_user(current_user.uid)
         return {"message": "Successfully logged out"}
 
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Logout failed: {str(e)}",
-        )
+        # Even if backend invalidation fails, we return success so the
+        # client can still clear its own state cleanly.
+        return {"message": "Logged out"}
 
 
 @router.post("/password-reset")

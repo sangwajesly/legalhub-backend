@@ -83,9 +83,9 @@ def test_analytics_overview_and_cases(monkeypatch):
     articles = dummy_db.collection("articles")
     articles.document("a1").set({"title": "One"})
 
-    import app.services.firebase_service as fs_mod
+    from app.services.firebase_service import firebase_service
 
-    fs_mod.firebase_service.db = dummy_db
+    firebase_service.db = dummy_db
 
     # override auth as admin
     from app.dependencies import get_current_user

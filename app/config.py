@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     FIREBASE_STORAGE_BUCKET: str = "legahub-70645.appspot.com"
     FIREBASE_EMULATOR_HOST: str = ""
     DEV_MODE: bool = False
+    USE_LOCAL_DATABASE: bool = True  # Fallback to local JSON files when Firebase is offline
 
     # Google Gemini API
     GOOGLE_API_KEY: str = ""
@@ -53,6 +54,15 @@ class Settings(BaseSettings):
     GROK_API_KEY: str = ""
     GROK_API_URL: str = ""
     GROK_MODEL: str = "grok-1"
+
+    # Ollama (Local LLM) — offline/defense day fallback
+    # Ollama must be running locally: https://ollama.ai
+    # Start with: ollama serve  (default port 11434)
+    OLLAMA_ENABLED: bool = True
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    OLLAMA_MODEL: str = "phi3:mini"
+    OLLAMA_EMBED_MODEL: str = "nomic-embed-text"
+    OLLAMA_TIMEOUT: int = 120  # seconds — local models are slower than cloud APIs
 
     # JWT Configuration
     JWT_SECRET_KEY: str = ""

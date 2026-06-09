@@ -45,7 +45,7 @@ def test_list_organizations_mocked(monkeypatch):
     data = r.json()
     assert data["total"] == 2
     assert len(data["organizations"]) == 2
-    assert data["organizations"][0]["display_name"] == "NGO A"
+    assert data["organizations"][0]["displayName"] == "NGO A"
 
 
 def test_create_update_delete_organization(monkeypatch):
@@ -91,7 +91,7 @@ def test_create_update_delete_organization(monkeypatch):
     assert r.status_code == 200
     data = r.json()
     assert data["uid"] == "org_new"
-    assert data["display_name"] == "New Org"
+    assert data["displayName"] == "New Org"
 
     # Update
     r2 = client.put("/api/organizations/org_new", json={"bio": "We help people"})

@@ -1,0 +1,18 @@
+{
+  "email": "jeslysangwa@gmail.com",
+  "displayName": "Sangwa Jesly",
+  "role": "citizen",
+  "profilePicture": null,
+  "emailVerified": false,
+  "phoneNumber": null,
+  "isActive": true,
+  "isDeleted": false,
+  "createdAt": "2026-06-08T15:07:41.026355+00:00",
+  "updatedAt": "2026-06-09T10:24:39.277428+00:00",
+  "lastLogin": "2026-06-09T10:24:39.277428+00:00",
+  "refreshToken": null,
+  "passwordHash": "$2b$12$Xl6VVp2HzLb/l1rjF/MlE.nuX2uFbK8k02BHVhBpE0AxWCPd5X1R2",
+  "uid": "local_be5cb433652f499c89ad2f2e2079b5c9",
+  "id": "local_be5cb433652f499c89ad2f2e2079b5c9",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJsb2NhbF9iZTVjYjQzMzY1MmY0OTljODlhZDJmMmUyMDc5YjVjOSIsImV4cCI6MTc4MTYwNTQ3OSwiaWF0IjoxNzgxMDAwNjc5LCJ0eXBlIjoicmVmcmVzaCJ9.CSCFKZQCiXJomYekEvO6GUqqnAx9RaHkQFQT_8Tbbbw"
+}

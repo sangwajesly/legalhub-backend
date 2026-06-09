@@ -22,3 +22,8 @@ htmlcov/
 # Thesis / personal documents (not for version control)
 thesis_draft.md
 thesis*.md
+
+# Secrets and temp files
+legahub-70645-firebase-adminsdk-fbsvc-*.json
+scratch/
+*.log

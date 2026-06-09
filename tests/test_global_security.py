@@ -31,7 +31,7 @@ def test_get_user_profile_me_privacy(mock_firebase_service):
         uid="me123",
         email="me@example.com",
         display_name="Me",
-        role=UserRole.USER,
+        role=UserRole.CITIZEN,
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow()
     )
@@ -59,7 +59,7 @@ def test_get_user_by_id_public(mock_firebase_service):
         uid="other123",
         email="other@example.com",
         display_name="Other",
-        role=UserRole.USER,
+        role=UserRole.CITIZEN,
         created_at=datetime.utcnow(), 
         updated_at=datetime.utcnow()
     )
@@ -75,7 +75,7 @@ def test_get_user_by_id_public(mock_firebase_service):
     
     # Verify Public Schema fields
     assert data["uid"] == "other123"
-    assert data["display_name"] == "Other"
+    assert data["displayName"] == "Other"
     
     # Verify Private fields are missing
     assert "email" not in data
@@ -89,7 +89,7 @@ def test_get_user_by_id_owner(mock_firebase_service):
         uid="me123",
         email="me@example.com",
         display_name="Me",
-        role=UserRole.USER,
+        role=UserRole.CITIZEN,
         created_at=datetime.utcnow(), 
         updated_at=datetime.utcnow()
     )

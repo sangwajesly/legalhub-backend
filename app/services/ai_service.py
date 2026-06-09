@@ -8,7 +8,7 @@ from app.services import gemini_service
 
 logger = logging.getLogger(__name__)
 
-_SUPPORTED_PROVIDERS = ["gemini", "huggingface", "openai", "cohere", "groq", "grok"]
+_SUPPORTED_PROVIDERS = ["gemini", "huggingface", "openai", "cohere", "groq", "grok", "ollama"]
 
 
 def _gemini_model_list() -> List[str]:
@@ -260,6 +260,61 @@ async def _send_grok(prompt: str, model: str) -> Dict[str, Any]:
     return {"provider": "grok", "model": grok_model, "response": content.strip(), "raw": raw}
 
 
+async def _send_ollama(prompt: str, model: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Call a locally-running Ollama model via its OpenAI-compatible HTTP API.
+    Requires: ollama serve  (default port 11434)
+    """
+    ollama_model = model or settings.OLLAMA_MODEL
+    endpoint = f"{settings.OLLAMA_BASE_URL.rstrip('/')}/api/chat"
+
+    payload = {
+        "model": ollama_model,
+        "messages": [{"role": "user", "content": prompt}],
+        "stream": False,
+        "options": {
+            "temperature": 0.2,
+            "num_predict": 600,
+        },
+    }
+
+    async with httpx.AsyncClient(timeout=settings.OLLAMA_TIMEOUT) as client:
+        response = await client.post(endpoint, json=payload)
+        response.raise_for_status()
+        raw = response.json()
+
+    # Ollama /api/chat returns: {"message": {"role": "assistant", "content": "..."}}
+    content = ""
+    if isinstance(raw, dict):
+        message = raw.get("message", {})
+        if isinstance(message, dict):
+            content = message.get("content", "")
+        if not content:
+            content = _extract_text_from_api_response(raw)
+
+    return {"provider": "ollama", "model": ollama_model, "response": content.strip(), "raw": raw}
+
+
+async def ollama_embed(text: str) -> List[float]:
+    """
+    Generate an embedding vector using a locally-running Ollama embedding model.
+    Used as offline fallback when Gemini embedding API is unreachable.
+    Requires: ollama pull nomic-embed-text
+    """
+    endpoint = f"{settings.OLLAMA_BASE_URL.rstrip('/')}/api/embeddings"
+    payload = {"model": settings.OLLAMA_EMBED_MODEL, "prompt": text}
+
+    async with httpx.AsyncClient(timeout=settings.OLLAMA_TIMEOUT) as client:
+        response = await client.post(endpoint, json=payload)
+        response.raise_for_status()
+        raw = response.json()
+
+    embedding = raw.get("embedding", [])
+    if not embedding:
+        raise RuntimeError(f"Ollama embedding returned empty vector for model '{settings.OLLAMA_EMBED_MODEL}'")
+    return embedding
+
+
 def _is_retryable_gemini_error(exc: Exception) -> bool:
     """Return True for transient Gemini errors worth retrying on another model.
 
@@ -354,7 +409,32 @@ async def send_message(
         if last_error
         else "No AI provider configured. Set GOOGLE_API_KEY, HUGGINGFACE_API_KEY, OPENAI_API_KEY, or COHERE_API_KEY."
     )
-    raise RuntimeError(error_message)
+
+    # ---------------------------------------------------------------
+    # PHASE 3 — Ollama (local LLM, no internet required)
+    # Last resort: tried only after ALL cloud providers have failed.
+    # ---------------------------------------------------------------
+    if settings.OLLAMA_ENABLED:
+        try:
+            logger.info(
+                "All cloud providers failed. Attempting local Ollama fallback (model: %s).",
+                settings.OLLAMA_MODEL,
+            )
+            result = await _send_ollama(prompt, model=None)
+            logger.info("Ollama local fallback succeeded.")
+            return result
+        except Exception as exc:
+            last_error = exc
+            logger.error(
+                "Ollama local fallback also failed: %s. "
+                "Make sure Ollama is running: `ollama serve`",
+                exc,
+            )
+
+    raise RuntimeError(
+        f"All AI providers (cloud + local Ollama) failed. Last error: {last_error}" if last_error
+        else "No AI provider configured and Ollama is disabled."
+    )
 
 
 async def stream_send_message(prompt: str, model: Optional[str] = None):

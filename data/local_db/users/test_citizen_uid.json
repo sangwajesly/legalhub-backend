@@ -1,0 +1,16 @@
+{
+  "email": "citizen@test.com",
+  "displayName": "Test Citizen",
+  "role": "citizen",
+  "profilePicture": null,
+  "emailVerified": true,
+  "phoneNumber": null,
+  "isActive": true,
+  "isDeleted": false,
+  "createdAt": "2026-06-08T14:35:39.920535+00:00",
+  "updatedAt": "2026-06-08T14:35:39.920535+00:00",
+  "lastLogin": null,
+  "refreshToken": null,
+  "uid": "test_citizen_uid",
+  "id": "test_citizen_uid"
+}

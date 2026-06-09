@@ -1,0 +1,22 @@
+{
+  "displayName": "Updated Lawyer Name",
+  "email": "lawyer@test.com",
+  "profilePicture": null,
+  "bio": "Experienced human rights lawyer in Yaounde.",
+  "location": null,
+  "licenseNumber": "BAR-54321",
+  "jurisdictions": [],
+  "practiceAreas": [
+    "Criminal Law",
+    "Human Rights Law"
+  ],
+  "hourlyRate": null,
+  "yearsExperience": null,
+  "languages": [],
+  "verified": false,
+  "rating": null,
+  "numReviews": null,
+  "createdAt": "2026-06-08T14:35:44.803528+00:00",
+  "updatedAt": "2026-06-08T14:35:44.803528+00:00",
+  "id": "test_lawyer_uid"
+}

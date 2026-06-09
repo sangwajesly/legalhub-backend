@@ -88,8 +88,46 @@ def _embed_texts(texts: List[str], task_type: str = "RETRIEVAL_DOCUMENT") -> Lis
 
 
 def _embed_query(query: str) -> List[float]:
-    """Embed a single query string for similarity search."""
-    return _embed_texts([query], task_type="RETRIEVAL_QUERY")[0]
+    """Embed a single query string for similarity search.
+    
+    Priority: Gemini (cloud) → Ollama (local) → raises (caller handles TF-IDF fallback)
+    """
+    try:
+        return _embed_texts([query], task_type="RETRIEVAL_QUERY")[0]
+    except Exception as gemini_err:
+        logger.warning("Gemini query embedding failed (%s). Trying Ollama local embedding.", gemini_err)
+        try:
+            return _embed_query_ollama(query)
+        except Exception as ollama_err:
+            logger.warning("Ollama embedding also failed (%s). Falling back to TF-IDF search.", ollama_err)
+            raise  # Let FAISSVectorStore.search() handle the TF-IDF fallback
+
+
+def _embed_query_ollama(query: str) -> List[float]:
+    """Embed a query using a locally-running Ollama model (nomic-embed-text).
+    
+    Dimension must match the FAISS index (3072 for Gemini). Since nomic-embed-text
+    produces 768-dim vectors, this is only usable if the index was built with
+    Ollama embeddings. For defense day: rebuild index offline with Ollama first.
+    
+    Raises RuntimeError if Ollama is not running or the model is not pulled.
+    """
+    import requests as _requests
+    try:
+        ollama_base = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+        embed_model = os.environ.get("OLLAMA_EMBED_MODEL", "nomic-embed-text")
+        resp = _requests.post(
+            f"{ollama_base.rstrip('/')}/api/embeddings",
+            json={"model": embed_model, "prompt": query},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        embedding = resp.json().get("embedding", [])
+        if not embedding:
+            raise RuntimeError("Ollama returned empty embedding")
+        return embedding
+    except Exception as e:
+        raise RuntimeError(f"Ollama embedding failed: {e}") from e
 
 
 # ---------------------------------------------------------------------------
@@ -258,8 +296,34 @@ class FAISSVectorStore:
         except Exception as e:
             logger.warning(
                 f"Gemini embedding search failed ({e}). "
-                "Falling back to high-speed local TF-IDF keyword search."
+                "Trying Ollama local embedding before falling back to TF-IDF."
             )
+            # Try Ollama embedding (works offline if nomic-embed-text is pulled)
+            try:
+                q_emb = _embed_query_ollama(query)
+                # Only use Ollama embedding if vector dimension matches
+                if len(q_emb) == self.dimension:
+                    distances, indices = self.index.search(
+                        np.array([q_emb], dtype="float32"),
+                        min(top_k, len(self.documents)),
+                    )
+                    results = []
+                    for idx, dist in zip(indices[0], distances[0]):
+                        if 0 <= idx < len(self.documents):
+                            doc = self.documents[idx].copy()
+                            doc["score"] = max(0.0, 1.0 - float(dist) / 2.0)
+                            doc["distance"] = float(dist)
+                            doc["document"] = doc["content"]
+                            results.append(doc)
+                    logger.info("Ollama embedding search succeeded (offline mode).")
+                    return results
+                else:
+                    logger.warning(
+                        f"Ollama embedding dim ({len(q_emb)}) != FAISS index dim ({self.dimension}). "
+                        "Falling back to TF-IDF."
+                    )
+            except Exception as ollama_err:
+                logger.warning(f"Ollama embedding search also failed ({ollama_err}). Using TF-IDF.")
             return self._local_keyword_search(query, top_k)
 
     def _local_keyword_search(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:

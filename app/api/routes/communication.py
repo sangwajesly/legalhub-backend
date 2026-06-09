@@ -25,11 +25,11 @@ async def send_message(
     # if not receiver: raise HTTPException(404, "Receiver not found")
 
     message = DirectMessage(
-        senderId=sender_id,
-        receiverId=payload.receiverId,
+        sender_id=sender_id,
+        receiver_id=payload.receiver_id,
         content=payload.content,
         timestamp=datetime.now(UTC),
-        bookingId=payload.bookingId,
+        booking_id=payload.booking_id,
         read=False
     )
 

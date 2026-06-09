@@ -105,7 +105,8 @@ def test_join_call_forbidden(mock_booking_service):
     
     mock_booking_service.get_document = AsyncMock(return_value={
         "userId": "client1",
-        "lawyerId": "lawyer1"
+        "lawyerId": "lawyer1",
+        "scheduledAt": datetime.now().isoformat()
     })
     
     response = client.post("/api/bookings/bk100/join_call")

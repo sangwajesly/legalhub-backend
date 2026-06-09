@@ -101,7 +101,7 @@ def test_wrong_role_access(monkeypatch):
         uid="just_user",
         email="user@test.com",
         display_name="Test User",
-        role=UserRole.USER
+        role=UserRole.CITIZEN
     )
     
     client = TestClient(app)

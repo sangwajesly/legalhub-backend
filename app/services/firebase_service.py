@@ -14,6 +14,15 @@ import json
 
 
 from app.config import settings
+
+# Override firebase_auth globally with MockFirebaseAuth if using local database
+if settings.USE_LOCAL_DATABASE:
+    from app.utils.local_db import MockFirebaseAuth
+    firebase_auth = MockFirebaseAuth
+else:
+    # Explicit type annotation helper (MockFirebaseAuth matches firebase_auth API)
+    pass
+
 from app.models.user import (
     User,
     UserProfile,
@@ -62,11 +71,17 @@ class FirebaseService:
         return cls._instance
 
     def __init__(self):
-        """Initialize Firebase Admin SDK"""
+        """Initialize Firebase Admin SDK or local fallback"""
         if not FirebaseService._initialized:
-            self._initialize_firebase()
-            self.db = firestore.client()
-            FirebaseService._initialized = True
+            if settings.USE_LOCAL_DATABASE:
+                from app.utils.local_db import LocalFirestoreClient
+                self.db = LocalFirestoreClient()
+                FirebaseService._initialized = True
+                print("FirebaseService initialized in LOCAL_DATABASE mode.")
+            else:
+                self._initialize_firebase()
+                self.db = firestore.client()
+                FirebaseService._initialized = True
 
     def _initialize_firebase(self):
         """Initialize Firebase Admin SDK with credentials"""

@@ -3,7 +3,7 @@ from fastapi.responses import StreamingResponse
 from typing import Optional, List
 import uuid
 
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_optional_user
 from app.models.user import User
 from app.services import firebase_service, langchain_service, file_service
 from app.config import settings
@@ -193,7 +193,7 @@ async def send_message_to_session(
 async def stateless_query(
     payload: QueryRequest,
     request: Request,
-    user: Optional[User] = Depends(get_current_user),
+    user: Optional[User] = Depends(get_optional_user),
     _: None = Depends(stateless_query_limiter)
 ):
     """
@@ -307,3 +307,19 @@ async def upload_file(
         return {"fileId": file_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+
+@router.post("/message", response_model=MessageResponse)
+async def send_message_legacy(
+    payload: MessageRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Legacy stateless message endpoint that supports attachments."""
+    reply = await langchain_service.generate_response(
+        session_id=payload.session_id,
+        user_id=current_user.uid,
+        user_message=payload.message,
+        attachments=payload.attachments,
+        history=payload.history
+    )
+    return {"reply": reply, "sessionId": payload.session_id or ""}

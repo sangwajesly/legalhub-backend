@@ -148,6 +148,7 @@ async def rewrite_api_version_middleware(request: Request, call_next):
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """Return and log detailed validation errors for request payloads."""
+    from fastapi.encoders import jsonable_encoder
     try:
         body = await request.json()
     except Exception:
@@ -159,7 +160,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     return JSONResponse(
         status_code=422,
         content={
-            "detail": exc.errors(),
+            "detail": jsonable_encoder(exc.errors()),
             "body": body,
         },
     )

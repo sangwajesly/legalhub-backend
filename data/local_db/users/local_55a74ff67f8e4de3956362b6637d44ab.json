@@ -1,0 +1,18 @@
+{
+  "email": "legal.support@advocates.org",
+  "displayName": "jjj",
+  "role": "citizen",
+  "profilePicture": null,
+  "emailVerified": false,
+  "phoneNumber": null,
+  "isActive": true,
+  "isDeleted": false,
+  "createdAt": "2026-06-08T15:00:49.065278+00:00",
+  "updatedAt": "2026-06-08T15:00:49.675109+00:00",
+  "lastLogin": "2026-06-08T15:00:49.675109+00:00",
+  "refreshToken": null,
+  "passwordHash": "$2b$12$QLqWD3J6PG.ymSNRPtOZcudW7XZ35xK.fmIbp1SwJqKlA9uYnthLK",
+  "uid": "local_55a74ff67f8e4de3956362b6637d44ab",
+  "id": "local_55a74ff67f8e4de3956362b6637d44ab",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJsb2NhbF81NWE3NGZmNjdmOGU0ZGUzOTU2MzYyYjY2MzdkNDRhYiIsImV4cCI6MTc4MTUzNTY0OSwiaWF0IjoxNzgwOTMwODQ5LCJ0eXBlIjoicmVmcmVzaCJ9.UlGIgwbnLKxjiO1gXHgM3G9NbWzS-HQXkLNKkeITFxU"
+}

@@ -28,6 +28,7 @@ async def test_load_pdfs_from_folder_success(tmp_path):
     with patch("app.services.pdf_ingestion_service.PDFProcessor") as MockPDFProcessor:
         mock_processor = MockPDFProcessor.return_value
         mock_processor.extract_text_from_pdf.return_value = ("Extracted text content" * 10, {"author": "me"})
+        mock_processor.classify_legal_document = AsyncMock(return_value={"document_type": "Statute", "legal_domain": "Criminal", "jurisdiction": "Cameroon", "summary": "Summary"})
         
         # Mock rag_service.add_documents
         with patch.object(rag_service, "add_documents", new_callable=AsyncMock) as mock_add:
@@ -63,6 +64,7 @@ async def test_load_pdfs_empty_file(tmp_path):
         mock_processor = MockPDFProcessor.return_value
         # Return empty text
         mock_processor.extract_text_from_pdf.return_value = ("", {})
+        mock_processor.classify_legal_document = AsyncMock(return_value={})
         
         stats = await pdf_ingestion_service.load_pdfs_from_folder(str(pdf_dir))
         

@@ -1,0 +1,16 @@
+{
+  "email": "org@test.com",
+  "displayName": "Test Organization",
+  "role": "organization",
+  "profilePicture": null,
+  "emailVerified": true,
+  "phoneNumber": null,
+  "isActive": true,
+  "isDeleted": false,
+  "createdAt": "2026-06-08T14:35:40.016008+00:00",
+  "updatedAt": "2026-06-08T14:35:40.016008+00:00",
+  "lastLogin": null,
+  "refreshToken": null,
+  "uid": "test_org_uid",
+  "id": "test_org_uid"
+}

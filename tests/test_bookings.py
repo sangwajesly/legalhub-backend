@@ -49,7 +49,7 @@ def test_list_bookings_rbac_lawyer(mock_firebase_service):
 
 def test_list_bookings_rbac_client(mock_firebase_service):
     """Clients can list their own bookings"""
-    app.dependency_overrides[get_current_user] = lambda: {"uid": "u1", "role": UserRole.USER}
+    app.dependency_overrides[get_current_user] = lambda: {"uid": "u1", "role": UserRole.CITIZEN}
     
     mock_firebase_service.query_collection = AsyncMock(return_value=([], 0))
     
@@ -63,7 +63,7 @@ def test_list_bookings_rbac_client(mock_firebase_service):
 
 def test_create_booking_future_check(mock_firebase_service):
     """Booking for past time should fail"""
-    app.dependency_overrides[get_current_user] = lambda: {"uid": "u1", "role": UserRole.USER}
+    app.dependency_overrides[get_current_user] = lambda: {"uid": "u1", "role": UserRole.CITIZEN}
     mock_firebase_service.get_document = AsyncMock(return_value={"uid": "l1"}) # Lawyer exists
     
     past_date = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
@@ -81,7 +81,7 @@ def test_create_booking_future_check(mock_firebase_service):
 
 def test_create_booking_conflict(mock_firebase_service):
     """Booking overlapping with existing confirmed booking should fail"""
-    app.dependency_overrides[get_current_user] = lambda: {"uid": "u1", "role": UserRole.USER}
+    app.dependency_overrides[get_current_user] = lambda: {"uid": "u1", "role": UserRole.CITIZEN}
     mock_firebase_service.get_document = AsyncMock(return_value={"uid": "l1"})
     mock_firebase_service.set_document = AsyncMock()
 
@@ -118,7 +118,7 @@ def test_create_booking_conflict(mock_firebase_service):
 
 def test_create_booking_success(mock_firebase_service):
     """Booking non-overlapping slot should succeed"""
-    app.dependency_overrides[get_current_user] = lambda: {"uid": "u1", "role": UserRole.USER}
+    app.dependency_overrides[get_current_user] = lambda: {"uid": "u1", "role": UserRole.CITIZEN}
     mock_firebase_service.get_document = AsyncMock(return_value={"uid": "l1"})
     mock_firebase_service.set_document = AsyncMock()
     mock_firebase_service.query_collection = AsyncMock(return_value=([], 0)) # No conflicts

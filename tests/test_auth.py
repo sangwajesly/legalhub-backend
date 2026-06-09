@@ -18,7 +18,7 @@ def mock_user_instance():
         uid="mock_uid",
         email="mock@example.com",
         display_name="Mock User",
-        role=UserRole.USER,
+        role=UserRole.CITIZEN,
         phone_number=None,
         profile_picture=None,
         email_verified=True,
@@ -53,9 +53,9 @@ def test_verify_token_returns_auth_response(monkeypatch, mock_user_instance):
         },
     }
 
-    # Patch the authenticate_with_social_provider method
+    # Patch the login_user method
     monkeypatch.setattr(
-        "app.services.auth_service.auth_service.authenticate_with_social_provider",
+        "app.services.auth_service.auth_service.login_user",
         AsyncMock(return_value=mock_auth_service_return),
     )
     # Make the request to the verify-token endpoint
@@ -91,6 +91,7 @@ def test_refresh_token_returns_new_tokens(monkeypatch, mock_user_instance):
     client = TestClient(app)
 
     # Mock the return value of verify_refresh_token from app.utils.security
+    mock_user_instance.refresh_token = "old_refresh_token"
     monkeypatch.setattr(
         "app.services.auth_service.verify_refresh_token",
         MagicMock(return_value={"sub": mock_user_instance.uid, "exp": 1234567890})
@@ -159,5 +160,21 @@ def test_get_current_user_info_returns_user_data(authenticated_client, mock_user
     # Note: Pydantic will convert datetime objects to ISO 8601 strings
     assert datetime.fromisoformat(data["createdAt"].replace('Z', '+00:00')) == mock_user_instance.created_at
     assert datetime.fromisoformat(data["updatedAt"].replace('Z', '+00:00')) == mock_user_instance.updated_at
+
+
+def test_register_validation_error_serialization():
+    """Test that a validation error (e.g. invalid password) returns 422, not 500 JSON serialization error"""
+    client = TestClient(app)
+    # Send a password that fails the strength validation (no digits, no uppercase)
+    payload = {
+        "email": "invalid_val@example.com",
+        "password": "simple",
+        "displayName": "Simple User",
+        "role": "citizen"
+    }
+    response = client.post("/api/v1/auth/register", json=payload)
+    assert response.status_code == 422
+    data = response.json()
+    assert "detail" in data
 
 

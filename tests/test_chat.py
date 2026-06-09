@@ -11,15 +11,16 @@ def patch_verify_and_langchain(monkeypatch):
             return {"uid": "testuid", "email": "test@example.com", "name": "Test User"}
         return None
 
-    async def fake_generate_response(session_id, user_id, user_message):
-        return f"echo: {user_message}"
+    async def fake_rag_response(session_id, user_id, user_message, **kwargs):
+        return f"echo: {user_message}", []
 
     async def fake_create_session(user_id, session_id):
         pass  # do nothing for test
 
     monkeypatch.setattr("app.services.auth_service.verify_id_token", fake_verify)
+    from app.services.rag_service import rag_service
     monkeypatch.setattr(
-        "app.services.langchain_service.generate_response", fake_generate_response
+        rag_service, "generate_rag_response", fake_rag_response
     )
     monkeypatch.setattr(
         "app.services.langchain_service.create_session", fake_create_session
@@ -29,14 +30,14 @@ def patch_verify_and_langchain(monkeypatch):
 def test_create_session_and_send_message(patch_verify_and_langchain):
     client = TestClient(app)
     headers = {"Authorization": "Bearer faketoken"}
-    r = client.post("/api/chat/session", headers=headers)
+    r = client.post("/api/chat/sessions", headers=headers)
     assert r.status_code == 200
     sid = r.json()["sessionId"]
 
     r2 = client.post(
-        "/api/chat/message",
+        f"/api/chat/sessions/{sid}/messages",
         headers=headers,
-        json={"sessionId": sid, "message": "Hello AI"},
+        json={"message": "Hello AI"},
     )
     assert r2.status_code == 200
     data = r2.json()

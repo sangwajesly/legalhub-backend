@@ -28,7 +28,7 @@ async def test_get_user_by_uid(firebase_mcp_client, mock_firebase_service):
         uid=test_uid,
         email="test@example.com",
         display_name="Test User",
-        role="user",
+        role="citizen",
     )
     mock_firebase_service.get_user_by_uid.return_value = expected_user
 
@@ -47,7 +47,7 @@ async def test_create_user(firebase_mcp_client, mock_firebase_service):
     email = "newuser@example.com"
     password = "password123"
     display_name = "New User"
-    role = "user"
+    role = "citizen"
     phone_number = "+1234567890"
 
     expected_user = User(

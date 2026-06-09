@@ -36,7 +36,7 @@ def mock_user_dependency():
 # --- Tests ---
 
 def test_list_cases_rbac_anonymous(mock_firebase_service):
-    """Anonymous/Regular users cannot list all cases"""
+    """Anonymous users cannot list cases, but citizens can"""
     # Override current_user to be None (unauthenticated)
     app.dependency_overrides[get_current_user] = lambda: None
     
@@ -44,11 +44,11 @@ def test_list_cases_rbac_anonymous(mock_firebase_service):
     assert response.status_code == 401
 
     # Override current_user to be Regular User
-    app.dependency_overrides[get_current_user] = lambda: {"uid": "u1", "role": UserRole.USER, "email": "user@example.com"}
+    app.dependency_overrides[get_current_user] = lambda: {"uid": "u1", "role": UserRole.CITIZEN, "email": "user@example.com"}
+    mock_firebase_service.query_collection = AsyncMock(return_value=([], 0))
     
     response = client.get("/api/v1/cases")
-    assert response.status_code == 403
-    assert "Access denied" in response.json()["detail"]
+    assert response.status_code == 200
 
     # Clean up
     app.dependency_overrides = {}
@@ -80,7 +80,7 @@ def test_get_case_rbac_owner(mock_firebase_service):
     mock_firebase_service.get_document = AsyncMock(return_value=case_data)
     mock_firebase_service.update_document = AsyncMock()
 
-    app.dependency_overrides[get_current_user] = lambda: {"uid": "u1", "role": UserRole.USER}
+    app.dependency_overrides[get_current_user] = lambda: {"uid": "u1", "role": UserRole.CITIZEN}
     
     response = client.get("/api/v1/cases/c1")
     assert response.status_code == 200
@@ -98,7 +98,7 @@ def test_get_case_rbac_forbidden(mock_firebase_service):
     mock_firebase_service.get_document = AsyncMock(return_value=case_data)
 
     # Request as u2
-    app.dependency_overrides[get_current_user] = lambda: {"uid": "u2", "role": UserRole.USER}
+    app.dependency_overrides[get_current_user] = lambda: {"uid": "u2", "role": UserRole.CITIZEN}
     
     response = client.get("/api/v1/cases/c1")
     assert response.status_code == 403

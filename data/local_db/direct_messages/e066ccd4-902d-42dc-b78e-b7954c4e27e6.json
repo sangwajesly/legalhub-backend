@@ -1,0 +1,9 @@
+{
+  "id": "e066ccd4-902d-42dc-b78e-b7954c4e27e6",
+  "senderId": "mock_uid_123",
+  "receiverId": "test_lawyer_uid",
+  "content": "Hello counselor, did you check my booking?",
+  "timestamp": "2026-06-08T13:47:05.049323+00:00",
+  "read": false,
+  "bookingId": null
+}

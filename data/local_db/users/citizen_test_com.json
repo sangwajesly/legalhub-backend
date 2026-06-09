@@ -1,0 +1,16 @@
+{
+  "email": "citizen_test_com@unknown.com",
+  "displayName": "User",
+  "role": "citizen",
+  "profilePicture": null,
+  "emailVerified": false,
+  "phoneNumber": null,
+  "isActive": true,
+  "isDeleted": false,
+  "createdAt": "2026-06-08T14:35:40.242124+00:00",
+  "updatedAt": "2026-06-08T14:35:40.320889+00:00",
+  "lastLogin": "2026-06-08T14:35:40.320889+00:00",
+  "refreshToken": null,
+  "id": "citizen_test_com",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjaXRpemVuX3Rlc3RfY29tIiwiZXhwIjoxNzgxNTM0MTQwLCJpYXQiOjE3ODA5MjkzNDAsInR5cGUiOiJyZWZyZXNoIn0.ecHVGNKXHjvORzadSZks8ixeeN7fdMFYadbeQgYGH7o"
+}
