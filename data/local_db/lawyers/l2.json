@@ -1,0 +1,27 @@
+{
+  "displayName": "Nkongho Paul",
+  "email": "paul.nkongho@legalhub.cm",
+  "profilePicture": "/images/lawyers/lawyer2.jpg",
+  "bio": "Defence attorney specialising in criminal procedure under Law No. 2005/007. Represented clients across Cameroon in criminal matters ranging from petty offences to felonies.",
+  "location": "Douala, Cameroon",
+  "licenseNumber": "CAM-2012-094",
+  "jurisdictions": [
+    "Cameroon"
+  ],
+  "practiceAreas": [
+    "Criminal Law",
+    "Criminal Procedure"
+  ],
+  "hourlyRate": 55000.0,
+  "yearsExperience": 12,
+  "languages": [
+    "en",
+    "fr"
+  ],
+  "verified": true,
+  "rating": 4.8,
+  "numReviews": 211,
+  "createdAt": "2026-06-11T21:15:59.733072+00:00",
+  "updatedAt": "2026-06-11T21:15:59.733072+00:00",
+  "id": "l2"
+}

@@ -1,0 +1,18 @@
+{
+  "email": "lawyerJJ@gmail.com",
+  "displayName": "Mbongih Noel",
+  "role": "lawyer",
+  "profilePicture": null,
+  "emailVerified": false,
+  "phoneNumber": "+237682833601",
+  "isActive": true,
+  "isDeleted": false,
+  "createdAt": "2026-06-09T15:06:09.698514+00:00",
+  "updatedAt": "2026-06-11T17:24:54.434616+00:00",
+  "lastLogin": "2026-06-11T17:24:54.434616+00:00",
+  "refreshToken": null,
+  "passwordHash": "$2b$12$7KHWXf6Hrpat2eprRC0GbeUheFWxpXEE../8TGJMUrdFyJmJROt1C",
+  "uid": "local_fe348789eaca4b488b840b019d15b21f",
+  "id": "local_fe348789eaca4b488b840b019d15b21f",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJsb2NhbF9mZTM0ODc4OWVhY2E0YjQ4OGI4NDBiMDE5ZDE1YjIxZiIsImV4cCI6MTc4MTgwMzQ5NCwiaWF0IjoxNzgxMTk4Njk0LCJ0eXBlIjoicmVmcmVzaCJ9.-kQaZG-BNx7Fl7K9C7Z5uC9jAaHpsYSGdwcWCxFWkkw"
+}

@@ -1,0 +1,506 @@
+<mxfile host="Electron" modified="2026-06-10T17:50:00.000Z" agent="Mozilla/5.0" version="20.0.0">
+  <diagram id="diagram_use_case" name="Use Case Diagram">
+    <mxGraphModel dx="1000" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="2" value="LegalHub System Boundary" style="swimlane;whiteSpace=wrap;html=1;startSize=23;" vertex="1" parent="1">
+          <mxGeometry x="240" y="40" width="360" height="640" as="geometry" />
+        </mxCell>
+        <mxCell id="3" value="Citizen / NGO" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" vertex="1" parent="1">
+          <mxGeometry x="80" y="280" width="30" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="4" value="Lawyer / Advisor" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" vertex="1" parent="1">
+          <mxGeometry x="720" y="200" width="30" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="5" value="Administrator" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" vertex="1" parent="1">
+          <mxGeometry x="720" y="460" width="30" height="60" as="geometry" />
+        </mxCell>
+        
+        <!-- Use Cases inside boundary -->
+        <mxCell id="uc_login" value="Login / Authenticate" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="2">
+          <mxGeometry x="100" y="40" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="uc_chatbot" value="Consult AI Legal Chatbot" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="2">
+          <mxGeometry x="100" y="120" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="uc_search" value="Search &amp; Discover Lawyers" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="2">
+          <mxGeometry x="100" y="200" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="uc_book" value="Book Consultation &amp; Pay" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="2">
+          <mxGeometry x="100" y="280" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="uc_report" value="Submit Case Report" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="2">
+          <mxGeometry x="100" y="360" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="uc_manage" value="Manage Bookings" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="2">
+          <mxGeometry x="100" y="440" width="160" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="uc_verify" value="Verify Lawyer Credentials" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="2">
+          <mxGeometry x="100" y="520" width="160" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Connections -->
+        <!-- Citizen connections -->
+        <mxCell id="c_uc1" style="edgeStyle=none;html=1;endArrow=none;" edge="1" parent="1" source="3" target="uc_login">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c_uc2" style="edgeStyle=none;html=1;endArrow=none;" edge="1" parent="1" source="3" target="uc_chatbot">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c_uc3" style="edgeStyle=none;html=1;endArrow=none;" edge="1" parent="1" source="3" target="uc_search">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c_uc4" style="edgeStyle=none;html=1;endArrow=none;" edge="1" parent="1" source="3" target="uc_book">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c_uc5" style="edgeStyle=none;html=1;endArrow=none;" edge="1" parent="1" source="3" target="uc_report">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Lawyer connections -->
+        <mxCell id="l_uc1" style="edgeStyle=none;html=1;endArrow=none;" edge="1" parent="1" source="4" target="uc_login">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l_uc6" style="edgeStyle=none;html=1;endArrow=none;" edge="1" parent="1" source="4" target="uc_manage">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Admin connections -->
+        <mxCell id="a_uc1" style="edgeStyle=none;html=1;endArrow=none;" edge="1" parent="1" source="5" target="uc_login">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_uc7" style="edgeStyle=none;html=1;endArrow=none;" edge="1" parent="1" source="5" target="uc_verify">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <diagram id="diagram_er" name="ER Diagram">
+    <mxGraphModel dx="1000" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        
+        <!-- User Entity -->
+        <mxCell id="ent_user" value="USER&#xa;-----------------------------&#xa;+ uid (PK)&#xa;email&#xa;displayName&#xa;role&#xa;phoneNumber&#xa;createdAt" style="shape=swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;" vertex="1" parent="1">
+          <mxGeometry x="80" y="100" width="180" height="150" as="geometry" />
+        </mxCell>
+
+        <!-- Lawyer Entity -->
+        <mxCell id="ent_lawyer" value="LAWYER&#xa;-----------------------------&#xa;+ uid (PK, FK)&#xa;practiceAreas&#xa;location&#xa;hourlyRate&#xa;verified&#xa;licenseNumber&#xa;yearsExperience" style="shape=swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;" vertex="1" parent="1">
+          <mxGeometry x="80" y="360" width="180" height="170" as="geometry" />
+        </mxCell>
+
+        <!-- Booking Entity -->
+        <mxCell id="ent_booking" value="BOOKING&#xa;-----------------------------&#xa;+ bookingId (PK)&#xa;userId (FK)&#xa;lawyerId (FK)&#xa;scheduledAt&#xa;duration&#xa;consultationType&#xa;status&#xa;paymentStatus&#xa;fee&#xa;paymentMethod" style="shape=swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;" vertex="1" parent="1">
+          <mxGeometry x="460" y="80" width="190" height="210" as="geometry" />
+        </mxCell>
+
+        <!-- Case Entity -->
+        <mxCell id="ent_case" value="CASE_REPORT&#xa;-----------------------------&#xa;+ caseId (PK)&#xa;userId (FK)&#xa;lawyerId (FK, Nullable)&#xa;title&#xa;description&#xa;severity&#xa;status&#xa;submittedAt" style="shape=swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;" vertex="1" parent="1">
+          <mxGeometry x="460" y="360" width="190" height="180" as="geometry" />
+        </mxCell>
+
+        <!-- Relationships -->
+        <!-- User to Lawyer (1 to 0..1) -->
+        <mxCell id="rel_u_l" style="edgeStyle=orthogonalEdgeStyle;endArrow=oval;endFill=0;startArrow=oval;startFill=1;html=1;" edge="1" parent="1" source="ent_user" target="ent_lawyer">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <!-- User to Booking (1 to Many) -->
+        <mxCell id="rel_u_b" style="edgeStyle=orthogonalEdgeStyle;endArrow=dash;endSize=8;startArrow=oval;startFill=1;html=1;" edge="1" parent="1" source="ent_user" target="ent_booking">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <!-- Lawyer to Booking (1 to Many) -->
+        <mxCell id="rel_l_b" style="edgeStyle=orthogonalEdgeStyle;endArrow=dash;endSize=8;startArrow=oval;startFill=1;html=1;" edge="1" parent="1" source="ent_lawyer" target="ent_booking">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <!-- User to Case (1 to Many) -->
+        <mxCell id="rel_u_c" style="edgeStyle=orthogonalEdgeStyle;endArrow=dash;endSize=8;startArrow=oval;startFill=1;html=1;" edge="1" parent="1" source="ent_user" target="ent_case">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <!-- Lawyer to Case (0..1 to Many) -->
+        <mxCell id="rel_l_c" style="edgeStyle=orthogonalEdgeStyle;endArrow=dash;endSize=8;startArrow=oval;startFill=0;html=1;" edge="1" parent="1" source="ent_lawyer" target="ent_case">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <diagram id="diagram_sequence" name="Sequence Diagram">
+    <mxGraphModel dx="1200" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        
+        <!-- Lifelines -->
+        <mxCell id="line_citizen" value="Citizen" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;" vertex="1" parent="1">
+          <mxGeometry x="80" y="40" width="100" height="880" as="geometry" />
+        </mxCell>
+        <mxCell id="line_front" value="Web Client" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;" vertex="1" parent="1">
+          <mxGeometry x="240" y="40" width="100" height="880" as="geometry" />
+        </mxCell>
+        <mxCell id="line_back" value="FastAPI Backend" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;" vertex="1" parent="1">
+          <mxGeometry x="400" y="40" width="100" height="880" as="geometry" />
+        </mxCell>
+        <mxCell id="line_db" value="Firestore / Local DB" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;" vertex="1" parent="1">
+          <mxGeometry x="560" y="40" width="100" height="880" as="geometry" />
+        </mxCell>
+        <mxCell id="line_lawyer" value="Lawyer / Advisor" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;" vertex="1" parent="1">
+          <mxGeometry x="720" y="40" width="100" height="880" as="geometry" />
+        </mxCell>
+
+        <!-- Authentication Messages -->
+        <mxCell id="msg_login_click" value="1. Click Login &amp; Submit Credentials" style="html=1;verticalAlign=bottom;endArrow=block;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="line_citizen" target="line_front">
+          <mxGeometry x="-0.005" y="10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="130" y="100" as="sourcePoint" />
+            <mxPoint x="290" y="100" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_post_login" value="2. POST /api/v1/auth/login" style="html=1;verticalAlign=bottom;endArrow=block;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="line_front" target="line_back">
+          <mxGeometry y="10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="290" y="130" as="sourcePoint" />
+            <mxPoint x="450" y="130" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_db_auth" value="3. Read User profile details" style="html=1;verticalAlign=bottom;endArrow=block;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="line_back" target="line_db">
+          <mxGeometry y="10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="450" y="160" as="sourcePoint" />
+            <mxPoint x="610" y="160" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_db_auth_ret" value="4. Return User document" style="html=1;verticalAlign=bottom;endArrow=dash;endFill=0;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="line_db" target="line_back">
+          <mxGeometry y="-10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="610" y="190" as="sourcePoint" />
+            <mxPoint x="450" y="190" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_auth_token" value="5. Access Token &amp; user role" style="html=1;verticalAlign=bottom;endArrow=dash;endFill=0;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="line_back" target="line_front">
+          <mxGeometry y="-10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="450" y="220" as="sourcePoint" />
+            <mxPoint x="290" y="220" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_auth_red" value="6. Render Citizen Dashboard" style="html=1;verticalAlign=bottom;endArrow=dash;endFill=0;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="line_front" target="line_citizen">
+          <mxGeometry y="-10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="290" y="250" as="sourcePoint" />
+            <mxPoint x="130" y="250" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Search Messages -->
+        <mxCell id="msg_search" value="7. Search Lawyer (specialty &amp; location)" style="html=1;verticalAlign=bottom;endArrow=block;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="line_citizen" target="line_front">
+          <mxGeometry y="10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="130" y="300" as="sourcePoint" />
+            <mxPoint x="290" y="300" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_get_lawyers" value="8. GET /api/v1/lawyers?location=Douala" style="html=1;verticalAlign=bottom;endArrow=block;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="line_front" target="line_back">
+          <mxGeometry y="10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="290" y="330" as="sourcePoint" />
+            <mxPoint x="450" y="330" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_db_search" value="9. Query verified lawyers" style="html=1;verticalAlign=bottom;endArrow=block;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="line_back" target="line_db">
+          <mxGeometry y="10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="450" y="360" as="sourcePoint" />
+            <mxPoint x="610" y="360" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_db_search_ret" value="10. Return list of lawyers" style="html=1;verticalAlign=bottom;endArrow=dash;endFill=0;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="line_db" target="line_back">
+          <mxGeometry y="-10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="610" y="390" as="sourcePoint" />
+            <mxPoint x="450" y="390" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_lawyers_cards" value="11. Render lawyer profiles" style="html=1;verticalAlign=bottom;endArrow=dash;endFill=0;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="line_back" target="line_front">
+          <mxGeometry y="-10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="450" y="420" as="sourcePoint" />
+            <mxPoint x="290" y="420" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Booking & MoMo checkout -->
+        <mxCell id="msg_book" value="12. Click 'Book' &amp; Pay via Mobile Money" style="html=1;verticalAlign=bottom;endArrow=block;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="line_citizen" target="line_front">
+          <mxGeometry y="10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="130" y="470" as="sourcePoint" />
+            <mxPoint x="290" y="470" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_post_booking" value="13. POST /api/v1/bookings (pending status)" style="html=1;verticalAlign=bottom;endArrow=block;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="line_front" target="line_back">
+          <mxGeometry y="10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="290" y="500" as="sourcePoint" />
+            <mxPoint x="450" y="500" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_overlap" value="14. Verify schedule overlap &amp; save pending booking" style="html=1;verticalAlign=bottom;endArrow=block;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="line_back" target="line_db">
+          <mxGeometry y="10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="450" y="530" as="sourcePoint" />
+            <mxPoint x="610" y="530" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_overlap_ret" value="15. Success" style="html=1;verticalAlign=bottom;endArrow=dash;endFill=0;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="line_db" target="line_back">
+          <mxGeometry y="-10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="610" y="560" as="sourcePoint" />
+            <mxPoint x="450" y="560" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_booking_ret" value="16. Return booking details" style="html=1;verticalAlign=bottom;endArrow=dash;endFill=0;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="line_back" target="line_front">
+          <mxGeometry y="-10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="450" y="590" as="sourcePoint" />
+            <mxPoint x="290" y="590" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_show_bookings" value="17. Redirect to My Bookings (displays card)" style="html=1;verticalAlign=bottom;endArrow=dash;endFill=0;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="line_front" target="line_citizen">
+          <mxGeometry y="-10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="290" y="620" as="sourcePoint" />
+            <mxPoint x="130" y="620" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Lawyer Dashboard Approval -->
+        <mxCell id="msg_dashboard" value="18. Access Lawyer Dashboard" style="html=1;verticalAlign=bottom;endArrow=block;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="line_lawyer" target="line_front">
+          <mxGeometry y="10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="770" y="660" as="sourcePoint" />
+            <mxPoint x="290" y="660" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_get_lawyer_bookings" value="19. GET /api/v1/lawyers/{id}/bookings" style="html=1;verticalAlign=bottom;endArrow=block;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="line_front" target="line_back">
+          <mxGeometry y="10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="290" y="690" as="sourcePoint" />
+            <mxPoint x="450" y="690" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_db_bookings" value="20. Query bookings (lawyerId = {id})" style="html=1;verticalAlign=bottom;endArrow=block;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="line_back" target="line_db">
+          <mxGeometry y="10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="450" y="720" as="sourcePoint" />
+            <mxPoint x="610" y="720" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_db_bookings_ret" value="21. Return bookings (enriched)" style="html=1;verticalAlign=bottom;endArrow=dash;endFill=0;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="line_db" target="line_back">
+          <mxGeometry y="-10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="610" y="750" as="sourcePoint" />
+            <mxPoint x="450" y="750" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_lawyers_dashboard_ret" value="22. Render booking requests" style="html=1;verticalAlign=bottom;endArrow=dash;endFill=0;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="line_back" target="line_front">
+          <mxGeometry y="-10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="450" y="780" as="sourcePoint" />
+            <mxPoint x="290" y="780" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_lawyer_show" value="23. Display pending booking cards" style="html=1;verticalAlign=bottom;endArrow=dash;endFill=0;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="line_front" target="line_lawyer">
+          <mxGeometry y="-10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="290" y="800" as="sourcePoint" />
+            <mxPoint x="770" y="800" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_approve" value="24. Click 'Approve'" style="html=1;verticalAlign=bottom;endArrow=block;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="line_lawyer" target="line_front">
+          <mxGeometry y="10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="770" y="830" as="sourcePoint" />
+            <mxPoint x="290" y="830" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_put_status" value="25. PUT /api/v1/bookings/{id}/status (status='confirmed')" style="html=1;verticalAlign=bottom;endArrow=block;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="line_front" target="line_back">
+          <mxGeometry y="10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="290" y="850" as="sourcePoint" />
+            <mxPoint x="450" y="850" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_db_confirm" value="26. Update status = 'confirmed' (Safe DELETE_FIELD)" style="html=1;verticalAlign=bottom;endArrow=block;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="line_back" target="line_db">
+          <mxGeometry y="10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="450" y="870" as="sourcePoint" />
+            <mxPoint x="610" y="870" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_db_confirm_ret" value="27. Success" style="html=1;verticalAlign=bottom;endArrow=dash;endFill=0;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="line_db" target="line_back">
+          <mxGeometry y="-10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="610" y="890" as="sourcePoint" />
+            <mxPoint x="450" y="890" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_confirm_ret" value="28. Return confirmed booking details" style="html=1;verticalAlign=bottom;endArrow=dash;endFill=0;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="line_back" target="line_front">
+          <mxGeometry y="-10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="450" y="900" as="sourcePoint" />
+            <mxPoint x="290" y="900" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_confirm_render" value="29. Display confirmed dashboard status" style="html=1;verticalAlign=bottom;endArrow=dash;endFill=0;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="line_front" target="line_lawyer">
+          <mxGeometry y="-10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="290" y="910" as="sourcePoint" />
+            <mxPoint x="770" y="910" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <diagram id="diagram_rag" name="RAG Pipeline">
+    <mxGraphModel dx="1200" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- User Query Start -->
+        <mxCell id="rag_start" value="Citizen Types Legal Query" style="rounded=1;whiteSpace=wrap;html=1;arcSize=50;fillColor=#FDFCF9;strokeColor=#121315;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="340" y="40" width="160" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Greeting Decider -->
+        <mxCell id="dec_greet" value="Is Greeting /&#xa;Short Query?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FAF9F5;strokeColor=#B89868;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="340" y="130" width="160" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Build Chat Context Prompt -->
+        <mxCell id="proc_context" value="Build Chat Context&#xa;Prompt&#xa;(No RAG)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAF9F5;strokeColor=#121315;align=center;" vertex="1" parent="1">
+          <mxGeometry x="580" y="140" width="160" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Query Expansion -->
+        <mxCell id="proc_expand" value="Query Expansion&#xa;(Translate to Cameroonian&#xa;Legal Terms)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAF9F5;strokeColor=#121315;align=center;" vertex="1" parent="1">
+          <mxGeometry x="340" y="250" width="160" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Off-Topic Decider -->
+        <mxCell id="dec_offtopic" value="Is Off-Topic?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FAF9F5;strokeColor=#B89868;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="340" y="350" width="160" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Build No-Docs Prompt -->
+        <mxCell id="proc_nodocs" value="Build No-Docs Prompt&#xa;(LEGALHUB_NO_DOCS&#xa;System Prompt)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAF9F5;strokeColor=#121315;align=center;" vertex="1" parent="1">
+          <mxGeometry x="580" y="360" width="160" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- FAISS Retrieval -->
+        <mxCell id="proc_retrieve" value="FAISS Retrieval&#xa;(Semantic Search)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAF9F5;strokeColor=#121315;align=center;" vertex="1" parent="1">
+          <mxGeometry x="340" y="470" width="160" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- FAISS Vector DB -->
+        <mxCell id="db_faiss" value="FAISS Vector Store&#xa;(Cameroon Legal Docs)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#1C1B19;textColor=#FAF9F5;strokeColor=#121315;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="120" y="450" width="140" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- Threshold Decider -->
+        <mxCell id="dec_threshold" value="Docs Match&#xa;Score &gt;= 0.3?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FAF9F5;strokeColor=#B89868;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="340" y="570" width="160" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Prompt Augmentation -->
+        <mxCell id="proc_augment" value="Prompt Augmentation&#xa;(Embed content with&#xa;Source &amp; Page citation)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAF9F5;strokeColor=#121315;align=center;" vertex="1" parent="1">
+          <mxGeometry x="340" y="690" width="160" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- LLM Generation -->
+        <mxCell id="proc_llm" value="Gemini 2.5 Flash&#xa;LLM Generation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B89868;textColor=#FAF9F5;strokeColor=#B89868;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="340" y="790" width="160" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Firestore Persist -->
+        <mxCell id="proc_persist" value="Persist Message &amp;&#xa;Response in DB" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAF9F5;strokeColor=#121315;align=center;" vertex="1" parent="1">
+          <mxGeometry x="340" y="890" width="160" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Firestore DB -->
+        <mxCell id="db_firestore" value="Firestore Database&#xa;(Chat Sessions)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#1C1B19;textColor=#FAF9F5;strokeColor=#121315;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="120" y="870" width="140" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- Yield Stream End -->
+        <mxCell id="rag_end" value="Stream Response to Web UI" style="rounded=1;whiteSpace=wrap;html=1;arcSize=50;fillColor=#FDFCF9;strokeColor=#121315;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="340" y="990" width="160" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Connections -->
+        <mxCell id="flow_1" value="" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;" edge="1" parent="1" source="rag_start" target="dec_greet">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="flow_2" value="YES" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="dec_greet" target="proc_context">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="flow_3" value="NO" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="dec_greet" target="proc_expand">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="flow_4" value="" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;" edge="1" parent="1" source="proc_expand" target="dec_offtopic">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="flow_5" value="YES" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="dec_offtopic" target="proc_nodocs">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="flow_6" value="NO" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="dec_offtopic" target="proc_retrieve">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="flow_7" value="Query" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="proc_retrieve" target="db_faiss">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="flow_8" value="" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;" edge="1" parent="1" source="proc_retrieve" target="dec_threshold">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="flow_9" value="YES" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="dec_threshold" target="proc_augment">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="flow_10" value="NO" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;labelBackgroundColor=#FFFFFF;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="dec_threshold" target="proc_nodocs">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="660" y="430" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="flow_11" value="" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;" edge="1" parent="1" source="proc_augment" target="proc_llm">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="flow_12" value="" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;" edge="1" parent="1" source="proc_context" target="proc_llm">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="660" y="210" as="sourcePoint" />
+            <mxPoint x="660" y="790" as="targetPoint" />
+            <Array points="660,200 660,760 420,760" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="flow_13" value="" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;" edge="1" parent="1" source="proc_nodocs" target="proc_llm">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="660" y="430" as="sourcePoint" />
+            <mxPoint x="660" y="760" as="targetPoint" />
+            <Array points="660,420 660,760 420,760" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="flow_14" value="" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;" edge="1" parent="1" source="proc_llm" target="proc_persist">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="flow_15" value="Save" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="proc_persist" target="db_firestore">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="flow_16" value="" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;" edge="1" parent="1" source="proc_persist" target="rag_end">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

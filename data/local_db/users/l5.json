@@ -1,0 +1,17 @@
+{
+  "email": "richard.mbarga@legalhub.cm",
+  "displayName": "Mbarga Richard",
+  "role": "lawyer",
+  "profilePicture": "/images/lawyers/lawyer3.jpg",
+  "emailVerified": true,
+  "phoneNumber": null,
+  "isActive": true,
+  "isDeleted": false,
+  "createdAt": "2026-06-11T21:15:59.858073+00:00",
+  "updatedAt": "2026-06-11T21:15:59.858073+00:00",
+  "lastLogin": null,
+  "refreshToken": null,
+  "passwordHash": "$2b$12$Bltq32U8a5ihfKxsavgiR.Pdp0OmrpuhJRSkR4pSMcCsd5B9z55xS",
+  "uid": "l5",
+  "id": "l5"
+}

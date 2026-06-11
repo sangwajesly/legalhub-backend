@@ -35,7 +35,7 @@ class BookingCreateSchema(BaseModel):
                             max_length=10, description="Tags")
     fee: float = Field(default=0.0, ge=0, description="Consultation fee")
     payment_method: Optional[
-        Literal["credit_card", "debit_card", "bank_transfer", "wallet"]
+        Literal["credit_card", "debit_card", "bank_transfer", "wallet", "mobile_money"]
     ] = Field(None, description="Payment method", alias="paymentMethod")
     notes: Optional[str] = Field(None, max_length=2000, description="Additional notes for the booking")
 
@@ -120,16 +120,21 @@ class BookingResponse(BaseModel):
     booking_id: str = Field(..., alias="bookingId")
     lawyer_id: str = Field(..., alias="lawyerId")
     user_id: str = Field(..., alias="userId")
-    consultation_type: str = Field(..., alias="consultationType")
+    consultation_type: ConsultationType = Field(..., alias="consultationType")
     scheduled_at: datetime = Field(..., alias="scheduledAt")
     duration: int
-    status: str
+    status: BookingStatus
     fee: float
-    payment_status: str = Field(..., alias="paymentStatus")
+    payment_status: PaymentStatus = Field(..., alias="paymentStatus")
     created_at: datetime = Field(..., alias="createdAt")
     updated_at: datetime = Field(..., alias="updatedAt")
     client_rating: Optional[float] = Field(None, alias="clientRating")
     client_feedback: Optional[str] = Field(None, alias="clientFeedback")
+    client_name: Optional[str] = Field(None, alias="clientName")
+    client_email: Optional[str] = Field(None, alias="clientEmail")
+    lawyer_name: Optional[str] = Field(None, alias="lawyerName")
+    lawyer_email: Optional[str] = Field(None, alias="lawyerEmail")
+    lawyer_avatar: Optional[str] = Field(None, alias="lawyerAvatar")
 
     model_config = ConfigDict(
         populate_by_name=True,

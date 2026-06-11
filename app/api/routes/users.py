@@ -8,7 +8,7 @@ from typing import Dict, Any
 from app.schemas.auth import UserResponse, UserUpdate, PublicUserResponse
 from app.services.firebase_service import firebase_service
 from app.dependencies import get_current_user, get_optional_user
-from app.models.user import User
+from app.models.user import User, UserRole
 
 # Create router
 router = APIRouter(prefix="/api/v1/users", tags=["Users"])
@@ -91,6 +91,7 @@ async def get_user_by_id(user_id: str, current_user=Depends(get_optional_user)):
 
 
 @router.put("/profile", response_model=UserResponse)
+@router.patch("/profile", response_model=UserResponse)
 async def update_user_profile(
     profile_data: UserUpdate, current_user: User = Depends(get_current_user)
 ):
@@ -265,4 +266,55 @@ async def upload_avatar(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to upload avatar: {str(e)}"
+        )
+
+
+@router.get("/{user_id}/stats")
+async def get_user_stats(user_id: str, current_user=Depends(get_optional_user)):
+    """
+    Get user profile stats (bookings count, cases count, articles read, articles written)
+    """
+    try:
+        # Check if user exists
+        user = await firebase_service.get_user_by_uid(user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
+
+        # 1. Bookings Count
+        # If the user is a lawyer, check lawyerId. Otherwise, check userId.
+        is_lawyer = user.role.value == "lawyer" if hasattr(user.role, 'value') else user.role == "lawyer"
+        
+        booking_filter_field = "lawyerId" if is_lawyer else "userId"
+        _, bookings_count = await firebase_service.query_collection(
+            "bookings", filters={booking_filter_field: user_id}, get_total_count=True
+        )
+
+        # 2. Cases Count
+        _, cases_count = await firebase_service.query_collection(
+            "cases", filters={"userId": user_id}, get_total_count=True
+        )
+
+        # 3. Articles Written Count
+        _, articles_written = await firebase_service.query_collection(
+            "articles", filters={"authorId": user_id}, get_total_count=True
+        )
+
+        # 4. Articles Read Count (Mocked / read tracking if any, otherwise default to a reasonable mock or 0)
+        articles_read = 0
+
+        return {
+            "totalBookings": bookings_count,
+            "totalCases": cases_count,
+            "articlesRead": articles_read,
+            "articlesWritten": articles_written,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving user stats: {str(e)}",
         )

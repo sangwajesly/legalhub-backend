@@ -100,7 +100,15 @@ class LocalDocumentReference:
             except Exception:
                 pass
 
-        serialized_data = _serialize_datetimes(data)
+        clean_data = {}
+        for k, v in data.items():
+            if v.__class__.__name__ == 'Sentinel' or str(v) == "Sentinel: Value used to delete a field in a document.":
+                if merge and k in existing:
+                    del existing[k]
+            else:
+                clean_data[k] = v
+
+        serialized_data = _serialize_datetimes(clean_data)
         updated = {**existing, **serialized_data}
 
         # Keep id in document if possible for convenience
@@ -120,7 +128,15 @@ class LocalDocumentReference:
             except Exception:
                 pass
 
-        serialized_data = _serialize_datetimes(data)
+        clean_data = {}
+        for k, v in data.items():
+            if v.__class__.__name__ == 'Sentinel' or str(v) == "Sentinel: Value used to delete a field in a document.":
+                if k in existing:
+                    del existing[k]
+            else:
+                clean_data[k] = v
+
+        serialized_data = _serialize_datetimes(clean_data)
         updated = {**existing, **serialized_data}
 
         with open(self.file_path, "w", encoding="utf-8") as f:

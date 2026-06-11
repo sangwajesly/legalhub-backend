@@ -188,17 +188,18 @@ async def list_cases(
     category: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
     priority: Optional[str] = Query(None),
+    assigned_to: Optional[str] = Query(None, alias="assignedTo"),
     current_user: User = Depends(get_current_user), # Changed type hint
 ):
     """
-    List cases with optional filtering by category, status, or priority
+    List cases with optional filtering by category, status, priority, or assignedTo
 
     Accessible to all authenticated users. Cases are public to allow community awareness.
     Use /api/v1/cases/user/{uid} to view your own cases specifically.
     """
     try:
         logger.info(
-            f"Listing cases: page={page}, page_size={page_size}, category={category}, status={status}"
+            f"Listing cases: page={page}, page_size={page_size}, category={category}, status={status}, assigned_to={assigned_to}"
         )
 
         # Build query filters
@@ -209,6 +210,8 @@ async def list_cases(
             filters["status"] = status
         if priority:
             filters["priority"] = priority
+        if assigned_to:
+            filters["assignedTo"] = assigned_to
 
         # Query Firestore
         docs, total_count = await firebase_service.query_collection(
@@ -662,3 +665,55 @@ async def get_case_stats(
         logger.error(f"Error fetching case statistics: {str(e)}")
         raise HTTPException(
             status_code=500, detail="Failed to retrieve statistics")
+
+
+# POST /api/cases/{case_id}/claim - Claim a case for representation (Lawyer only)
+@router.post("/{case_id}/claim", response_model=CaseDetailSchema)
+async def claim_case(
+    case_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Allow a lawyer to offer representation and claim an unassigned case
+    """
+    if current_user.role != UserRole.LAWYER:
+        raise HTTPException(
+            status_code=403,
+            detail="Only authenticated lawyers can claim cases for representation.",
+        )
+
+    doc_data = await firebase_service.get_document(f"cases/{case_id}")
+    if not doc_data:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    if doc_data.get("assignedTo"):
+        raise HTTPException(
+            status_code=400,
+            detail="This case is already assigned to a legal representative.",
+        )
+
+    # Update document to assign to the lawyer
+    update_data = {
+        "assignedTo": current_user.uid,
+        "assignedAt": datetime.now(UTC),
+        "status": CaseStatus.UNDER_REVIEW.value,
+        "updatedAt": datetime.now(UTC),
+    }
+
+    # Add to status history
+    status_history = doc_data.get("statusHistory", [])
+    status_history.append(
+        {
+            "status": CaseStatus.UNDER_REVIEW.value,
+            "changedAt": datetime.now(UTC).isoformat(),
+            "changedBy": current_user.uid,
+            "notes": "Representation offered and case claimed by lawyer.",
+        }
+    )
+    update_data["statusHistory"] = status_history
+
+    doc_data.update(update_data)
+    await firebase_service.update_document(f"cases/{case_id}", update_data)
+
+    case = firestore_case_to_model(doc_data, case_id)
+    return CaseDetailSchema(**case.model_dump())

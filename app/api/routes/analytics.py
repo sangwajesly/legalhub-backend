@@ -31,10 +31,6 @@ async def overview(current_user=Depends(get_current_user)):
     lawyers_coll = db.collection("lawyers")
     total_lawyers = sum(1 for _ in lawyers_coll.stream())
 
-    # Count cases
-    cases_coll = db.collection("cases")
-    total_cases = sum(1 for _ in cases_coll.stream())
-
     # Count bookings
     bookings_coll = db.collection("bookings")
     total_bookings = sum(1 for _ in bookings_coll.stream())
@@ -43,12 +39,54 @@ async def overview(current_user=Depends(get_current_user)):
     articles_coll = db.collection("articles")
     total_articles = sum(1 for _ in articles_coll.stream())
 
+    # Gather case aggregations
+    cases_coll = db.collection("cases")
+    cases_by_category = Counter()
+    cases_by_severity = Counter()
+    
+    total_cases = 0
+    resolved_cases = 0
+    total_resolution_days = 0
+
+    for doc in cases_coll.stream():
+        total_cases += 1
+        data = doc.to_dict()
+        category = data.get("category") or "Other"
+        severity = data.get("severity") or "medium"
+        status = data.get("status") or "pending"
+        
+        cases_by_category[category] += 1
+        cases_by_severity[severity] += 1
+        
+        if status in ["resolved", "completed"]:
+            resolved_cases += 1
+            created_at = data.get("submittedAt") or data.get("createdAt")
+            resolved_at = data.get("updatedAt")
+            if created_at and resolved_at:
+                try:
+                    # Simple date parsing
+                    from datetime import datetime
+                    start = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                    end = datetime.fromisoformat(resolved_at.replace("Z", "+00:00"))
+                    days = (end - start).days
+                    if days >= 0:
+                        total_resolution_days += days
+                except Exception:
+                    pass
+
+    resolution_rate = resolved_cases / total_cases if total_cases > 0 else 0.0
+    average_resolution_time = int(total_resolution_days / resolved_cases) if resolved_cases > 0 else 0
+
     return OverviewResponse(
         totalUsers=total_users,
         totalLawyers=total_lawyers,
         totalCases=total_cases,
         totalBookings=total_bookings,
         totalArticles=total_articles,
+        casesByCategory=dict(cases_by_category),
+        casesBySeverity=dict(cases_by_severity),
+        resolutionRate=resolution_rate,
+        averageResolutionTime=average_resolution_time
     )
 
 

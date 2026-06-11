@@ -20,6 +20,14 @@ class UserRegister(BaseModel):
     role: str = "citizen"
     phone_number: Optional[str] = Field(None, alias="phoneNumber")
 
+    # Optional Lawyer Fields
+    bio: Optional[str] = None
+    location: Optional[str] = None
+    license_number: Optional[str] = Field(None, alias="licenseNumber")
+    practice_areas: Optional[list[str]] = Field(default=None, alias="practiceAreas")
+    hourly_rate: Optional[float] = Field(default=None, alias="hourlyRate")
+    years_experience: Optional[int] = Field(default=None, alias="yearsExperience")
+
     @field_validator("password")
     def validate_password(cls, v):
         """Validate password strength"""
@@ -69,6 +77,14 @@ class VerifyTokenRequest(AuthTokenRequest):
     """Schema for requests to /verify-token, including optional metadata."""
     name: Optional[str] = Field(None, description="Optional display name for new user registration.")
     role: Optional[UserRole] = Field(None, description="Optional role for new user registration.")
+    
+    # Optional Lawyer Fields for registration
+    bio: Optional[str] = None
+    location: Optional[str] = None
+    license_number: Optional[str] = Field(None, alias="licenseNumber")
+    practice_areas: Optional[list[str]] = Field(default=None, alias="practiceAreas")
+    hourly_rate: Optional[float] = Field(default=None, alias="hourlyRate")
+    years_experience: Optional[int] = Field(default=None, alias="yearsExperience")
 
     model_config = ConfigDict(
         populate_by_name=True,

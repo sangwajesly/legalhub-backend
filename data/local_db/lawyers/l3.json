@@ -1,0 +1,25 @@
+{
+  "displayName": "Fombu Grace",
+  "email": "grace.fombu@legalhub.cm",
+  "profilePicture": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80",
+  "bio": "Specialist in family law and customary court proceedings in the North West Region. Advocates for women's rights in customary marriages and inheritance disputes.",
+  "location": "Bamenda, Cameroon",
+  "licenseNumber": "CAM-2014-042",
+  "jurisdictions": [
+    "Cameroon"
+  ],
+  "practiceAreas": [
+    "Family & Customary Law"
+  ],
+  "hourlyRate": 35000.0,
+  "yearsExperience": 10,
+  "languages": [
+    "en"
+  ],
+  "verified": true,
+  "rating": 4.9,
+  "numReviews": 88,
+  "createdAt": "2026-06-11T21:15:59.780074+00:00",
+  "updatedAt": "2026-06-11T21:15:59.780074+00:00",
+  "id": "l3"
+}

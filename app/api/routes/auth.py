@@ -21,7 +21,7 @@ from app.schemas.auth import (
 )
 from app.services.auth_service import auth_service
 from app.dependencies import get_current_user, get_optional_user
-from app.models.user import User, UserProfile # Also import UserProfile
+from app.models.user import User, UserProfile, UserRole # Also import UserProfile
 
 # Create router
 router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
@@ -64,10 +64,21 @@ async def verify_token(payload: VerifyTokenRequest):
     Verify Firebase ID Token and sync/create user in backend
     """
     try:
+        lawyer_data = None
+        if payload.role == UserRole.LAWYER or (payload.role and payload.role.value == "lawyer"):
+            lawyer_data = {
+                "bio": payload.bio,
+                "location": payload.location,
+                "license_number": payload.license_number,
+                "practice_areas": payload.practice_areas,
+                "hourly_rate": payload.hourly_rate,
+                "years_experience": payload.years_experience,
+            }
         auth_data = await auth_service.login_user(
             payload.id_token,
             name=payload.name,
-            role=payload.role
+            role=payload.role,
+            lawyer_data=lawyer_data
         )
         user_response = UserResponse(**auth_data["user"].model_dump(by_alias=True))
         tokens_response = Token(**auth_data["tokens"])

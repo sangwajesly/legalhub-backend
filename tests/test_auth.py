@@ -6,7 +6,7 @@ from datetime import datetime, UTC
 from app.main import app
 from app.models.user import User, UserRole
 from app.schemas.auth import AuthResponse, UserResponse, Token
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_optional_user
 from app.services.auth_service import AuthService
 from app.utils.security import verify_refresh_token
 from app.services.firebase_service import firebase_service
@@ -36,8 +36,9 @@ def authenticated_client(monkeypatch, mock_user_instance):
         return mock_user_instance
 
     app.dependency_overrides[get_current_user] = mock_get_current_user
+    app.dependency_overrides[get_optional_user] = mock_get_current_user
     yield TestClient(app)
-    app.dependency_overrides = {} # Clear overrides after test
+    app.dependency_overrides.clear()
 
 def test_verify_token_returns_auth_response(monkeypatch, mock_user_instance):
     client = TestClient(app)

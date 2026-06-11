@@ -1,0 +1,27 @@
+{
+  "displayName": "Tchouaket Jean-Marie",
+  "email": "jeanmarie.tchouaket@legalhub.cm",
+  "profilePicture": "/images/lawyers/lawyer4.jpg",
+  "bio": "Specialist in the Cameroonian Mining Code and related decrees. Advises extraction companies, artisanal miners, and state agencies on licensing, environmental obligations, and disputes.",
+  "location": "Douala, Cameroon",
+  "licenseNumber": "CAM-2013-057",
+  "jurisdictions": [
+    "Cameroon"
+  ],
+  "practiceAreas": [
+    "Mining Law",
+    "Natural Resources"
+  ],
+  "hourlyRate": 80000.0,
+  "yearsExperience": 11,
+  "languages": [
+    "fr",
+    "en"
+  ],
+  "verified": true,
+  "rating": 4.6,
+  "numReviews": 54,
+  "createdAt": "2026-06-11T21:15:59.920073+00:00",
+  "updatedAt": "2026-06-11T21:15:59.920073+00:00",
+  "id": "l6"
+}

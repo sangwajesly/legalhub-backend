@@ -15,6 +15,7 @@ class Article(BaseModel):
     author_id: str = Field(..., alias="authorId")
     tags: list[str] = Field(default_factory=list)
     published: bool = False
+    category: Optional[str] = "General"
     created_at: Optional[datetime] = Field(None, alias="createdAt")
     updated_at: Optional[datetime] = Field(None, alias="updatedAt")
     likes_count: int = Field(0, alias="likesCount")

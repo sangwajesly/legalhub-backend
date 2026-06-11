@@ -1,0 +1,27 @@
+{
+  "displayName": "Ewane Bertrand",
+  "email": "bertrand.ewane@legalhub.cm",
+  "profilePicture": "https://images.unsplash.com/photo-1536896407451-6e3dd976edd1?auto=format&fit=crop&w=200&q=80",
+  "bio": "Electoral and constitutional law counsel with experience in election observation, candidate eligibility disputes, and civic rights under the Electoral Code of Cameroon.",
+  "location": "Yaound\u00e9, Cameroon",
+  "licenseNumber": "CAM-2017-104",
+  "jurisdictions": [
+    "Cameroon"
+  ],
+  "practiceAreas": [
+    "Electoral Law",
+    "Constitutional Law"
+  ],
+  "hourlyRate": 30000.0,
+  "yearsExperience": 7,
+  "languages": [
+    "en",
+    "fr"
+  ],
+  "verified": false,
+  "rating": 4.5,
+  "numReviews": 47,
+  "createdAt": "2026-06-11T21:16:00.000074+00:00",
+  "updatedAt": "2026-06-11T21:16:00.000074+00:00",
+  "id": "l8"
+}

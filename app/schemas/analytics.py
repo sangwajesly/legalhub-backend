@@ -10,6 +10,12 @@ class OverviewResponse(BaseModel):
     totalCases: int
     totalBookings: int
     totalArticles: int
+    casesByCategory: Dict[str, int] = {}
+    casesByLocation: Dict[str, int] = {}
+    casesBySeverity: Dict[str, int] = {}
+    resolutionRate: float = 0.0
+    averageResolutionTime: int = 0
+    trends: list = []
 
     model_config = ConfigDict()
 

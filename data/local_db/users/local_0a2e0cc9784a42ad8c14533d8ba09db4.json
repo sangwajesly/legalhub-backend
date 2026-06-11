@@ -1,0 +1,18 @@
+{
+  "email": "admin@legalhub.com",
+  "displayName": "Admin",
+  "role": "admin",
+  "profilePicture": null,
+  "emailVerified": false,
+  "phoneNumber": null,
+  "isActive": true,
+  "isDeleted": false,
+  "createdAt": "2026-06-09T16:14:56.526955+00:00",
+  "updatedAt": "2026-06-10T02:41:30.427668+00:00",
+  "lastLogin": "2026-06-10T02:41:30.427668+00:00",
+  "refreshToken": null,
+  "passwordHash": "$2b$12$ahwGTTOyvQq4yH70FFwITO/FHP9UEeZikUgHdcyMlFUM4vBsk2Q1W",
+  "uid": "local_0a2e0cc9784a42ad8c14533d8ba09db4",
+  "id": "local_0a2e0cc9784a42ad8c14533d8ba09db4",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJsb2NhbF8wYTJlMGNjOTc4NGE0MmFkOGMxNDUzM2Q4YmEwOWRiNCIsImV4cCI6MTc4MTY2NDA5MCwiaWF0IjoxNzgxMDU5MjkwLCJ0eXBlIjoicmVmcmVzaCJ9.kBjXYZTeaiv_mGgaeXUiK-iDvc1gr6m_zN74bua8Y0U"
+}

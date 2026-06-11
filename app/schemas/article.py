@@ -12,6 +12,7 @@ class ArticleCreateSchema(BaseModel):
     content: str = Field(..., description="Article body")
     tags: list[str] = Field(default_factory=list)
     published: bool = Field(default=False)
+    category: Optional[str] = "General"
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -21,6 +22,7 @@ class ArticleCreateSchema(BaseModel):
                 "content": "Step-by-step guide...",
                 "tags": ["small-claims", "procedure"],
                 "published": True,
+                "category": "Civil Rights",
             }
         }
     )
@@ -31,6 +33,7 @@ class ArticleUpdateSchema(BaseModel):
     content: Optional[str] = None
     tags: Optional[list[str]] = None
     published: Optional[bool] = None
+    category: Optional[str] = None
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -41,8 +44,11 @@ class ArticleResponse(BaseModel):
     slug: Optional[str] = None
     content: str
     author_id: str = Field(..., alias="authorId")
+    author_name: Optional[str] = Field("Advocate", alias="authorName")
+    author_avatar: Optional[str] = Field(None, alias="authorAvatar")
     tags: list[str]
     published: bool
+    category: Optional[str] = "General"
     created_at: Optional[datetime] = Field(None, alias="createdAt")
     updated_at: Optional[datetime] = Field(None, alias="updatedAt")
     likes_count: int = Field(0, alias="likesCount")

@@ -31,13 +31,14 @@ async def test_profile_sync():
                     uid="test_uid",
                     email="test@example.com",
                     display_name="Old Name",
-                    role="user",
+                    role="citizen",
                     profile_picture="old.jpg"
                 )
                 # Setup async mock for get_user_by_uid
                 from unittest.mock import AsyncMock
                 mock_firebase.get_user_by_uid = AsyncMock(return_value=existing_user)
                 mock_firebase.update_user_profile = AsyncMock()
+                mock_firebase.update_user = AsyncMock(return_value=existing_user)
                 
                 # Setup token with NEW name
                 mock_verify.return_value = {

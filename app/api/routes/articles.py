@@ -48,17 +48,8 @@ async def list_articles(
     """List articles with pagination"""
     filters = {}
 
-    # Text search support (Simple)
-    # Note: If 'q' is provided, we might fail if dataset is large because Firestore doesn't do "contains".
-    # For now, we ignore 'q' in database query and just list recent articles.
-    # Real solution requires Algolia/Elasticsearch or generic partial scan (slow).
-
     # Only show published articles by default
     filters["published"] = True
-
-    # If admin or author, logic to see unpublished is complex to do in one query with filters.
-    # We will prioritize the main use case: Public Feed.
-    # Users/Authors seeing their own unpublished articles should be a separate endpoint "/my".
 
     docs, total_count = await firebase_service.query_collection(
         "articles",
@@ -81,15 +72,36 @@ async def list_articles(
         except Exception:
             continue
 
-    # Calculate pages
-    # Note: total_count from query_collection might be limited or estimated in some implementatons,
-    # but our service does a separate count query.
+    articles_with_author = []
+    for a in items:
+        author_name = "Advocate"
+        author_avatar = None
+        if a.author_id:
+            user = await firebase_service.get_user_by_uid(a.author_id)
+            if user:
+                author_name = user.display_name or "Advocate"
+                author_avatar = user.profile_picture
+        resp = ArticleResponse(
+            articleId=a.article_id,
+            title=a.title,
+            slug=a.slug,
+            content=a.content,
+            authorId=a.author_id,
+            authorName=author_name,
+            authorAvatar=author_avatar,
+            tags=a.tags,
+            published=a.published,
+            category=a.category,
+            createdAt=a.created_at,
+            updatedAt=a.updated_at,
+            likesCount=a.likes_count,
+            views=a.views,
+            sharesCount=a.shares_count
+        )
+        articles_with_author.append(resp)
 
     return ArticleListResponse(
-        articles=[
-            ArticleResponse.model_validate(a)
-            for a in items
-        ],
+        articles=articles_with_author,
         total=total_count,
         page=page,
         page_size=pageSize,
@@ -122,7 +134,32 @@ async def get_article(article_id: str, current_user=Depends(get_optional_user)):
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not allowed to view unpublished article",
             )
-    return ArticleResponse.model_validate(a)
+    
+    author_name = "Advocate"
+    author_avatar = None
+    if a.author_id:
+        user = await firebase_service.get_user_by_uid(a.author_id)
+        if user:
+            author_name = user.display_name or "Advocate"
+            author_avatar = user.profile_picture
+
+    return ArticleResponse(
+        articleId=a.article_id,
+        title=a.title,
+        slug=a.slug,
+        content=a.content,
+        authorId=a.author_id,
+        authorName=author_name,
+        authorAvatar=author_avatar,
+        tags=a.tags,
+        published=a.published,
+        category=a.category,
+        createdAt=a.created_at,
+        updatedAt=a.updated_at,
+        likesCount=a.likes_count,
+        views=a.views,
+        sharesCount=a.shares_count
+    )
 
 
 @router.post("/", response_model=ArticleResponse, status_code=status.HTTP_201_CREATED)
@@ -148,6 +185,7 @@ async def create_article(
         "authorId": uid,
         "tags": payload.tags,
         "published": payload.published,
+        "category": payload.category or "General",
         "createdAt": now,
         "updatedAt": now,
         "likesCount": 0,
@@ -155,9 +193,33 @@ async def create_article(
         "sharesCount": 0,
     }
     doc_ref.set(article_data)
-    a = firestore_article_to_model(article_data, doc_ref.id)
+    
+    author_name = "Advocate"
+    author_avatar = None
+    if isinstance(current_user, dict):
+        author_name = current_user.get("displayName") or current_user.get("display_name") or "Advocate"
+        author_avatar = current_user.get("profilePicture") or current_user.get("profile_picture")
+    else:
+        author_name = getattr(current_user, "display_name", None) or getattr(current_user, "displayName", None) or "Advocate"
+        author_avatar = getattr(current_user, "profile_picture", None) or getattr(current_user, "profilePicture", None)
 
-    return ArticleResponse.model_validate(a)
+    return ArticleResponse(
+        articleId=doc_ref.id,
+        title=payload.title,
+        slug=article_data["slug"],
+        content=payload.content,
+        authorId=uid,
+        authorName=author_name,
+        authorAvatar=author_avatar,
+        tags=payload.tags,
+        published=payload.published,
+        category=payload.category or "General",
+        createdAt=now,
+        updatedAt=now,
+        likesCount=0,
+        views=0,
+        sharesCount=0
+    )
 
 
 @router.post("/{article_id}/like", response_model=dict)
@@ -405,13 +467,40 @@ async def update_article(
         update_data["tags"] = payload.tags
     if payload.published is not None:
         update_data["published"] = payload.published
+    if payload.category is not None:
+        update_data["category"] = payload.category
     update_data["updatedAt"] = datetime.now(timezone.utc)
 
     doc_ref.update(update_data)
     # merge existing for response
     new_doc = doc_ref.get()
     a = firestore_article_to_model(new_doc.to_dict(), new_doc.id)
-    return ArticleResponse.model_validate(a)
+    
+    author_name = "Advocate"
+    author_avatar = None
+    if a.author_id:
+        user = await firebase_service.get_user_by_uid(a.author_id)
+        if user:
+            author_name = user.display_name or "Advocate"
+            author_avatar = user.profile_picture
+
+    return ArticleResponse(
+        articleId=a.article_id,
+        title=a.title,
+        slug=a.slug,
+        content=a.content,
+        authorId=a.author_id,
+        authorName=author_name,
+        authorAvatar=author_avatar,
+        tags=a.tags,
+        published=a.published,
+        category=a.category,
+        createdAt=a.created_at,
+        updatedAt=a.updated_at,
+        likesCount=a.likes_count,
+        views=a.views,
+        sharesCount=a.shares_count
+    )
 
 
 @router.delete("/{article_id}", status_code=status.HTTP_204_NO_CONTENT)

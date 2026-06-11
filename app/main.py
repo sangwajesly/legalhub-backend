@@ -65,8 +65,20 @@ async def lifespan(app: FastAPI):
     # Note: If running for the first time, the SentenceTransformer model used by the RAG system
     # (e.g., 'all-MiniLM-L6-v2') will be downloaded. This requires internet access.
     # Ensure Firebase and Gemini services are properly configured as well.
-    await initialize_scheduler()
-    print("RAG Scheduler initialized")
+    try:
+        from app.services.rag_scheduler import initialize_scheduler
+        await initialize_scheduler()
+        print("RAG Scheduler initialized")
+    except Exception as rag_e:
+        print(f"Failed to initialize RAG scheduler: {rag_e}")
+
+    # Seed Local DB if using local database mode
+    if settings.USE_LOCAL_DATABASE:
+        try:
+            from app.utils.seed_db import seed_local_db
+            await seed_local_db()
+        except Exception as seed_e:
+            print(f"Failed to seed local database: {seed_e}")
 
     yield
 

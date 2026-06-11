@@ -137,6 +137,7 @@ class FirebaseService:
         email_verified: bool = False,  # Add email_verified
         photo_url: Optional[str] = None,  # Add photo_url
         is_new_user: bool = True,  # Flag to indicate if user is truly new to Firebase Auth
+        lawyer_data: Optional[Dict[str, Any]] = None,
     ) -> User:
         """
         Create a new user in Firebase Authentication (if new) and Firestore
@@ -150,6 +151,7 @@ class FirebaseService:
             email_verified: Whether the email is verified
             photo_url: Optional photo URL
             is_new_user: If True, creates user in Firebase Auth. If False, assumes user exists.
+            lawyer_data: Optional dictionary of lawyer-specific profile attributes.
 
         Returns:
             User object
@@ -218,6 +220,36 @@ class FirebaseService:
                     f"DEBUG: Failed to save user {uid} to Firestore: {firestore_e}")
                 raise Exception(
                     f"Error saving user to Firestore: {firestore_e}")
+
+            if role == "lawyer":
+                try:
+                    from app.models.lawyer import Lawyer, lawyer_model_to_firestore
+                    ld = lawyer_data or {}
+                    new_lawyer = Lawyer(
+                        uid=uid,
+                        displayName=display_name,
+                        email=email,
+                        profilePicture=photo_url,
+                        bio=ld.get("bio") or ld.get("description"),
+                        location=ld.get("location"),
+                        licenseNumber=ld.get("licenseNumber") or ld.get("license_number"),
+                        jurisdictions=ld.get("jurisdictions") or [],
+                        practiceAreas=ld.get("practiceAreas") or ld.get("practice_areas") or [],
+                        hourlyRate=ld.get("hourlyRate") or ld.get("hourly_rate"),
+                        yearsExperience=ld.get("yearsExperience") or ld.get("years_experience"),
+                        languages=ld.get("languages") or ["en"],
+                        verified=False,
+                        rating=5.0,
+                        numReviews=0,
+                        createdAt=datetime.now(UTC),
+                        updatedAt=datetime.now(UTC)
+                    )
+                    await asyncio.to_thread(
+                        self.db.collection("lawyers").document(uid).set,
+                        lawyer_model_to_firestore(new_lawyer)
+                    )
+                except Exception as lawyer_e:
+                    print(f"DEBUG: Failed to save lawyer profile {uid} to Firestore: {lawyer_e}")
 
             return user
 
@@ -1006,6 +1038,97 @@ class FirebaseService:
         docs = await asyncio.to_thread(_get_stream_data, query)
 
         return docs, total_count
+
+    # ============================================
+    # BOOKING OPERATIONS
+    # ============================================
+
+    async def get_lawyer_bookings(
+        self,
+        lawyer_uid: str,
+        status: Optional[BookingStatus] = None,
+        limit: int = 10,
+        offset: int = 0
+    ) -> List[Booking]:
+        """
+        Fetches bookings for a specific lawyer from Firestore.
+        """
+        from app.models.booking import Booking, firestore_booking_to_model
+        import asyncio
+
+        bookings_ref = self.db.collection("bookings")
+        query = bookings_ref.where("lawyerId", "==", lawyer_uid)
+
+        if status:
+            query = query.where("status", "==", status.value)
+
+        # Ordering by scheduledAt is a good default for display,
+        # but requires a composite index if combined with status filter.
+        # For simplicity in MVP, we will sort after fetching or assume simple queries.
+        # If the query fails due to missing index, Firebase will usually suggest it.
+        query = query.order_by("scheduledAt", direction=firestore.Query.DESCENDING)
+
+        # Apply offset and limit for pagination
+        if offset > 0:
+            query = query.offset(offset)
+        if limit > 0:
+            query = query.limit(limit)
+
+        docs = await asyncio.to_thread(query.stream)
+        bookings = [firestore_booking_to_model(doc.to_dict(), doc.id) for doc in docs]
+        return bookings
+
+    async def get_booking_by_id(self, booking_id: str) -> Optional[Booking]:
+        """
+        Retrieves a single booking by its ID from Firestore.
+        """
+        from app.models.booking import Booking, firestore_booking_to_model
+        import asyncio
+
+        doc = await asyncio.to_thread(self.db.collection("bookings").document(booking_id).get)
+        if doc.exists:
+            return firestore_booking_to_model(doc.to_dict(), doc.id)
+        return None
+
+    async def update_booking_status(
+        self,
+        booking_id: str,
+        new_status: BookingStatus,
+        cancellation_reason: Optional[str] = None,
+        lawyer_notes: Optional[str] = None
+    ) -> Optional[Booking]:
+        """
+        Updates the status of a specific booking and adds relevant timestamps.
+        """
+        from app.models.booking import BookingStatus
+        import asyncio
+
+        update_data = {"status": new_status.value, "updatedAt": datetime.now(UTC)}
+
+        if new_status == BookingStatus.CONFIRMED:
+            update_data["confirmedAt"] = datetime.now(UTC)
+            update_data["cancellationReason"] = firestore.DELETE_FIELD
+            update_data["cancellationBy"] = firestore.DELETE_FIELD
+        elif new_status == BookingStatus.CANCELLED:
+            update_data["cancelledAt"] = datetime.now(UTC)
+            if cancellation_reason:
+                update_data["cancellationReason"] = cancellation_reason
+            update_data["cancellationBy"] = "lawyer" # Assuming lawyer is cancelling
+            update_data["confirmedAt"] = firestore.DELETE_FIELD
+        elif new_status == BookingStatus.COMPLETED:
+            update_data["completedAt"] = datetime.now(UTC)
+            update_data["confirmedAt"] = firestore.DELETE_FIELD
+            update_data["cancellationReason"] = firestore.DELETE_FIELD
+            update_data["cancellationBy"] = firestore.DELETE_FIELD
+
+        if lawyer_notes is not None:
+            update_data["lawyerNotes"] = lawyer_notes
+
+        booking_ref = self.db.collection("bookings").document(booking_id)
+        await asyncio.to_thread(booking_ref.update, update_data)
+
+        # Retrieve and return the updated booking
+        return await self.get_booking_by_id(booking_id)
 
     # ============================================
     # GENERIC DOCUMENT CRUD HELPERS

@@ -1,0 +1,23 @@
+{
+  "displayName": "Mbongih Noel",
+  "email": "lawyerJJ@gmail.com",
+  "profilePicture": null,
+  "bio": "",
+  "location": "Bamenda",
+  "licenseNumber": null,
+  "jurisdictions": [],
+  "practiceAreas": [
+    "Family"
+  ],
+  "hourlyRate": 10000.0,
+  "yearsExperience": null,
+  "languages": [
+    "en"
+  ],
+  "verified": true,
+  "rating": 5.0,
+  "numReviews": 0,
+  "createdAt": "2026-06-09T15:06:10.112890+00:00",
+  "updatedAt": "2026-06-10T01:21:07.242370+00:00",
+  "id": "local_fe348789eaca4b488b840b019d15b21f"
+}

@@ -1,0 +1,17 @@
+{
+  "email": "bertrand.ewane@legalhub.cm",
+  "displayName": "Ewane Bertrand",
+  "role": "lawyer",
+  "profilePicture": "https://images.unsplash.com/photo-1536896407451-6e3dd976edd1?auto=format&fit=crop&w=200&q=80",
+  "emailVerified": true,
+  "phoneNumber": null,
+  "isActive": true,
+  "isDeleted": false,
+  "createdAt": "2026-06-11T21:15:59.982071+00:00",
+  "updatedAt": "2026-06-11T21:15:59.982071+00:00",
+  "lastLogin": null,
+  "refreshToken": null,
+  "passwordHash": "$2b$12$Bltq32U8a5ihfKxsavgiR.Pdp0OmrpuhJRSkR4pSMcCsd5B9z55xS",
+  "uid": "l8",
+  "id": "l8"
+}

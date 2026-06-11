@@ -51,6 +51,17 @@ class AuthService:
             if existing_user:
                 raise ValueError("Email already registered")
 
+            lawyer_data = None
+            if user_data.role == "lawyer":
+                lawyer_data = {
+                    "license_number": getattr(user_data, "license_number", None) or getattr(user_data, "licenseNumber", None),
+                    "practice_areas": getattr(user_data, "practice_areas", None) or getattr(user_data, "practiceAreas", None),
+                    "hourly_rate": getattr(user_data, "hourly_rate", None) or getattr(user_data, "hourlyRate", None),
+                    "years_experience": getattr(user_data, "years_experience", None) or getattr(user_data, "yearsExperience", None),
+                    "location": getattr(user_data, "location", None),
+                    "bio": getattr(user_data, "bio", None),
+                }
+
             # Create user in Firebase
             user = await self.firebase.create_user(
                 email=user_data.email,
@@ -60,6 +71,7 @@ class AuthService:
                 phone_number=user_data.phone_number,
                 email_verified=False,  # Explicitly set for new registrations
                 is_new_user=True,  # Explicitly set for new registrations
+                lawyer_data=lawyer_data,
             )
 
             # Create tokens
@@ -113,6 +125,34 @@ class AuthService:
                 self.firebase.db.collection("users").document(uid).set,
                 firestore_data
             )
+
+            if user_data.role == "lawyer":
+                try:
+                    from app.models.lawyer import Lawyer, lawyer_model_to_firestore
+                    new_lawyer = Lawyer(
+                        uid=uid,
+                        displayName=user_data.display_name,
+                        email=user_data.email,
+                        bio=getattr(user_data, "bio", None),
+                        location=getattr(user_data, "location", None),
+                        licenseNumber=getattr(user_data, "license_number", None) or getattr(user_data, "licenseNumber", None),
+                        jurisdictions=[],
+                        practiceAreas=getattr(user_data, "practice_areas", None) or getattr(user_data, "practiceAreas", None) or [],
+                        hourlyRate=getattr(user_data, "hourly_rate", None) or getattr(user_data, "hourlyRate", None),
+                        yearsExperience=getattr(user_data, "years_experience", None) or getattr(user_data, "yearsExperience", None),
+                        languages=["en"],
+                        verified=False,
+                        rating=5.0,
+                        numReviews=0,
+                        createdAt=datetime.now(UTC),
+                        updatedAt=datetime.now(UTC)
+                    )
+                    await asyncio.to_thread(
+                        self.firebase.db.collection("lawyers").document(uid).set,
+                        lawyer_model_to_firestore(new_lawyer)
+                    )
+                except Exception as lawyer_e:
+                    print(f"DEBUG: Failed to save local lawyer profile {uid} to local DB: {lawyer_e}")
 
             # Create tokens
             tokens = create_token_pair(
@@ -175,7 +215,7 @@ class AuthService:
         except Exception as e:
             raise Exception(f"Local login failed: {str(e)}")
 
-    async def login_user(self, id_token: str, name: Optional[str] = None, role: Optional[UserRole] = None) -> Dict[str, Any]:
+    async def login_user(self, id_token: str, name: Optional[str] = None, role: Optional[UserRole] = None, lawyer_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Authenticate user via Firebase ID token and generate internal tokens.
 
@@ -183,6 +223,7 @@ class AuthService:
             id_token: Firebase ID token obtained from the client-side authentication.
             name: Optional display name for new user registration.
             role: Optional role for new user registration.
+            lawyer_data: Optional lawyer data dictionary for registration.
 
         Returns:
             Dictionary containing user and internal tokens.
@@ -217,7 +258,8 @@ class AuthService:
                     phone_number=decoded_token.get("phone_number"),
                     email_verified=decoded_token.get("email_verified", False),
                     photo_url=decoded_token.get("picture"),
-                    is_new_user=False
+                    is_new_user=False,
+                    lawyer_data=lawyer_data
                 )
 
             # 3. Create internal tokens (access and refresh)

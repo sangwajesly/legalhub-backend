@@ -67,6 +67,8 @@ class LawyerUpdate(BaseModel):
     location: Optional[str] = None
     practice_areas: Optional[List[str]] = Field(None, alias="practiceAreas")
     hourly_rate: Optional[float] = Field(None, alias="hourlyRate")
+    license_number: Optional[str] = Field(None, alias="licenseNumber")
+    years_experience: Optional[int] = Field(None, alias="yearsExperience")
     verified: Optional[bool] = None
 
     model_config = ConfigDict(populate_by_name=True)

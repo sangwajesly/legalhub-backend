@@ -57,6 +57,34 @@ def _parse_datetime(value):
     return datetime.now(UTC)
 
 
+async def _enrich_booking(booking_data: dict) -> dict:
+    """Helper to enrich booking dict with client and lawyer details"""
+    # Enrich lawyer details
+    lawyer_id = booking_data.get("lawyerId") or booking_data.get("lawyer_id")
+    if lawyer_id:
+        try:
+            lawyer = await firebase_service.get_user_by_uid(lawyer_id)
+            if lawyer:
+                booking_data["lawyerName"] = lawyer.display_name
+                booking_data["lawyerEmail"] = lawyer.email
+                booking_data["lawyerAvatar"] = lawyer.profile_picture
+        except Exception as e:
+            logger.warning(f"Failed to fetch lawyer details for booking: {e}")
+            
+    # Enrich client details
+    user_id = booking_data.get("userId") or booking_data.get("user_id")
+    if user_id:
+        try:
+            client = await firebase_service.get_user_by_uid(user_id)
+            if client:
+                booking_data["clientName"] = client.display_name
+                booking_data["clientEmail"] = client.email
+        except Exception as e:
+            logger.warning(f"Failed to fetch client details for booking: {e}")
+            
+    return booking_data
+
+
 # POST /api/bookings - Create a new booking
 @router.post("", response_model=BookingDetailSchema, status_code=201)
 async def create_booking(
@@ -171,7 +199,8 @@ async def create_booking(
             )
         except Exception:
             pass
-        return BookingDetailSchema(**new_booking.model_dump())
+        enriched_dict = await _enrich_booking(new_booking.model_dump())
+        return BookingDetailSchema(**enriched_dict)
 
     except HTTPException:
         raise
@@ -207,7 +236,8 @@ async def my_bookings(
         for doc_id, doc_data in docs:
             try:
                 booking = firestore_booking_to_model(doc_data, doc_id)
-                bookings.append(BookingDetailSchema(**booking.model_dump()))
+                enriched_dict = await _enrich_booking(booking.model_dump())
+                bookings.append(BookingDetailSchema(**enriched_dict))
             except Exception as e:
                 logger.warning(f"Error converting booking {doc_id}: {str(e)}")
                 continue
@@ -249,7 +279,8 @@ async def get_booking(
             )
         
 
-        return BookingDetailSchema(**booking.model_dump())
+        enriched_dict = await _enrich_booking(booking.model_dump())
+        return BookingDetailSchema(**enriched_dict)
 
     except HTTPException:
         raise
@@ -312,7 +343,8 @@ async def list_bookings(
         for doc_id, doc_data in docs:
             try:
                 booking = firestore_booking_to_model(doc_data, doc_id)
-                bookings.append(BookingDetailSchema(**booking.model_dump()))
+                enriched_dict = await _enrich_booking(booking.model_dump())
+                bookings.append(BookingDetailSchema(**enriched_dict))
             except Exception as e:
                 logger.warning(f"Error converting booking {doc_id}: {str(e)}")
                 continue
@@ -372,7 +404,8 @@ async def get_user_bookings(
         for doc_id, doc_data in docs:
             try:
                 booking = firestore_booking_to_model(doc_data, doc_id)
-                bookings.append(BookingDetailSchema(**booking.model_dump()))
+                enriched_dict = await _enrich_booking(booking.model_dump())
+                bookings.append(BookingDetailSchema(**enriched_dict))
             except Exception as e:
                 logger.warning(f"Error converting booking {doc_id}: {str(e)}")
                 continue
@@ -432,7 +465,8 @@ async def get_lawyer_bookings(
         for doc_id, doc_data in docs:
             try:
                 booking = firestore_booking_to_model(doc_data, doc_id)
-                bookings.append(BookingDetailSchema(**booking.model_dump()))
+                enriched_dict = await _enrich_booking(booking.model_dump())
+                bookings.append(BookingDetailSchema(**enriched_dict))
             except Exception as e:
                 logger.warning(f"Error converting booking {doc_id}: {str(e)}")
                 continue
@@ -523,7 +557,8 @@ async def update_booking(
         except Exception:
             pass
 
-        return BookingDetailSchema(**booking.model_dump())
+        enriched_dict = await _enrich_booking(booking.model_dump())
+        return BookingDetailSchema(**enriched_dict)
 
     except HTTPException:
         raise
@@ -610,7 +645,8 @@ async def update_booking_status(
         except Exception:
             pass
 
-        return BookingDetailSchema(**booking.model_dump())
+        enriched_dict = await _enrich_booking(booking.model_dump())
+        return BookingDetailSchema(**enriched_dict)
 
     except HTTPException:
         raise
@@ -661,7 +697,8 @@ async def cancel_booking(
         await firebase_service.update_document(f"bookings/{booking_id}", update_data)
 
         booking = firestore_booking_to_model(doc_data, booking_id)
-        return BookingDetailSchema(**booking.model_dump())
+        enriched_dict = await _enrich_booking(booking.model_dump())
+        return BookingDetailSchema(**enriched_dict)
     except HTTPException:
         raise
     except Exception as e:

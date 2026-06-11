@@ -1,0 +1,27 @@
+{
+  "displayName": "Atanga Erica",
+  "email": "erica.atanga@legalhub.cm",
+  "profilePicture": "https://images.unsplash.com/photo-1589156280159-27698a70f29e?auto=format&fit=crop&w=200&q=80",
+  "bio": "Employment lawyer focused on worker rights, wrongful dismissal, and contract reviews under the Cameroonian Labour Code. Based in the South West Region.",
+  "location": "Buea, Cameroon",
+  "licenseNumber": "CAM-2016-081",
+  "jurisdictions": [
+    "Cameroon"
+  ],
+  "practiceAreas": [
+    "Labour Law",
+    "Employment"
+  ],
+  "hourlyRate": 28000.0,
+  "yearsExperience": 8,
+  "languages": [
+    "en",
+    "fr"
+  ],
+  "verified": true,
+  "rating": 4.7,
+  "numReviews": 76,
+  "createdAt": "2026-06-11T21:15:59.831072+00:00",
+  "updatedAt": "2026-06-11T21:15:59.831072+00:00",
+  "id": "l4"
+}

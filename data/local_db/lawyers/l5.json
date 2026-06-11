@@ -1,0 +1,28 @@
+{
+  "displayName": "Mbarga Richard",
+  "email": "richard.mbarga@legalhub.cm",
+  "profilePicture": "/images/lawyers/lawyer3.jpg",
+  "bio": "Corporate lawyer assisting SMEs and multinationals with business registration, compliance, and commercial contracts under OHADA law in Cameroon.",
+  "location": "Yaound\u00e9, Cameroon",
+  "licenseNumber": "CAM-2010-023",
+  "jurisdictions": [
+    "Cameroon",
+    "OHADA"
+  ],
+  "practiceAreas": [
+    "Business Law",
+    "Corporate Law"
+  ],
+  "hourlyRate": 65000.0,
+  "yearsExperience": 14,
+  "languages": [
+    "fr",
+    "en"
+  ],
+  "verified": true,
+  "rating": 4.8,
+  "numReviews": 109,
+  "createdAt": "2026-06-11T21:15:59.879074+00:00",
+  "updatedAt": "2026-06-11T21:15:59.879074+00:00",
+  "id": "l5"
+}

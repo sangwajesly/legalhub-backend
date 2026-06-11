@@ -1,0 +1,27 @@
+{
+  "displayName": "Ngono Odile",
+  "email": "odile.ngono@legalhub.cm",
+  "profilePicture": "/images/lawyers/lawyer1.png",
+  "bio": "Senior constitutional lawyer with over 16 years interpreting and litigating cases under the Constitution of Cameroon. Advised government bodies on constitutional reform and electoral compliance.",
+  "location": "Yaound\u00e9, Cameroon",
+  "licenseNumber": "CAM-2008-011",
+  "jurisdictions": [
+    "Cameroon"
+  ],
+  "practiceAreas": [
+    "Constitutional Law",
+    "Electoral Law"
+  ],
+  "hourlyRate": 75000.0,
+  "yearsExperience": 16,
+  "languages": [
+    "fr",
+    "en"
+  ],
+  "verified": true,
+  "rating": 4.9,
+  "numReviews": 143,
+  "createdAt": "2026-06-11T21:15:59.691208+00:00",
+  "updatedAt": "2026-06-11T21:15:59.691208+00:00",
+  "id": "l1"
+}
